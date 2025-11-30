@@ -1,4 +1,3 @@
-import axios from 'axios';
 import Checkbox from 'expo-checkbox';
 import { Stack, router } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -6,6 +5,7 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
@@ -17,15 +17,14 @@ import {
     View
 } from 'react-native';
 
-// --- CONFIGURATION ---
-// ensure you run: php artisan serve --host=192.168.1.52 --port=8000
-const API_URL = 'https://metal-showers-lie.loca.lt/api/login';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Login() {
     // State Management
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [remember, setRemember] = useState(false);
+    const { login } = useAuth();
     
     // UI State
     const [isLoading, setIsLoading] = useState(false);
@@ -43,56 +42,23 @@ export default function Login() {
         setErrors({ username: '', password: '' });
 
         try {
-            console.log(`Attempting login to: ${API_URL}`);
-            
-            // Make the Request to Laravel
-            const response = await axios.post(API_URL, {
-                username: username, 
-                password: password,
-                remember: remember
-            }, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            console.log("Login Success:", response.data);
-
-            // TODO: Store your Auth Token here if your API returns one
-            // await AsyncStorage.setItem('userToken', response.data.token);
-
-            // Navigate to the Dashboard (index)
-            router.replace('/'); 
-
-        } catch (error) {
+            await login({ username, password, remember });
+            router.replace('/(drawer)');
+        } catch (error: any) {
             console.log("Login Error:", error);
 
-            if (axios.isAxiosError(error)) {
-                if (error.response) {
-                    // Server responded with an error (401, 422, etc)
-                    console.log("Data:", error.response.data);
-                    
-                    // Display specific error if available, else generic
-                    const msg = error.response.data.message || "Invalid credentials.";
-                    Alert.alert("Login Failed", msg);
+            const message =
+                error?.response?.data?.message ||
+                'Unable to log in. Please double-check your credentials.';
 
-                    // If Laravel returns validation errors for fields
-                    if (error.response.data.errors) {
-                        setErrors({
-                           username: error.response.data.errors.username?.[0] || '',
-                           password: error.response.data.errors.password?.[0] || '',
-                        });
-                    }
-                } else if (error.request) {
-                    // Request made but no response (Network error)
-                    Alert.alert(
-                        "Connection Error", 
-                        `Could not connect to ${API_URL}.\n\nMake sure your PC and Phone are on the same Wi-Fi and Laravel is running with --host=192.168.1.52`
-                    );
-                }
-            } else {
-                Alert.alert("Error", "An unexpected error occurred.");
+            Alert.alert("Login Failed", message);
+
+            const fieldErrors = error?.response?.data?.errors;
+            if (fieldErrors) {
+                setErrors({
+                    username: fieldErrors.username?.[0] || '',
+                    password: fieldErrors.password?.[0] || '',
+                });
             }
         } finally {
             setIsLoading(false);
@@ -113,21 +79,11 @@ export default function Login() {
                         
                         {/* LOGO SECTION */}
                         <View style={styles.header}>
-                            {/* 
-                                IMPORTANT: Place your logo at: assets/images/logo.png 
-                                If you don't have it yet, comment out the <Image> tag.
-                            */}
-                            {/* <Image 
+                            <Image 
                                 source={require('../assets/images/logo.png')} 
                                 style={styles.logo}
                                 resizeMode="contain"
-                            /> */}
-                            
-                            {/* Placeholder Icon if no image yet */}
-                            <View style={styles.logoPlaceholder}>
-                                <Text style={{fontSize: 30}}>🏥</Text>
-                            </View>
-
+                            />
                             <Text style={styles.brandTitle}>BP Diagnostic</Text>
                         </View>
 
@@ -251,15 +207,6 @@ const styles = StyleSheet.create({
         height: 64, 
         width: 64,
         marginBottom: 16,
-    },
-    logoPlaceholder: {
-        height: 64, 
-        width: 64,
-        marginBottom: 16,
-        backgroundColor: '#eee',
-        borderRadius: 32,
-        alignItems: 'center',
-        justifyContent: 'center'
     },
     brandTitle: {
         fontSize: 20,

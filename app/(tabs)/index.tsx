@@ -1,289 +1,557 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  ActivityIndicator, RefreshControl, Dimensions, Alert 
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
-import { 
-  Users, AlertTriangle, Clock, 
-  Banknote, // Replaces PhilippinePeso
-  Menu, LogOut
+import {
+  AlertTriangle,
+  Bell,
+  Clock,
+  TrendingUp,
+  Users,
 } from 'lucide-react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
-import axios from 'axios';
-import api from '../services/api'; // Ensure you have this file from previous steps
+import { LineChart } from 'react-native-chart-kit';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
-// Screen Width for Charts
-const screenWidth = Dimensions.get("window").width;
+import api from '@/app/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+
+type MetricCard = {
+  title: string;
+  value: string;
+  trend?: number;
+  subtitle?: string;
+  color: string;
+  icon: React.ReactNode;
+};
+
+type DashboardResponse = {
+  stats: {
+    totalRevenue: number;
+    revenueTrend: number;
+    patientsCount: number;
+    patientsTrend: number;
+    lowStockItems: number;
+    pendingTests: number;
+  };
+  period: string;
+  pendingTasks: { patient: string; test: string; time: string; status: string }[];
+  lowStockItems: {
+    id: number;
+    name: string;
+    current_stock: number;
+    minimum_stock: number;
+    unit: string;
+  }[];
+  revenueChartData: { label: string; value: number }[];
+  testStatusData: Record<string, number>;
+  alerts: { type: string; message: string; action?: string }[];
+};
+
+const screenWidth = Dimensions.get('window').width;
+const chartWidth = Math.max(screenWidth - 64, 280);
+const periods: { label: string; value: string }[] = [
+  { label: 'Day', value: 'day' },
+  { label: 'Week', value: 'week' },
+  { label: 'Month', value: 'month' },
+  { label: 'Year', value: 'year' },
+];
+
+const TEST_STATUSES = [
+  { key: 'pending', label: 'Pending', color: '#DC2626' },
+  { key: 'processing', label: 'Processing', color: '#D97706' },
+  { key: 'completed', label: 'Completed', color: '#2563EB' },
+  { key: 'released', label: 'Released', color: '#059669' },
+];
+
+const formatCurrency = (value?: number) => {
+  if (value === undefined) return '₱0';
+  return `₱${value
+    .toFixed(0)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+};
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [period, setPeriod] = useState('day');
+  const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState('day');
-  
-  // Data State
-  const [data, setData] = useState<any>(null);
 
-  const fetchDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
-      // If manually refreshing, don't show full screen loader
       if (!refreshing) setLoading(true);
-
-      // Make sure your api.js has the correct URL (localtunnel or IP)
-      const response = await api.get(`/dashboard?period=${period}`);
+      const response = await api.get('/dashboard', { params: { period } });
       setData(response.data);
-
-    } catch (error) {
-      console.log("Dashboard Error:", error);
-      Alert.alert("Error", "Failed to load dashboard data.");
+    } catch (error: any) {
+      console.error('Dashboard load failed', error);
+      Alert.alert('Error', 'Unable to load dashboard data.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [period, refreshing]);
 
   useEffect(() => {
-    fetchDashboard();
-  }, [period]); // Reload when period changes
+    loadDashboard();
+  }, [loadDashboard]);
 
-  const onRefresh = () => {
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+    }, [loadDashboard]),
+  );
+
+  const handleRefresh = () => {
     setRefreshing(true);
-    fetchDashboard();
+    loadDashboard();
   };
 
-  const handleLogout = () => {
-    // Simple logout for now
-    router.replace('/login');
-  };
+  const metricCards: MetricCard[] = useMemo(
+    () => [
+      {
+        title: 'Revenue',
+        value: formatCurrency(data?.stats.totalRevenue),
+        trend: data?.stats.revenueTrend,
+        color: '#10B981',
+        icon: <TrendingUp color="white" size={20} />,
+      },
+      {
+        title: 'Patients',
+        value: `${data?.stats.patientsCount ?? 0}`,
+        trend: data?.stats.patientsTrend,
+        color: '#3B82F6',
+        icon: <Users color="white" size={20} />,
+      },
+      {
+        title: 'Low Stock',
+        value: `${data?.stats.lowStockItems ?? 0}`,
+        color: '#F59E0B',
+        icon: <AlertTriangle color="white" size={20} />,
+      },
+      {
+        title: 'Pending Tests',
+        value: `${data?.stats.pendingTests ?? 0}`,
+        color: '#8B5CF6',
+        icon: <Clock color="white" size={20} />,
+      },
+    ],
+    [data],
+  );
+
+  const hasRevenueData = useMemo(
+    () => data?.revenueChartData?.some((point) => point.value > 0),
+    [data],
+  );
+
+  // Reduce label density for monthly/yearly periods to prevent cluttering
+  const chartLabels = useMemo(() => {
+    if (!data?.revenueChartData) return [];
+    const labels = data.revenueChartData.map((item) => item.label);
+    
+    if (period === 'month' || period === 'year') {
+      // Show every 2nd or 3rd label for better spacing
+      const step = period === 'year' ? Math.max(1, Math.floor(labels.length / 6)) : Math.max(1, Math.floor(labels.length / 8));
+      return labels.map((label, index) => (index % step === 0 || index === labels.length - 1) ? label : '');
+    }
+    return labels;
+  }, [data?.revenueChartData, period]);
+
+  const testStatusEntries = useMemo(() => {
+    if (!data?.testStatusData) return [];
+    const total = Object.values(data.testStatusData).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    return TEST_STATUSES.map((status) => {
+      const value = data.testStatusData[status.key] ?? 0;
+      const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+      return { ...status, value, percentage };
+    });
+  }, [data]);
 
   if (loading && !data) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color="#ac3434" />
       </View>
     );
   }
 
-  // Helper to get stats icon
-  const getIcon = (title: string) => {
-    if (title.includes('Revenue')) return <Banknote color="white" size={24} />;
-    if (title.includes('Patients')) return <Users color="white" size={24} />;
-    if (title.includes('Stock')) return <AlertTriangle color="white" size={24} />;
-    return <Clock color="white" size={24} />;
-  };
-
   return (
-    <View style={styles.container}>
-      {/* Custom Header */}
-      <Stack.Screen 
-        options={{
-            title: 'Dashboard',
-            headerRight: () => (
-                <TouchableOpacity onPress={handleLogout}>
-                    <LogOut color="#ac3434" size={24} />
-                </TouchableOpacity>
-            )
-        }} 
-      />
-
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 48 + insets.bottom },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>BP Diagnostic</Text>
-          <Text style={styles.welcomeSubtitle}>Welcome back! Here's the summary.</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Hi, {user?.name}</Text>
+            <Text style={styles.subtitle}>
+              Operational overview for the {period}.
+            </Text>
+          </View>
         </View>
 
-        {/* Period Filter */}
-        <View style={styles.filterContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {['day', 'week', 'month', 'year'].map((p) => (
-                    <TouchableOpacity 
-                        key={p} 
-                        style={[styles.filterButton, period === p && styles.filterButtonActive]}
-                        onPress={() => setPeriod(p)}
-                    >
-                        <Text style={[styles.filterText, period === p && styles.filterTextActive]}>
-                            {p.charAt(0).toUpperCase() + p.slice(1)}
-                        </Text>
-                    </TouchableOpacity>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.periodChips}
+        >
+          {periods.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              onPress={() => setPeriod(item.value)}
+              style={[
+                styles.periodChip,
+                period === item.value && styles.periodChipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.periodChipLabel,
+                  period === item.value && styles.periodChipLabelActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.metricsGrid}>
+          {metricCards.map((metric) => (
+            <View key={metric.title} style={styles.metricCard}>
+              <View
+                style={[styles.metricIconWrapper, { backgroundColor: metric.color }]}
+              >
+                {metric.icon}
+              </View>
+              <Text style={styles.metricLabel}>{metric.title}</Text>
+              <Text style={styles.metricValue}>{metric.value}</Text>
+              {metric.trend !== undefined && (
+                <Text
+                  style={
+                    metric.trend >= 0
+                      ? styles.metricTrendPositive
+                      : styles.metricTrendNegative
+                  }
+                >
+                  {metric.trend >= 0 ? '▲' : '▼'} {Math.abs(metric.trend)}%
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Revenue Trend</Text>
+          {hasRevenueData ? (
+            <LineChart
+              data={{
+                labels: chartLabels,
+                datasets: [
+                  { data: data?.revenueChartData?.map((item) => item.value) ?? [] },
+                ],
+              }}
+              width={chartWidth}
+              height={220}
+              yAxisLabel="₱"
+              chartConfig={{
+                backgroundColor: '#ffffff',
+                backgroundGradientFrom: '#ffffff',
+                backgroundGradientTo: '#ffffff',
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(172, 52, 52, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+                propsForDots: { r: '4', strokeWidth: '2', stroke: '#ac3434' },
+              }}
+              style={{ marginVertical: 8, borderRadius: 12 }}
+              bezier
+              fromZero
+            />
+          ) : (
+            <View style={styles.placeholder}>
+              <Text style={styles.placeholderTitle}>No revenue data yet</Text>
+              <Text style={styles.placeholderSubtitle}>
+                Capture transactions for this period to see the chart.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.card, styles.flexCard]}>
+            <Text style={styles.cardTitle}>Test Status</Text>
+            {testStatusEntries.length ? (
+              <View style={styles.statusList}>
+                {testStatusEntries.map((status) => (
+                  <View key={status.key} style={styles.statusRow}>
+                    <View
+                      style={[styles.statusDot, { backgroundColor: status.color }]}
+                    />
+                    <Text style={styles.statusLabel}>{status.label}</Text>
+                    <View style={styles.statusValueWrapper}>
+                      <Text style={styles.statusValue}>{status.value}</Text>
+                    </View>
+                  </View>
                 ))}
-            </ScrollView>
-        </View>
-
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-            {/* Manually mapping stats since structure might differ slightly */}
-            <StatCard 
-                title="Revenue" 
-                value={`₱${data?.stats.totalRevenue}`} 
-                color="#10B981" 
-                icon={<Banknote color="white" size={24} />} 
-            />
-            <StatCard 
-                title="Patients" 
-                value={data?.stats.patientsToday} 
-                color="#3B82F6" 
-                icon={<Users color="white" size={24} />} 
-            />
-            <StatCard 
-                title="Low Stock" 
-                value={data?.stats.lowStockItems} 
-                color="#F59E0B" 
-                icon={<AlertTriangle color="white" size={24} />} 
-            />
-            <StatCard 
-                title="Pending" 
-                value={data?.stats.pendingTests} 
-                color="#8B5CF6" 
-                icon={<Clock color="white" size={24} />} 
-            />
-        </View>
-
-        {/* REVENUE CHART */}
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>Revenue Trend</Text>
-            {data?.revenueChartData && (
-                <LineChart
-                    data={{
-                        labels: data.revenueChartData.map((d: any) => d.label),
-                        datasets: [{ data: data.revenueChartData.map((d: any) => d.value) }]
-                    }}
-                    width={screenWidth - 48} // Width of card
-                    height={220}
-                    yAxisLabel="₱"
-                    chartConfig={{
-                        backgroundColor: "#ffffff",
-                        backgroundGradientFrom: "#ffffff",
-                        backgroundGradientTo: "#ffffff",
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
-                        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    }}
-                    bezier
-                    style={{ marginVertical: 8, borderRadius: 16 }}
-                />
+              </View>
+            ) : (
+              <Text style={styles.emptyState}>No lab activity yet.</Text>
             )}
-        </View>
+          </View>
 
-        {/* LOW STOCK LIST */}
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>Low Stock Items</Text>
-            {data?.lowStockItems.map((item: any, index: number) => {
-                const percentage = (item.current_stock / item.minimum_stock) * 100;
-                let color = '#10B981'; // green
-                if (percentage <= 20) color = '#EF4444'; // red
-                else if (percentage <= 40) color = '#F59E0B'; // orange
-
-                return (
-                    <View key={index} style={styles.listItem}>
-                        <View style={styles.rowBetween}>
-                            <Text style={styles.itemName}>{item.name}</Text>
-                            <Text style={styles.itemStock}>{item.current_stock} {item.unit}</Text>
-                        </View>
-                        {/* Progress Bar */}
-                        <View style={styles.progressBarBg}>
-                            <View style={[
-                                styles.progressBarFill, 
-                                { width: `${Math.min(percentage, 100)}%`, backgroundColor: color }
-                            ]} />
-                        </View>
-                    </View>
-                );
-            })}
-        </View>
-
-        {/* PENDING TASKS */}
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>Pending Tasks</Text>
-            {data?.pendingTasks.map((task: any, index: number) => (
-                <View key={index} style={styles.taskItem}>
-                    <View>
-                        <Text style={styles.taskPatient}>{task.patient}</Text>
-                        <Text style={styles.taskTest}>{task.test}</Text>
-                    </View>
-                    <View style={{alignItems: 'flex-end'}}>
-                        <Text style={styles.taskTime}>{task.time}</Text>
-                        <View style={[styles.badge, 
-                            task.status === 'pending' ? {backgroundColor: '#FEF2F2'} : {backgroundColor: '#EFF6FF'}
-                        ]}>
-                            <Text style={[styles.badgeText,
-                                task.status === 'pending' ? {color: '#B91C1C'} : {color: '#1D4ED8'}
-                            ]}>{task.status}</Text>
-                        </View>
-                    </View>
+          <View style={[styles.card, styles.flexCard]}>
+            <Text style={styles.cardTitle}>Alerts</Text>
+            {data?.alerts?.length ? (
+              data.alerts.map((alertItem, index) => (
+                <View key={index} style={styles.alertItem}>
+                  <Bell size={18} color="#f97316" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alertMessage}>{alertItem.message}</Text>
+                    {alertItem.action && (
+                      <TouchableOpacity 
+                        onPress={() => router.push('/(drawer)/inventory')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.alertAction}>{alertItem.action}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-            ))}
+              ))
+            ) : (
+              <Text style={styles.emptyState}>All clear.</Text>
+            )}
+          </View>
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Low Stock Items</Text>
+          {data?.lowStockItems?.map((item) => {
+            const percentage =
+              item.minimum_stock > 0
+                ? Math.min(100, (item.current_stock / item.minimum_stock) * 100)
+                : 0;
+            // Low stock items should be yellow/orange, not green
+            let progressColor = '#F59E0B'; // Yellow/Orange for low stock
+            if (percentage <= 20) progressColor = '#DC2626'; // Red for very low
+            else if (percentage <= 50) progressColor = '#F59E0B'; // Yellow for low
+            return (
+              <View key={item.id} style={styles.listItem}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemStock}>
+                    {item.current_stock} {item.unit}
+                  </Text>
+                </View>
+                <View style={styles.progressBg}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${percentage}%`, backgroundColor: progressColor },
+                    ]}
+                  />
+                </View>
+              </View>
+            );
+          })}
+          {!data?.lowStockItems?.length && (
+            <Text style={styles.emptyState}>Inventory looks healthy.</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Pending Tasks</Text>
+          {data?.pendingTasks?.map((task, index) => (
+            <View key={`${task.patient}-${index}`} style={styles.taskRow}>
+              <View>
+                <Text style={styles.taskPatient}>{task.patient}</Text>
+                <Text style={styles.taskTest}>{task.test}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.taskTime}>{task.time}</Text>
+                <View
+                  style={[
+                    styles.statusPill,
+                    task.status === 'pending'
+                      ? styles.statusPending
+                      : task.status === 'processing'
+                        ? styles.statusProcessing
+                        : task.status === 'completed'
+                          ? styles.statusCompleted
+                          : styles.statusReleased,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      task.status === 'pending'
+                        ? { color: '#991B1B' }
+                        : task.status === 'processing'
+                          ? { color: '#92400E' }
+                          : task.status === 'completed'
+                            ? { color: '#1E40AF' }
+                            : { color: '#065F46' },
+                    ]}
+                  >
+                    {task.status}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
+          {!data?.pendingTasks?.length && (
+            <Text style={styles.emptyState}>No pending lab tasks.</Text>
+          )}
+        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Small Component for Stats
-const StatCard = ({ title, value, color, icon }: any) => (
-    <View style={styles.statCard}>
-        <View style={[styles.iconBox, { backgroundColor: color }]}>
-            {icon}
-        </View>
-        <View>
-            <Text style={styles.statTitle}>{title}</Text>
-            <Text style={styles.statValue}>{value}</Text>
-        </View>
-    </View>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  
-  welcomeSection: { marginBottom: 20 },
-  welcomeTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
-  welcomeSubtitle: { fontSize: 14, color: '#6B7280' },
-
-  filterContainer: { marginBottom: 20, height: 40 },
-  filterButton: { 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, 
-    borderWidth: 1, borderColor: '#D1D5DB', marginRight: 8, backgroundColor: 'white' 
+  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { padding: 20 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  filterButtonActive: { backgroundColor: '#ac3434', borderColor: '#ac3434' },
-  filterText: { color: '#374151', fontSize: 13, fontWeight: '500' },
-  filterTextActive: { color: 'white' },
-
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  statCard: { 
-    width: '48%', backgroundColor: 'white', padding: 16, borderRadius: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2
+  greeting: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  subtitle: { color: '#6B7280', fontSize: 14 },
+  periodChips: { marginBottom: 16 },
+  periodChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#fff',
+    marginRight: 12,
   },
-  iconBox: { padding: 8, borderRadius: 8 },
-  statTitle: { fontSize: 12, color: '#6B7280' },
-  statValue: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
-
-  card: { 
-    backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 16,
-    shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5, elevation: 2
+  periodChipActive: { backgroundColor: '#ac3434', borderColor: '#ac3434' },
+  periodChipLabel: { color: '#374151', fontWeight: '600' },
+  periodChipLabelActive: { color: '#fff' },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  metricCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  metricIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  metricLabel: { fontSize: 12, color: '#6B7280' },
+  metricValue: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  metricTrendPositive: { marginTop: 4, fontSize: 12, color: '#059669' },
+  metricTrendNegative: { marginTop: 4, fontSize: 12, color: '#DC2626' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
   cardTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 12 },
-
-  listItem: { marginBottom: 12 },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  itemName: { fontSize: 14, fontWeight: '500', color: '#374151' },
-  itemStock: { fontSize: 12, color: '#6B7280' },
-  progressBarBg: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 4 },
-
-  taskItem: { 
-    flexDirection: 'row', justifyContent: 'space-between', 
-    paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', marginBottom: 12 
+  placeholder: { alignItems: 'center', paddingVertical: 24 },
+  placeholderTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
+  placeholderSubtitle: { marginTop: 4, color: '#6B7280', textAlign: 'center' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  flexCard: { flex: 1 },
+  alertItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  taskPatient: { fontWeight: '600', color: '#374151' },
-  taskTest: { fontSize: 12, color: '#6B7280' },
-  taskTime: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  badgeText: { fontSize: 10, fontWeight: 'bold', textTransform: 'capitalize' }
+  alertMessage: { color: '#374151', fontWeight: '500' },
+  alertAction: { color: '#ac3434', fontSize: 12, marginTop: 2 },
+  listItem: { marginBottom: 14 },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  itemName: { fontWeight: '600', color: '#111827' },
+  itemStock: { color: '#6B7280', fontSize: 13 },
+  progressBg: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', borderRadius: 999 },
+  emptyState: { color: '#9CA3AF', fontSize: 14 },
+  taskRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  taskPatient: { fontWeight: '600', color: '#111827' },
+  taskTest: { fontSize: 13, color: '#6B7280' },
+  taskTime: { color: '#9CA3AF', fontSize: 12, marginBottom: 4 },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusPending: { backgroundColor: '#FEE2E2' },
+  statusProcessing: { backgroundColor: '#FEF3C7' },
+  statusCompleted: { backgroundColor: '#DBEAFE' },
+  statusReleased: { backgroundColor: '#D1FAE5' },
+  statusText: { textTransform: 'capitalize', fontWeight: '600', fontSize: 12 },
+  statusList: { marginTop: 4 },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 10,
+  },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  statusLabel: { flex: 1, color: '#1F2937', fontWeight: '500' },
+  statusValueWrapper: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  statusValue: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  statusPercent: { fontSize: 12, color: '#6B7280' },
 });
