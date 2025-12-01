@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { CheckCircle2, TrendingUp, TrendingDown, FileText } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
+import api from '@/app/services/api';
 
 interface Transaction {
   id: number;
@@ -49,7 +49,6 @@ interface ReconciliationDetail {
 
 export default function ReconciliationDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { apiCall } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reconciliation, setReconciliation] = useState<ReconciliationDetail | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -60,9 +59,9 @@ export default function ReconciliationDetailScreen() {
 
   const fetchDetails = async () => {
     try {
-      const response = await apiCall(`/api/reconciliations/${id}`);
-      setReconciliation(response.reconciliation);
-      setTransactions(response.transactions);
+      const response = await api.get(`/reconciliations/${id}`);
+      setReconciliation(response.data.reconciliation);
+      setTransactions(response.data.transactions);
     } catch (error) {
       console.error('Error fetching reconciliation details:', error);
     } finally {

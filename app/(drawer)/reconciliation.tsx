@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, TrendingUp, TrendingDown, CheckCircle2, Plus, X } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
+import api from '@/app/services/api';
 
 interface Reconciliation {
   id: number;
@@ -43,7 +44,7 @@ interface Stats {
 }
 
 export default function ReconciliationScreen() {
-  const { apiCall, user } = useAuth();
+  const { user } = useAuth();
   const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,28 +73,29 @@ export default function ReconciliationScreen() {
         if (searchQuery) params.append('search', searchQuery);
         if (statusFilter) params.append('status', statusFilter);
 
-        const response = await apiCall(`/api/reconciliations?${params}`);
+        const response = await api.get(`/reconciliations?${params}`);
 
         if (append) {
-          setReconciliations((prev) => [...prev, ...response.data]);
+          setReconciliations((prev) => [...prev, ...response.data.data]);
         } else {
-          setReconciliations(response.data);
+          setReconciliations(response.data.data);
         }
 
-        if (isAdmin && response.stats) {
-          setStats(response.stats);
+        if (isAdmin && response.data.stats) {
+          setStats(response.data.stats);
         }
 
-        setPage(response.current_page);
-        setLastPage(response.last_page);
+        setPage(response.data.current_page);
+        setLastPage(response.data.last_page);
       } catch (error) {
         console.error('Error fetching reconciliations:', error);
+        Alert.alert('Error', 'Failed to load reconciliations');
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [apiCall, searchQuery, statusFilter, isAdmin]
+    [searchQuery, statusFilter, isAdmin]
   );
 
   useEffect(() => {
@@ -113,9 +115,9 @@ export default function ReconciliationScreen() {
 
   const fetchCreateData = async () => {
     try {
-      const response = await apiCall('/api/reconciliations/create');
-      setExpectedCash(response.expected_cash);
-      setTransactionCount(response.transaction_count);
+      const response = await api.get('/reconciliations/create');
+      setExpectedCash(response.data.expected_cash);
+      setTransactionCount(response.data.transaction_count);
       setShowCreateModal(true);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to load reconciliation data');
@@ -130,15 +132,12 @@ export default function ReconciliationScreen() {
 
     setCreating(true);
     try {
-      const response = await apiCall('/api/reconciliations', {
-        method: 'POST',
-        body: JSON.stringify({
-          actual_cash: parseFloat(actualCash),
-          notes: notes || null,
-        }),
+      const response = await api.post('/reconciliations', {
+        actual_cash: parseFloat(actualCash),
+        notes: notes || null,
       });
 
-      Alert.alert('Success', response.message);
+      Alert.alert('Success', response.data.message);
       setShowCreateModal(false);
       setActualCash('');
       setNotes('');
