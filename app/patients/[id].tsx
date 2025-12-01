@@ -76,7 +76,7 @@ type TestDetail = {
   result_values?: Record<string, any>;
   normal_range?: string;
   notes?: string;
-  images?: string[];
+  images?: (string | { name: string; path: string; url: string; size: number })[];
 };
 
 export default function PatientDetails() {
@@ -136,7 +136,14 @@ export default function PatientDetails() {
       setLoadingTest(true);
       setShowTestModal(true);
       const response = await api.get(`/tests/${testId}`);
-      setSelectedTest(response.data);
+      // Map 'documents' to 'images' for compatibility
+      const testData = {
+        ...response.data,
+        images: response.data.documents || response.data.images || [],
+      };
+      console.log('Test data loaded:', testData);
+      console.log('Images:', testData.images);
+      setSelectedTest(testData);
     } catch (error) {
       console.error("Failed to load test details", error);
       Alert.alert("Error", "Failed to load test details. Please try again.");
@@ -706,15 +713,47 @@ export default function PatientDetails() {
                     <Text style={styles.sectionHeader}>
                       Uploaded Images ({selectedTest.images.length})
                     </Text>
-                    {selectedTest.images.map((img, index) => (
-                      <View key={index} style={styles.imageContainer}>
-                        <Image
-                          source={{ uri: `${baseUrl}${img}` }}
-                          style={styles.resultImage}
-                          resizeMode="contain"
-                        />
-                      </View>
-                    ))}
+                    {selectedTest.images.map((img, index) => {
+                      // Handle different formats: string, object with url, or object with path
+                      let imageUrl: string = '';
+                      
+                      if (typeof img === 'string') {
+                        // If it's a string that already starts with /storage/, just prepend base URL
+                        if (img.startsWith('/storage/')) {
+                          imageUrl = `${baseUrl}${img}`;
+                        } else if (img.startsWith('http')) {
+                          imageUrl = img;
+                        } else {
+                          // Otherwise construct the full path
+                          imageUrl = `${baseUrl}/storage/${img}`;
+                        }
+                      } else if (img.url) {
+                        // If backend provided a URL, use it (prepend base URL if relative)
+                        imageUrl = img.url.startsWith('http') ? img.url : `${baseUrl}${img.url}`;
+                      } else if (img.path) {
+                        // Fallback to constructing from path
+                        imageUrl = `${baseUrl}/storage/${img.path}`;
+                      }
+                      
+                      console.log('Image data:', img);
+                      console.log('Final URL:', imageUrl);
+                      
+                      return (
+                        <View key={index} style={styles.imageContainer}>
+                          <Image
+                            source={{ uri: imageUrl }}
+                            style={styles.resultImage}
+                            resizeMode="contain"
+                            onError={(error) => {
+                              console.log('❌ Image load error:', error.nativeEvent.error);
+                              console.log('Failed URL:', imageUrl);
+                            }}
+                            onLoadStart={() => console.log('⏳ Loading image:', imageUrl)}
+                            onLoadEnd={() => console.log('✅ Image loaded:', imageUrl)}
+                          />
+                        </View>
+                      );
+                    })}
                   </View>
                 )}
 
@@ -1059,10 +1098,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    justifyContent: "center",
+    alignItems: "center",
   },
   resultImage: {
     width: "100%",
     height: "100%",
+    backgroundColor: "transparent",
   },
   pendingState: {
     alignItems: "center",

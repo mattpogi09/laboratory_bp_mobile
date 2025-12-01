@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, TrendingUp, TrendingDown, CheckCircle2, Plus, X } from 'lucide-react-native';
+import { Search, TrendingUp, TrendingDown, CheckCircle2, Plus, X, ChevronDown, Clipboard, DollarSign, Wallet, User, FileBarChart } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import api from '@/app/services/api';
@@ -51,6 +51,7 @@ export default function ReconciliationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -178,42 +179,83 @@ export default function ReconciliationScreen() {
   const renderItem = ({ item }: { item: Reconciliation }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/(drawer)/reconciliation/${item.id}` as any)}
+      onPress={() => router.push(`/reconciliation/${item.id}` as any)}
+      activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
         <View style={styles.dateContainer}>
-          <Text style={styles.date}>{new Date(item.reconciliation_date).toLocaleDateString()}</Text>
-          {item.cashier && <Text style={styles.cashier}>{item.cashier.name}</Text>}
+          <Text style={styles.date}>
+            {new Date(item.reconciliation_date).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })}
+          </Text>
+          {item.cashier && (
+            <View style={styles.cashierRow}>
+              <User color="#6B7280" size={14} />
+              <Text style={styles.cashier}>{item.cashier.name}</Text>
+            </View>
+          )}
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}15` }]}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           {getStatusIcon(item.status)}
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status}
+          <Text style={styles.statusText}>
+            {item.status === 'balanced' ? 'Balanced' : 
+             item.status === 'overage' ? 'Overage' : 'Shortage'}
           </Text>
         </View>
       </View>
+
+      <View style={styles.divider} />
 
       <View style={styles.amountsRow}>
         <View style={styles.amountCol}>
-          <Text style={styles.amountLabel}>Expected</Text>
+          <View style={styles.amountLabelRow}>
+            <DollarSign color="#10B981" size={14} strokeWidth={2.5} />
+            <Text style={styles.amountLabel}>Expected</Text>
+          </View>
           <Text style={styles.amountValue}>₱{item.expected_cash.toLocaleString()}</Text>
         </View>
         <View style={styles.amountCol}>
-          <Text style={styles.amountLabel}>Actual</Text>
+          <View style={styles.amountLabelRow}>
+            <Wallet color="#3B82F6" size={14} strokeWidth={2.5} />
+            <Text style={styles.amountLabel}>Actual</Text>
+          </View>
           <Text style={styles.amountValue}>₱{item.actual_cash.toLocaleString()}</Text>
-        </View>
-        <View style={styles.amountCol}>
-          <Text style={styles.amountLabel}>Variance</Text>
-          <Text style={[styles.amountValue, { color: getStatusColor(item.status) }]}>
-            {item.variance >= 0 ? '+' : ''}₱{item.variance.toLocaleString()}
-          </Text>
         </View>
       </View>
 
-      <View style={styles.cardFooter}>
-        <Text style={styles.transactionCount}>{item.transaction_count} transactions</Text>
-        {item.notes && <Text style={styles.notes} numberOfLines={1}>{item.notes}</Text>}
+      <View style={styles.varianceRow}>
+        <View style={[styles.varianceCard, { backgroundColor: `${getStatusColor(item.status)}10` }]}>
+          <View style={styles.varianceLabelRow}>
+            {item.status === 'overage' ? (
+              <View style={styles.overageIconBg}>
+                <TrendingUp color="#fff" size={12} strokeWidth={3} />
+              </View>
+            ) : item.status === 'shortage' ? (
+              <TrendingDown color="#EF4444" size={14} strokeWidth={2.5} />
+            ) : (
+              <CheckCircle2 color="#10B981" size={14} strokeWidth={2.5} />
+            )}
+            <Text style={styles.varianceLabel}>Variance</Text>
+          </View>
+          <Text style={[styles.varianceValue, { color: getStatusColor(item.status) }]}>
+            {item.variance >= 0 ? '+' : ''}₱{Math.abs(item.variance).toLocaleString()}
+          </Text>
+        </View>
+        <View style={styles.transactionBadge}>
+          <FileBarChart color="#6B7280" size={14} strokeWidth={2} />
+          <Text style={styles.transactionCount}>{item.transaction_count} transactions</Text>
+        </View>
       </View>
+
+      {item.notes && (
+        <View style={styles.notesContainer}>
+          <FileBarChart color="#6B7280" size={14} strokeWidth={2} />
+          <Text style={styles.notes} numberOfLines={2}>{item.notes}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -233,24 +275,32 @@ export default function ReconciliationScreen() {
       {isAdmin && stats && (
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.total_reconciliations}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Clipboard color="#6B7280" size={18} strokeWidth={2.5} />
+            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+              {stats.total_reconciliations}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Total</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.balanced_count}</Text>
-            <Text style={styles.statLabel}>Balanced</Text>
+            <CheckCircle2 color="#10B981" size={18} strokeWidth={2.5} />
+            <Text style={[styles.statValue, { color: '#10B981' }]} numberOfLines={1} adjustsFontSizeToFit>
+              {stats.balanced_count}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Balanced</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#3B82F6' }]}>
+            <TrendingUp color="#3B82F6" size={18} strokeWidth={2.5} />
+            <Text style={[styles.statValue, { color: '#3B82F6' }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5}>
               ₱{stats.total_overage.toLocaleString()}
             </Text>
-            <Text style={styles.statLabel}>Overage</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Overage</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#EF4444' }]}>
-              ₱{stats.total_shortage.toLocaleString()}
+            <TrendingDown color="#EF4444" size={18} strokeWidth={2.5} />
+            <Text style={[styles.statValue, { color: '#EF4444' }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5}>
+              ₱{Math.abs(stats.total_shortage).toLocaleString()}
             </Text>
-            <Text style={styles.statLabel}>Shortage</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>Shortage</Text>
           </View>
         </View>
       )}
@@ -269,38 +319,69 @@ export default function ReconciliationScreen() {
         </View>
       </View>
 
-      {/* Filter Pills */}
+      {/* Filter Dropdown */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterPill, !statusFilter && styles.filterPillActive]}
-          onPress={() => setStatusFilter('')}
+        <TouchableOpacity 
+          style={styles.dropdown}
+          onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.filterText, !statusFilter && styles.filterTextActive]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterPill, statusFilter === 'balanced' && styles.filterPillActive]}
-          onPress={() => setStatusFilter('balanced')}
-        >
-          <Text style={[styles.filterText, statusFilter === 'balanced' && styles.filterTextActive]}>
-            Balanced
+          <Text style={styles.dropdownText}>
+            {statusFilter === '' ? 'All Reconciliations' :
+             statusFilter === 'balanced' ? 'Balanced' :
+             statusFilter === 'overage' ? 'Overage' : 'Shortage'}
           </Text>
+          <ChevronDown color="#6B7280" size={20} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterPill, statusFilter === 'overage' && styles.filterPillActive]}
-          onPress={() => setStatusFilter('overage')}
-        >
-          <Text style={[styles.filterText, statusFilter === 'overage' && styles.filterTextActive]}>
-            Overage
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterPill, statusFilter === 'shortage' && styles.filterPillActive]}
-          onPress={() => setStatusFilter('shortage')}
-        >
-          <Text style={[styles.filterText, statusFilter === 'shortage' && styles.filterTextActive]}>
-            Shortage
-          </Text>
-        </TouchableOpacity>
+        
+        {showFilterDropdown && (
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setStatusFilter('');
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, statusFilter === '' && styles.dropdownItemTextActive]}>
+                All Reconciliations
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setStatusFilter('balanced');
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, statusFilter === 'balanced' && styles.dropdownItemTextActive]}>
+                Balanced
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setStatusFilter('overage');
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, statusFilter === 'overage' && styles.dropdownItemTextActive]}>
+                Overage
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setStatusFilter('shortage');
+                setShowFilterDropdown(false);
+              }}
+            >
+              <Text style={[styles.dropdownItemText, statusFilter === 'shortage' && styles.dropdownItemTextActive]}>
+                Shortage
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* List */}
@@ -318,13 +399,6 @@ export default function ReconciliationScreen() {
           </View>
         }
       />
-
-      {/* Create Button - Cashier/Admin Only */}
-      {(user?.role === 'cashier' || isAdmin) && (
-        <TouchableOpacity style={styles.fab} onPress={fetchCreateData}>
-          <Plus color="#fff" size={24} />
-        </TouchableOpacity>
-      )}
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -411,24 +485,42 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+    minHeight: 100,
+    maxWidth: '25%',
+  },
+  statIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  amountLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
+    marginTop: 8,
     marginBottom: 4,
+    textAlign: 'center',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   searchContainer: {
     padding: 16,
@@ -451,30 +543,56 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   filterContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    gap: 8,
+    position: 'relative',
+    zIndex: 1000,
   },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  filterPillActive: {
-    backgroundColor: '#ac3434',
-    borderColor: '#ac3434',
+  dropdownText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
   },
-  filterText: {
-    fontSize: 14,
+  dropdownMenu: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1001,
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  dropdownItemTextActive: {
     fontWeight: '600',
-    color: '#6B7280',
-  },
-  filterTextActive: {
-    color: '#fff',
+    color: '#ac3434',
   },
   listContent: {
     padding: 16,
@@ -490,6 +608,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    minHeight: 200,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -509,6 +628,12 @@ const styles = StyleSheet.create({
   cashier: {
     fontSize: 14,
     color: '#6B7280',
+    marginLeft: 4,
+  },
+  cashierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -516,17 +641,22 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 12,
   },
   amountsRow: {
     flexDirection: 'row',
     marginBottom: 12,
-    gap: 16,
+    gap: 12,
   },
   amountCol: {
     flex: 1,
@@ -534,27 +664,80 @@ const styles = StyleSheet.create({
   amountLabel: {
     fontSize: 12,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 6,
+    fontWeight: '500',
   },
   amountValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#111827',
   },
-  cardFooter: {
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
-    gap: 4,
+  varianceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  varianceCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+  },
+  varianceLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 4,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  varianceLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  overageIconBg: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  varianceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  transactionBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   transactionCount: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
+    fontWeight: '600',
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+  },
+  notesIcon: {
+    fontSize: 14,
   },
   notes: {
+    flex: 1,
     fontSize: 13,
     color: '#6B7280',
-    fontStyle: 'italic',
+    lineHeight: 18,
   },
   emptyContainer: {
     padding: 32,

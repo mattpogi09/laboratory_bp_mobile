@@ -53,7 +53,7 @@ type DashboardResponse = {
   }[];
   revenueChartData: { label: string; value: number }[];
   testStatusData: Record<string, number>;
-  alerts: { type: string; message: string; action?: string }[];
+  alerts: { type: string; message: string; action?: string; route?: string; params?: any }[];
 };
 
 const periods: { label: string; value: string }[] = [
@@ -70,9 +70,11 @@ const TEST_STATUSES = [
   { key: 'released', label: 'Released', color: '#059669' },
 ];
 
-const formatCurrency = (value?: number) => {
-  if (value === undefined) return '₱0';
-  return `₱${value
+const formatCurrency = (value?: number | string) => {
+  if (value === undefined || value === null) return '₱0';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '₱0';
+  return `₱${numValue
     .toFixed(0)
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 };
@@ -112,6 +114,27 @@ export default function Dashboard() {
   const handleRefresh = () => {
     setRefreshing(true);
     loadDashboard();
+  };
+
+  const handleAlertAction = (alert: { route?: string; params?: any }) => {
+    if (!alert.route) return;
+
+    // Map backend routes to mobile routes
+    const routeMap: Record<string, string> = {
+      'inventory': '/(drawer)/inventory',
+      'reports-logs': '/(drawer)/reports',
+      'admin.reconciliation.show': '/reconciliation',
+      'admin.reconciliation.index': '/(drawer)/reconciliation',
+    };
+
+    const mobileRoute = routeMap[alert.route] || '/(drawer)/inventory';
+
+    // If route has params (like reconciliation detail), append the id
+    if (alert.params?.reconciliation) {
+      router.push(`${mobileRoute}/${alert.params.reconciliation}` as any);
+    } else {
+      router.push(mobileRoute as any);
+    }
   };
 
   const metricCards: MetricCard[] = useMemo(
@@ -271,7 +294,7 @@ export default function Dashboard() {
                     <Text style={styles.alertMessage}>{alertItem.message}</Text>
                     {alertItem.action && (
                       <TouchableOpacity 
-                        onPress={() => router.push('/(drawer)/inventory')}
+                        onPress={() => handleAlertAction(alertItem)}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.alertAction}>{alertItem.action}</Text>

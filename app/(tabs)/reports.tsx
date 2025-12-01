@@ -1,3 +1,4 @@
+import React from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
@@ -19,6 +20,7 @@ import {
   FileText,
   Package,
   Shield,
+  Wallet,
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -28,7 +30,7 @@ import api from "@/app/services/api";
 const formatCurrency = (value = 0) =>
   `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 
-type Tab = "financial" | "inventory" | "audit" | "lab";
+type Tab = "financial" | "inventory" | "audit" | "lab" | "reconciliation";
 type Period = "day" | "week" | "month" | "year";
 
 const periods: { label: string; value: Period }[] = [
@@ -115,11 +117,24 @@ type LabReportRow = {
   status: string;
 };
 
+type ReconciliationRow = {
+  id: number;
+  date: string;
+  cashier: string;
+  expected_cash: number;
+  actual_cash: number;
+  variance: number;
+  status: string;
+  transaction_count: number;
+};
+
 export default function ReportsScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("financial");
   const [period, setPeriod] = useState<Period>("day");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [periodDropdownVisible, setPeriodDropdownVisible] = useState(false);
+  const [tabDropdownVisible, setTabDropdownVisible] = useState(false);
 
   // Financial Report State
   const [financialData, setFinancialData] = useState<{
@@ -147,6 +162,19 @@ export default function ReportsScreen() {
       released: number;
     };
     rows: LabReportRow[];
+  } | null>(null);
+
+  // Cash Reconciliation State
+  const [reconciliationData, setReconciliationData] = useState<{
+    stats: {
+      total: number;
+      balanced: number;
+      overage: number;
+      shortage: number;
+      total_overage_amount: number;
+      total_shortage_amount: number;
+    };
+    rows: ReconciliationRow[];
   } | null>(null);
 
   const loadFinancial = useCallback(async () => {
@@ -233,6 +261,27 @@ export default function ReportsScreen() {
     }
   }, [period]);
 
+  const loadReconciliation = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { from, to } = getDateRange(period);
+      const response = await api.get("/reports/reconciliation", {
+        params: { from, to },
+      });
+      setReconciliationData(response.data);
+    } catch (error: any) {
+      console.error("Failed to load reconciliation", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to load cash reconciliation. Please check your connection and try again.";
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [period]);
+
   const loadData = useCallback(() => {
     switch (activeTab) {
       case "financial":
@@ -247,6 +296,9 @@ export default function ReportsScreen() {
       case "lab":
         loadLabReport();
         break;
+      case "reconciliation":
+        loadReconciliation();
+        break;
     }
   }, [
     activeTab,
@@ -255,6 +307,7 @@ export default function ReportsScreen() {
     loadInventoryLog,
     loadAuditLog,
     loadLabReport,
+    loadReconciliation,
   ]);
 
   useEffect(() => {
@@ -274,10 +327,12 @@ export default function ReportsScreen() {
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);
+    setPeriodDropdownVisible(false);
   };
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
+    setTabDropdownVisible(false);
   };
 
   const tabs = [
@@ -285,6 +340,7 @@ export default function ReportsScreen() {
     { id: "inventory" as Tab, label: "Inventory", icon: Package },
     { id: "audit" as Tab, label: "Audit", icon: Shield },
     { id: "lab" as Tab, label: "Lab", icon: FileText },
+    { id: "reconciliation" as Tab, label: "Cash Reconciliation", icon: Wallet },
   ];
 
   return (
@@ -295,60 +351,146 @@ export default function ReportsScreen() {
           <Calendar color="#6B7280" size={18} />
           <Text style={styles.periodHeaderText}>Report Period</Text>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.periodChips}
-          contentContainerStyle={styles.periodChipsContent}
+        <TouchableOpacity
+          style={styles.dropdown}
+          onPress={() => setPeriodDropdownVisible(true)}
         >
-          {periods.map((item) => (
-            <TouchableOpacity
-              key={item.value}
-              onPress={() => handlePeriodChange(item.value)}
-              style={[
-                styles.periodChip,
-                period === item.value && styles.periodChipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.periodChipLabel,
-                  period === item.value && styles.periodChipLabelActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          <Text style={styles.dropdownText}>
+            {periods.find((p) => p.value === period)?.label || "Day"}
+          </Text>
+          <ChevronDown color="#6B7280" size={20} />
+        </TouchableOpacity>
       </View>
 
-      {/* Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabContainer}
-        contentContainerStyle={styles.tabScrollContent}
+      {/* Period Dropdown Modal */}
+      <Modal
+        visible={periodDropdownVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPeriodDropdownVisible(false)}
       >
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => handleTabChange(tab.id)}
-            >
-              <Icon color={isActive ? "#ac3434" : "#6B7280"} size={16} />
-              <Text
-                style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPeriodDropdownVisible(false)}
+        >
+          <View style={styles.dropdownModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Period</Text>
+              <TouchableOpacity
+                onPress={() => setPeriodDropdownVisible(false)}
+                style={styles.closeButton}
               >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <X color="#6B7280" size={24} />
+              </TouchableOpacity>
+            </View>
+            {periods.map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                onPress={() => handlePeriodChange(item.value)}
+                style={[
+                  styles.dropdownOption,
+                  period === item.value && styles.dropdownOptionActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dropdownOptionText,
+                    period === item.value && styles.dropdownOptionTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                {period === item.value && (
+                  <View style={styles.checkmark}>
+                    <Text style={styles.checkmarkText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report Type Selector */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={styles.dropdown}
+          onPress={() => setTabDropdownVisible(true)}
+        >
+          <View style={styles.dropdownTextRow}>
+            {tabs.find((t) => t.id === activeTab)?.icon && 
+              React.createElement(tabs.find((t) => t.id === activeTab)!.icon, {
+                color: "#ac3434",
+                size: 18,
+              })
+            }
+            <Text style={styles.dropdownText}>
+              {tabs.find((t) => t.id === activeTab)?.label || "Select Report"}
+            </Text>
+          </View>
+          <ChevronDown color="#6B7280" size={20} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Report Type Dropdown Modal */}
+      <Modal
+        visible={tabDropdownVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTabDropdownVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTabDropdownVisible(false)}
+        >
+          <View style={styles.dropdownModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Report Type</Text>
+              <TouchableOpacity
+                onPress={() => setTabDropdownVisible(false)}
+                style={styles.closeButton}
+              >
+                <X color="#6B7280" size={24} />
+              </TouchableOpacity>
+            </View>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TouchableOpacity
+                  key={tab.id}
+                  onPress={() => handleTabChange(tab.id)}
+                  style={[
+                    styles.dropdownOption,
+                    activeTab === tab.id && styles.dropdownOptionActive,
+                  ]}
+                >
+                  <View style={styles.dropdownOptionContent}>
+                    <Icon 
+                      color={activeTab === tab.id ? "#ac3434" : "#6B7280"} 
+                      size={20} 
+                    />
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        activeTab === tab.id && styles.dropdownOptionTextActive,
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </View>
+                  {activeTab === tab.id && (
+                    <View style={styles.checkmark}>
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Content */}
       <View style={styles.contentContainer}>
@@ -410,6 +552,18 @@ export default function ReportsScreen() {
             >
               <LabTab
                 data={labData}
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            </View>
+            <View
+              style={[
+                styles.tabContentWrapper,
+                activeTab === "reconciliation" ? styles.tabVisible : styles.tabHidden,
+              ]}
+            >
+              <ReconciliationTab
+                data={reconciliationData}
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
               />
@@ -817,6 +971,134 @@ function LabTab({
   );
 }
 
+function ReconciliationTab({
+  data,
+  refreshing,
+  onRefresh,
+}: {
+  data: {
+    stats: {
+      total: number;
+      balanced: number;
+      overage: number;
+      shortage: number;
+      total_overage_amount: number;
+      total_shortage_amount: number;
+    };
+    rows: ReconciliationRow[];
+  } | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  if (!data) {
+    return (
+      <View style={styles.emptyWrapper}>
+        <Wallet color="#D1D5DB" size={42} />
+        <Text style={styles.emptyTitle}>No data available</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      style={styles.tabContent}
+      data={data.rows}
+      keyExtractor={(item) => item.id.toString()}
+      contentContainerStyle={
+        data.rows.length === 0
+          ? { flex: 1, padding: 8, paddingBottom: 64 }
+          : { padding: 8, paddingBottom: 64 }
+      }
+      nestedScrollEnabled={false}
+      removeClippedSubviews={true}
+      ListHeaderComponent={
+        <>
+          <View style={styles.cardsRow}>
+            <StatCard
+              label="Total"
+              value={data.stats.total.toString()}
+              accent="#6B7280"
+            />
+            <StatCard
+              label="Balanced"
+              value={data.stats.balanced.toString()}
+              accent="#10B981"
+            />
+          </View>
+          <View style={styles.cardsRow}>
+            <StatCard
+              label="Overage"
+              value={formatCurrency(data.stats.total_overage_amount)}
+              accent="#3B82F6"
+            />
+            <StatCard
+              label="Shortage"
+              value={formatCurrency(Math.abs(data.stats.total_shortage_amount))}
+              accent="#EF4444"
+            />
+          </View>
+          <Text style={styles.sectionTitle}>Cash Reconciliation</Text>
+        </>
+      }
+      renderItem={({ item }) => (
+        <View style={styles.reportCard}>
+          <View style={styles.reportHeader}>
+            <Text style={styles.reportDate}>{item.date}</Text>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor:
+                    item.status === "balanced"
+                      ? "#10B981"
+                      : item.status === "overage"
+                      ? "#3B82F6"
+                      : "#EF4444",
+                },
+              ]}
+            >
+              <Text style={styles.statusText}>
+                {item.status === "balanced"
+                  ? "Balanced"
+                  : item.status === "overage"
+                  ? "Overage"
+                  : "Shortage"}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.reportPatient}>{item.cashier}</Text>
+          <View style={styles.reportMeta}>
+            <Text style={styles.reportMetaText}>
+              Expected: {formatCurrency(item.expected_cash)}
+            </Text>
+            <Text style={styles.reportMetaText}>
+              Actual: {formatCurrency(item.actual_cash)}
+            </Text>
+          </View>
+          <View style={styles.reportMeta}>
+            <Text style={[styles.reportMetaText, { fontWeight: "600" }]}>
+              Variance: {item.variance >= 0 ? "+" : ""}
+              {formatCurrency(Math.abs(item.variance))}
+            </Text>
+            <Text style={styles.reportMetaText}>
+              {item.transaction_count} transactions
+            </Text>
+          </View>
+        </View>
+      )}
+      ListEmptyComponent={
+        <View style={styles.emptyWrapper}>
+          <Wallet color="#D1D5DB" size={42} />
+          <Text style={styles.emptyTitle}>No reconciliations found</Text>
+        </View>
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    />
+  );
+}
+
 const StatCard = ({
   label,
   value,
@@ -879,32 +1161,95 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  periodChips: {
-    marginTop: 0,
-  },
-  periodChipsContent: {
-    gap: 4,
-    paddingRight: 12,
-  },
-  periodChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+  dropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
     borderColor: "#D1D5DB",
-    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 2,
   },
-  periodChipActive: {
-    backgroundColor: "#ac3434",
-    borderColor: "#ac3434",
-  },
-  periodChipLabel: {
+  dropdownText: {
     color: "#374151",
+    fontSize: 14,
     fontWeight: "600",
-    fontSize: 12,
   },
-  periodChipLabelActive: {
+  dropdownTextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  dropdownModal: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: "100%",
+    maxWidth: 300,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  dropdownOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  dropdownOptionActive: {
+    backgroundColor: "#FEF2F2",
+  },
+  dropdownOptionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    color: "#374151",
+    fontWeight: "500",
+  },
+  dropdownOptionTextActive: {
+    color: "#ac3434",
+    fontWeight: "600",
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ac3434",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkmarkText: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   tabContainer: {
     backgroundColor: "#fff",
@@ -1030,11 +1375,17 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: 12,
   },
   statusBadgeText: {
     fontWeight: "600",
     fontSize: 13,
+    textTransform: "capitalize",
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
     textTransform: "capitalize",
   },
   stockRow: {

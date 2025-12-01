@@ -22,6 +22,13 @@ export default function RootLayout() {
             presentation: 'card',
           }}
         />
+        <Stack.Screen
+          name="reconciliation/[id]"
+          options={{
+            headerShown: false,
+            presentation: 'card',
+          }}
+        />
       </Stack>
     </AuthProvider>
   );

@@ -168,7 +168,7 @@ export default function AddressSelect({
       setLoading((prev) => ({ ...prev, regions: true }));
 
       try {
-        const response = await apiCallWithRetry("/address/regions");
+        const response = await apiCallWithRetry("/addr/regions");
         if (
           response.data &&
           Array.isArray(response.data) &&
@@ -303,7 +303,7 @@ export default function AddressSelect({
       setLoading((prev) => ({ ...prev, provinces: true }));
       try {
         const response = await apiCallWithRetry(
-          `/address/provinces/${regionId}`,
+          `/addr/provinces/${regionId}`,
         );
         setProvinces(response.data);
         return response.data;
@@ -322,7 +322,7 @@ export default function AddressSelect({
       setLoading((prev) => ({ ...prev, cities: true }));
       try {
         const response = await apiCallWithRetry(
-          `/address/cities/${provinceId}`,
+          `/addr/cities/${provinceId}`,
         );
         setCities(response.data);
         return response.data;
@@ -340,7 +340,7 @@ export default function AddressSelect({
     async (cityId: string) => {
       setLoading((prev) => ({ ...prev, barangays: true }));
       try {
-        const response = await apiCallWithRetry(`/address/barangays/${cityId}`);
+        const response = await apiCallWithRetry(`/addr/barangays/${cityId}`);
         setBarangays(response.data);
         return response.data;
       } catch (error) {
