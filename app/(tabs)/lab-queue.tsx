@@ -2,50 +2,35 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ClipboardList, FlaskConical } from 'lucide-react-native';
+import { ChevronDown, ClipboardList, FlaskConical, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 
 import api from '@/app/services/api';
-
-type SummaryResponse = {
-  counts: {
-    pending: number;
-    processing: number;
-    completed: number;
-    released: number;
-  };
-  up_next: { id: number; patient: string; test: string; status: string; created_at: string }[];
-};
-
-type TestItem = {
-  id: number;
-  patient: string;
-  test: string;
-  status: string;
-  price: number;
-  created_at: string;
-};
-
-type Meta = {
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-};
+import type { TestItem, SummaryResponse, Meta } from '@/app/types/lab-queue';
 
 const statusFilters = ['pending', 'processing', 'completed', 'released', 'all'] as const;
+
+const statusOptions = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'released', label: 'Released' },
+  { value: 'all', label: 'All' },
+] as const;
 
 export default function LabQueueScreen() {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [tests, setTests] = useState<TestItem[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [status, setStatus] = useState<(typeof statusFilters)[number]>('pending');
+  const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -102,6 +87,11 @@ export default function LabQueueScreen() {
     setRefreshing(true);
     loadSummary();
     loadTests(1, true);
+  };
+
+  const handleStatusChange = (newStatus: typeof status) => {
+    setStatus(newStatus);
+    setStatusDropdownVisible(false);
   };
 
   const onEndReached = () => {
@@ -171,45 +161,36 @@ export default function LabQueueScreen() {
               <SummaryCard
                 label="Pending"
                 value={summary?.counts.pending ?? 0}
-                color="#F97316"
+                color="#EF4444"
               />
               <SummaryCard
                 label="Processing"
                 value={summary?.counts.processing ?? 0}
-                color="#3B82F6"
+                color="#F59E0B"
               />
               <SummaryCard
                 label="Completed"
                 value={summary?.counts.completed ?? 0}
-                color="#10B981"
+                color="#3B82F6"
               />
               <SummaryCard
                 label="Released"
                 value={summary?.counts.released ?? 0}
-                color="#6366F1"
+                color="#10B981"
               />
             </View>
-            <View style={styles.filterRow}>
-              {statusFilters.map((value) => (
-                <TouchableOpacity
-                  key={value}
-                  style={[
-                    styles.filterChip,
-                    status === value && styles.filterChipActive,
-                  ]}
-                  onPress={() => setStatus(value)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipLabel,
-                      status === value && styles.filterChipLabelActive,
-                    ]}
-                  >
-                    {value.charAt(0).toUpperCase() + value.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+
+            {/* Status Filter Dropdown */}
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => setStatusDropdownVisible(true)}
+            >
+              <Text style={styles.dropdownText}>
+                {statusOptions.find((s) => s.value === status)?.label || 'Select Status'}
+              </Text>
+              <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+
             <View style={styles.upNextCard}>
               <Text style={styles.upNextTitle}>Up Next</Text>
               {summary?.up_next?.length ? (
@@ -250,6 +231,56 @@ export default function LabQueueScreen() {
           ) : null
         }
       />
+
+      {/* Status Dropdown Modal */}
+      <Modal
+        visible={statusDropdownVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStatusDropdownVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setStatusDropdownVisible(false)}
+        >
+          <View style={styles.dropdownModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Status</Text>
+              <TouchableOpacity
+                onPress={() => setStatusDropdownVisible(false)}
+                style={styles.closeButton}
+              >
+                <X color="#6B7280" size={24} />
+              </TouchableOpacity>
+            </View>
+            {statusOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => handleStatusChange(option.value)}
+                style={[
+                  styles.dropdownOption,
+                  status === option.value && styles.dropdownOptionActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dropdownOptionText,
+                    status === option.value && styles.dropdownOptionTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                {status === option.value && (
+                  <View style={styles.checkmark}>
+                    <Text style={styles.checkmarkText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -299,18 +330,65 @@ const styles = StyleSheet.create({
   },
   summaryLabel: { color: '#6B7280', fontSize: 12, textAlign: 'center' },
   summaryValue: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
   },
-  filterChipActive: { backgroundColor: '#ac3434', borderColor: '#ac3434' },
-  filterChipLabel: { color: '#374151', fontWeight: '600' },
-  filterChipLabelActive: { color: '#fff' },
+  dropdownText: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dropdownModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    paddingVertical: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  closeButton: { padding: 4 },
+  dropdownOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownOptionActive: { backgroundColor: '#FEF2F2' },
+  dropdownOptionText: { fontSize: 15, color: '#374151', fontWeight: '500' },
+  dropdownOptionTextActive: { color: '#ac3434', fontWeight: '600' },
+  checkmark: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ac3434',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmarkText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   upNextCard: {
     backgroundColor: '#fff',
     borderRadius: 16,

@@ -16,36 +16,13 @@ import { Edit, Percent, Plus, Power, PowerOff, Shield, X } from 'lucide-react-na
 import { useCallback, useState } from 'react';
 
 import api from '@/app/services/api';
-
-type Discount = {
-  id: number;
-  name: string;
-  rate: number;
-  description: string;
-  is_active: boolean;
-  created_at: string;
-};
-
-type PhilHealthPlan = {
-  id: number;
-  name: string;
-  coverage_rate: number;
-  description: string;
-  is_active: boolean;
-  created_at: string;
-};
-
-type DiscountsResponse = {
-  data: Discount[];
-  current_page: number;
-  last_page: number;
-};
-
-type PhilHealthPlansResponse = {
-  data: PhilHealthPlan[];
-  current_page: number;
-  last_page: number;
-};
+import { showApiError } from '@/app/utils';
+import type { 
+  Discount, 
+  PhilHealthPlan, 
+  DiscountsResponse, 
+  PhilHealthPlansResponse 
+} from '@/app/types';
 
 export default function DiscountsPhilhealthScreen() {
   const [activeTab, setActiveTab] = useState<'discounts' | 'philhealth'>('discounts');

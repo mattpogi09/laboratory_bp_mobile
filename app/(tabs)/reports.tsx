@@ -26,107 +26,23 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import api from "@/app/services/api";
-
-const formatCurrency = (value = 0) =>
-  `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+import { formatCurrency } from "@/app/utils/format";
+import { getDateRange, periods } from "@/app/utils/date";
+import type {
+  Period,
+  FinancialRow,
+  InventoryLogRow,
+  AuditLogRow,
+  LabReportRow,
+  ReconciliationRow,
+  FinancialData,
+  InventoryData,
+  AuditData,
+  LabReportData,
+  ReconciliationData,
+} from "@/app/types/reports";
 
 type Tab = "financial" | "inventory" | "audit" | "lab" | "reconciliation";
-type Period = "day" | "week" | "month" | "year";
-
-const periods: { label: string; value: Period }[] = [
-  { label: "Day", value: "day" },
-  { label: "Week", value: "week" },
-  { label: "Month", value: "month" },
-  { label: "Year", value: "year" },
-];
-
-const getDateRange = (period: Period): { from: string; to: string } => {
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  const to = today.toISOString().split("T")[0];
-
-  const from = new Date();
-  switch (period) {
-    case "day":
-      from.setHours(0, 0, 0, 0);
-      break;
-    case "week":
-      from.setDate(today.getDate() - 6);
-      from.setHours(0, 0, 0, 0);
-      break;
-    case "month":
-      from.setDate(1);
-      from.setHours(0, 0, 0, 0);
-      break;
-    case "year":
-      from.setMonth(0, 1);
-      from.setHours(0, 0, 0, 0);
-      break;
-  }
-
-  return {
-    from: from.toISOString().split("T")[0],
-    to,
-  };
-};
-
-type FinancialRow = {
-  id: number;
-  date: string;
-  patient: string;
-  tests: string;
-  amount: number;
-  discount_amount: number;
-  discount_name: string | null;
-  net_amount: number;
-  payment_method: string;
-  payment_status: string;
-};
-
-type InventoryLogRow = {
-  id: number;
-  date: string;
-  transaction_code: string;
-  item: string;
-  type: string;
-  quantity: number;
-  previous_stock: number | null;
-  new_stock: number | null;
-  reason: string;
-  performed_by: string;
-};
-
-type AuditLogRow = {
-  id: number;
-  timestamp: string;
-  user: string;
-  user_role: string | null;
-  action: string;
-  action_category: string;
-  details: string;
-  severity: string;
-};
-
-type LabReportRow = {
-  id: number;
-  date: string;
-  transaction_number: string;
-  patient: string;
-  test_name: string;
-  performed_by: string;
-  status: string;
-};
-
-type ReconciliationRow = {
-  id: number;
-  date: string;
-  cashier: string;
-  expected_cash: number;
-  actual_cash: number;
-  variance: number;
-  status: string;
-  transaction_count: number;
-};
 
 export default function ReportsScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("financial");
@@ -136,46 +52,11 @@ export default function ReportsScreen() {
   const [periodDropdownVisible, setPeriodDropdownVisible] = useState(false);
   const [tabDropdownVisible, setTabDropdownVisible] = useState(false);
 
-  // Financial Report State
-  const [financialData, setFinancialData] = useState<{
-    rows: FinancialRow[];
-    totals: { revenue: number; discounts: number; transactions: number };
-  } | null>(null);
-
-  // Inventory Log State
-  const [inventoryData, setInventoryData] = useState<{
-    data: InventoryLogRow[];
-  } | null>(null);
-
-  // Audit Log State
-  const [auditData, setAuditData] = useState<{
-    data: AuditLogRow[];
-  } | null>(null);
-
-  // Lab Report State
-  const [labData, setLabData] = useState<{
-    stats: {
-      total: number;
-      pending: number;
-      processing: number;
-      completed: number;
-      released: number;
-    };
-    rows: LabReportRow[];
-  } | null>(null);
-
-  // Cash Reconciliation State
-  const [reconciliationData, setReconciliationData] = useState<{
-    stats: {
-      total: number;
-      balanced: number;
-      overage: number;
-      shortage: number;
-      total_overage_amount: number;
-      total_shortage_amount: number;
-    };
-    rows: ReconciliationRow[];
-  } | null>(null);
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+  const [inventoryData, setInventoryData] = useState<InventoryData | null>(null);
+  const [auditData, setAuditData] = useState<AuditData | null>(null);
+  const [labData, setLabData] = useState<LabReportData | null>(null);
+  const [reconciliationData, setReconciliationData] = useState<ReconciliationData | null>(null);
 
   const loadFinancial = useCallback(async () => {
     try {

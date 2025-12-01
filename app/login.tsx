@@ -145,7 +145,7 @@ export default function Login() {
                                     <Text style={styles.rememberText}>Remember me</Text>
                                 </View>
 
-                                <TouchableOpacity onPress={() => Alert.alert("Reset Password", "This feature needs to be linked to your API.")}>
+                                <TouchableOpacity onPress={() => router.push('/forgot-password')}>
                                     <Text style={styles.forgotText}>Forgot password?</Text>
                                 </TouchableOpacity>
                             </View>

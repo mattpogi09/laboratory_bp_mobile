@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, TrendingUp, TrendingDown, CheckCircle2, Plus, X, ChevronDown, Clipboard, DollarSign, Wallet, User, FileBarChart } from 'lucide-react-native';
+import { Search, TrendingUp, TrendingDown, CheckCircle2, Plus, X, ChevronDown, Clipboard, DollarSign, Wallet, User, FileBarChart, AlertCircle, CheckCheck } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import api from '@/app/services/api';
@@ -31,6 +31,12 @@ interface Reconciliation {
     name: string;
     email: string;
   } | null;
+  correction_requested?: boolean;
+  correction_reason?: string | null;
+  correction_requested_at?: string | null;
+  is_approved?: boolean;
+  approved_by?: number | null;
+  approved_at?: string | null;
   created_at: string;
 }
 
@@ -150,6 +156,28 @@ export default function ReconciliationScreen() {
     }
   };
 
+  const handleApproveCorrection = (item: Reconciliation) => {
+    Alert.alert(
+      'Approve Correction Request',
+      `Approve correction request for ${item.cashier?.name || 'this cashier'} on ${new Date(item.reconciliation_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}?\n\nReason: ${item.correction_reason || 'No reason provided'}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          onPress: async () => {
+            try {
+              const response = await api.post(`/reconciliations/${item.id}/approve`);
+              Alert.alert('Success', response.data.message);
+              fetchReconciliations(page);
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to approve correction request');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'balanced':
@@ -254,6 +282,36 @@ export default function ReconciliationScreen() {
         <View style={styles.notesContainer}>
           <FileBarChart color="#6B7280" size={14} strokeWidth={2} />
           <Text style={styles.notes} numberOfLines={2}>{item.notes}</Text>
+        </View>
+      )}
+
+      {/* Correction Request Badge */}
+      {item.correction_requested && !item.is_approved && (
+        <View style={styles.correctionBadge}>
+          <AlertCircle color="#F59E0B" size={16} />
+          <Text style={styles.correctionText}>Correction Requested</Text>
+        </View>
+      )}
+
+      {/* Approval Button for Admin */}
+      {isAdmin && item.correction_requested && !item.is_approved && (
+        <TouchableOpacity
+          style={styles.approveButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleApproveCorrection(item);
+          }}
+        >
+          <CheckCheck color="#fff" size={18} />
+          <Text style={styles.approveButtonText}>Approve Correction</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Approved Badge */}
+      {item.is_approved && (
+        <View style={styles.approvedBadge}>
+          <CheckCheck color="#10B981" size={16} />
+          <Text style={styles.approvedText}>Correction Approved</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -853,5 +911,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+  correctionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 12,
+  },
+  correctionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  approveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  approveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  approvedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#D1FAE5',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 12,
+  },
+  approvedText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
   },
 });

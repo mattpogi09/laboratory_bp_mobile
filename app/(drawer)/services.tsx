@@ -25,39 +25,9 @@ import {
 import { useCallback, useState } from "react";
 
 import api from "@/app/services/api";
-
-type Service = {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  description: string;
-  is_active: boolean;
-  created_at: string;
-};
-
-type ServicesResponse = {
-  data: Service[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-};
-
-type CategoriesResponse = string[];
-
-const SERVICE_CATEGORIES = [
-  "Hematology",
-  "Clinical Microscopy",
-  "Serology/Immunology",
-  "Blood Chemistry",
-  "Others",
-  "Procedure Ultra Sound",
-];
-
-type GroupedServices = {
-  [category: string]: Service[];
-};
+import { showApiError } from "@/app/utils";
+import { SERVICE_CATEGORIES } from "@/app/types";
+import type { Service, ServicesResponse, GroupedServices } from "@/app/types";
 
 export default function ServicesScreen() {
   const [services, setServices] = useState<Service[]>([]);

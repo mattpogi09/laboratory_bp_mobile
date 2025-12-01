@@ -289,7 +289,7 @@ export default function Dashboard() {
             {data?.alerts?.length ? (
               data.alerts.map((alertItem, index) => (
                 <View key={index} style={styles.alertItem}>
-                  <Bell size={18} color="#f97316" />
+                  
                   <View style={{ flex: 1 }}>
                     <Text style={styles.alertMessage}>{alertItem.message}</Text>
                     {alertItem.action && (
@@ -310,24 +310,30 @@ export default function Dashboard() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Low Stock Items</Text>
+          <View style={styles.stockHeader}>
+            <Text style={styles.cardTitle}>Stock Status</Text>
+            <TouchableOpacity onPress={() => router.push('/inventory')}>
+              <Text style={styles.viewAllLink}>View All →</Text>
+            </TouchableOpacity>
+          </View>
           {data?.lowStockItems?.map((item) => {
+            const needed = Math.max(0, item.minimum_stock - item.current_stock);
             const percentage =
               item.minimum_stock > 0
                 ? Math.min(100, (item.current_stock / item.minimum_stock) * 100)
                 : 0;
-            // Low stock items should be yellow/orange, not green
             let progressColor = '#F59E0B'; // Yellow/Orange for low stock
             if (percentage <= 20) progressColor = '#DC2626'; // Red for very low
             else if (percentage <= 50) progressColor = '#F59E0B'; // Yellow for low
             return (
-              <View key={item.id} style={styles.listItem}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemStock}>
-                    {item.current_stock} {item.unit}
-                  </Text>
+              <View key={item.id} style={styles.stockItem}>
+                <View style={styles.stockItemHeader}>
+                  <Text style={styles.stockItemName}>{item.name}</Text>
+                  <Text style={styles.stockNeeded}>{needed} needed</Text>
                 </View>
+                <Text style={styles.stockRatio}>
+                  {item.current_stock} / {item.minimum_stock} {item.unit}
+                </Text>
                 <View style={styles.progressBg}>
                   <View
                     style={[
@@ -458,6 +464,41 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  stockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0891B2',
+  },
+  stockItem: {
+    marginBottom: 20,
+  },
+  stockItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  stockItemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  stockNeeded: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  stockRatio: {
+    fontSize: 13,
+    color: '#F59E0B',
+    marginBottom: 8,
+  },
   placeholder: { alignItems: 'center', paddingVertical: 24 },
   placeholderTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
   placeholderSubtitle: { marginTop: 4, color: '#6B7280', textAlign: 'center' },
