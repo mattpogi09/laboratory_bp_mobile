@@ -14,6 +14,7 @@ import {
   Settings2,
   UserCog,
   UsersRound,
+  Wallet,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -120,6 +121,13 @@ export default function DrawerLayout() {
         options={{
           title: 'Discounts & PhilHealth',
           drawerIcon: ({ color }) => <Percent color={color} size={20} />,
+        }}
+      />
+      <Drawer.Screen
+        name="reconciliation"
+        options={{
+          title: 'Cash Reconciliation',
+          drawerIcon: ({ color }) => <Wallet color={color} size={20} />,
         }}
       />
     </Drawer>

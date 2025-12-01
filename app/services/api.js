@@ -3,7 +3,7 @@ import axios from "axios";
 
 export const TOKEN_STORAGE_KEY = "@bp-mobile-token";
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.85:8000/api";
+  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.91:8000/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

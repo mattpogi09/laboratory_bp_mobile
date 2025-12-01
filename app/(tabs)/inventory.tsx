@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { History, PackageSearch, Search } from 'lucide-react-native';
+import { ChevronDown, History, PackageSearch, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import api from '@/app/services/api';
@@ -246,36 +247,22 @@ export default function InventoryScreen() {
                   </View>
                 ))}
               </View>
-              <View style={styles.searchWrapper}>
-                <Search color="#9CA3AF" size={18} />
+              <View style={styles.searchContainer}>
+                <Search color="#6B7280" size={20} style={styles.searchIcon} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search inventory"
+                  placeholder="Search inventory..."
                   placeholderTextColor="#9CA3AF"
                   value={search}
                   onChangeText={setSearch}
                 />
               </View>
               <View style={styles.filterRow}>
-                {filters.map((filter) => (
-                  <TouchableOpacity
-                    key={filter.value}
-                    style={[
-                      styles.filterChip,
-                      statusFilter === filter.value && styles.filterChipActive,
-                    ]}
-                    onPress={() => setStatusFilter(filter.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipLabel,
-                        statusFilter === filter.value && styles.filterChipLabelActive,
-                      ]}
-                    >
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <Text style={styles.filterLabel}>Status:</Text>
+                <StatusDropdown
+                  selectedValue={statusFilter}
+                  onValueChange={setStatusFilter}
+                />
               </View>
             </>
           }
@@ -362,6 +349,77 @@ export default function InventoryScreen() {
   );
 }
 
+function StatusDropdown({
+  selectedValue,
+  onValueChange,
+}: {
+  selectedValue: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const getDisplayText = () => {
+    const filter = filters.find(f => f.value === selectedValue);
+    return filter ? filter.label : 'All';
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.statusDropdownButton}
+        onPress={() => setShowPicker(true)}
+      >
+        <Text style={styles.statusDropdownText}>
+          {getDisplayText()}
+        </Text>
+        <ChevronDown color="#6B7280" size={20} />
+      </TouchableOpacity>
+
+      <Modal visible={showPicker} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Status</Text>
+              <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <X color="#6B7280" size={24} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickerList}>
+              {filters.map((filter) => (
+                <TouchableOpacity
+                  key={filter.value}
+                  style={[
+                    styles.pickerOption,
+                    selectedValue === filter.value && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    onValueChange(filter.value);
+                    setShowPicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      selectedValue === filter.value &&
+                        styles.pickerOptionTextSelected,
+                    ]}
+                  >
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -406,30 +464,98 @@ const styles = StyleSheet.create({
   },
   summaryLabel: { color: '#6B7280', fontSize: 12, textAlign: 'center' },
   summaryValue: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  searchWrapper: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    marginBottom: 12,
   },
-  searchInput: { flex: 1, marginLeft: 8, color: '#111827', fontSize: 16 },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+  searchIcon: { marginRight: 10 },
+  searchInput: { 
+    flex: 1, 
+    paddingVertical: 12,
+    color: '#111827', 
+    fontSize: 16 
+  },
+  filterRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    gap: 12, 
+    marginBottom: 16 
+  },
+  filterLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  statusDropdownButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#fff',
   },
-  filterChipActive: { backgroundColor: '#ac3434', borderColor: '#ac3434' },
-  filterChipLabel: { color: '#374151', fontWeight: '600' },
-  filterChipLabelActive: { color: '#fff' },
+  statusDropdownText: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '500',
+    flex: 1,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '80%',
+    maxHeight: '60%',
+    overflow: 'hidden',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pickerList: {
+    maxHeight: 400,
+  },
+  pickerOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  pickerOptionSelected: {
+    backgroundColor: '#EFF6FF',
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  pickerOptionTextSelected: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,

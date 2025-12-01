@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,7 +17,6 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react-native';
-import { LineChart } from 'react-native-chart-kit';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -58,8 +56,6 @@ type DashboardResponse = {
   alerts: { type: string; message: string; action?: string }[];
 };
 
-const screenWidth = Dimensions.get('window').width;
-const chartWidth = Math.max(screenWidth - 64, 280);
 const periods: { label: string; value: string }[] = [
   { label: 'Day', value: 'day' },
   { label: 'Week', value: 'week' },
@@ -150,24 +146,6 @@ export default function Dashboard() {
     [data],
   );
 
-  const hasRevenueData = useMemo(
-    () => data?.revenueChartData?.some((point) => point.value > 0),
-    [data],
-  );
-
-  // Reduce label density for monthly/yearly periods to prevent cluttering
-  const chartLabels = useMemo(() => {
-    if (!data?.revenueChartData) return [];
-    const labels = data.revenueChartData.map((item) => item.label);
-    
-    if (period === 'month' || period === 'year') {
-      // Show every 2nd or 3rd label for better spacing
-      const step = period === 'year' ? Math.max(1, Math.floor(labels.length / 6)) : Math.max(1, Math.floor(labels.length / 8));
-      return labels.map((label, index) => (index % step === 0 || index === labels.length - 1) ? label : '');
-    }
-    return labels;
-  }, [data?.revenueChartData, period]);
-
   const testStatusEntries = useMemo(() => {
     if (!data?.testStatusData) return [];
     const total = Object.values(data.testStatusData).reduce(
@@ -205,7 +183,7 @@ export default function Dashboard() {
           <View>
             <Text style={styles.greeting}>Hi, {user?.name}</Text>
             <Text style={styles.subtitle}>
-              Operational overview for the {period}.
+              Operational overview for {period === 'day' ? 'today' : period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'this year'}.
             </Text>
           </View>
         </View>
@@ -259,42 +237,6 @@ export default function Dashboard() {
               )}
             </View>
           ))}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Revenue Trend</Text>
-          {hasRevenueData ? (
-            <LineChart
-              data={{
-                labels: chartLabels,
-                datasets: [
-                  { data: data?.revenueChartData?.map((item) => item.value) ?? [] },
-                ],
-              }}
-              width={chartWidth}
-              height={220}
-              yAxisLabel="₱"
-              chartConfig={{
-                backgroundColor: '#ffffff',
-                backgroundGradientFrom: '#ffffff',
-                backgroundGradientTo: '#ffffff',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(172, 52, 52, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-                propsForDots: { r: '4', strokeWidth: '2', stroke: '#ac3434' },
-              }}
-              style={{ marginVertical: 8, borderRadius: 12 }}
-              bezier
-              fromZero
-            />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderTitle}>No revenue data yet</Text>
-              <Text style={styles.placeholderSubtitle}>
-                Capture transactions for this period to see the chart.
-              </Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.row}>

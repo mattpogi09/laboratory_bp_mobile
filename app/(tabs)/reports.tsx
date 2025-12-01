@@ -1,66 +1,69 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 import {
   Calendar,
+  ChevronDown,
   ClipboardList,
   DollarSign,
   FileText,
   Package,
   Shield,
-} from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+  X,
+} from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
 
-import api from '@/app/services/api';
+import api from "@/app/services/api";
 
 const formatCurrency = (value = 0) =>
-  `₱${value.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+  `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 
-type Tab = 'financial' | 'inventory' | 'audit' | 'lab';
-type Period = 'day' | 'week' | 'month' | 'year';
+type Tab = "financial" | "inventory" | "audit" | "lab";
+type Period = "day" | "week" | "month" | "year";
 
 const periods: { label: string; value: Period }[] = [
-  { label: 'Day', value: 'day' },
-  { label: 'Week', value: 'week' },
-  { label: 'Month', value: 'month' },
-  { label: 'Year', value: 'year' },
+  { label: "Day", value: "day" },
+  { label: "Week", value: "week" },
+  { label: "Month", value: "month" },
+  { label: "Year", value: "year" },
 ];
 
 const getDateRange = (period: Period): { from: string; to: string } => {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
-  const to = today.toISOString().split('T')[0];
+  const to = today.toISOString().split("T")[0];
 
   const from = new Date();
   switch (period) {
-    case 'day':
+    case "day":
       from.setHours(0, 0, 0, 0);
       break;
-    case 'week':
+    case "week":
       from.setDate(today.getDate() - 6);
       from.setHours(0, 0, 0, 0);
       break;
-    case 'month':
+    case "month":
       from.setDate(1);
       from.setHours(0, 0, 0, 0);
       break;
-    case 'year':
+    case "year":
       from.setMonth(0, 1);
       from.setHours(0, 0, 0, 0);
       break;
   }
 
   return {
-    from: from.toISOString().split('T')[0],
+    from: from.toISOString().split("T")[0],
     to,
   };
 };
@@ -113,8 +116,8 @@ type LabReportRow = {
 };
 
 export default function ReportsScreen() {
-  const [activeTab, setActiveTab] = useState<Tab>('financial');
-  const [period, setPeriod] = useState<Period>('day');
+  const [activeTab, setActiveTab] = useState<Tab>("financial");
+  const [period, setPeriod] = useState<Period>("day");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -150,17 +153,17 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       const { from, to } = getDateRange(period);
-      const response = await api.get('/reports/financial', {
+      const response = await api.get("/reports/financial", {
         params: { from, to },
       });
       setFinancialData(response.data);
     } catch (error: any) {
-      console.error('Failed to load financial report', error);
+      console.error("Failed to load financial report", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        'Failed to load financial report. Please check your connection and try again.';
-      Alert.alert('Error', errorMessage);
+        "Failed to load financial report. Please check your connection and try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -171,17 +174,17 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       const { from, to } = getDateRange(period);
-      const response = await api.get('/reports/inventory-log', {
+      const response = await api.get("/reports/inventory-log", {
         params: { from, to },
       });
       setInventoryData(response.data);
     } catch (error: any) {
-      console.error('Failed to load inventory log', error);
+      console.error("Failed to load inventory log", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        'Failed to load inventory log. Please check your connection and try again.';
-      Alert.alert('Error', errorMessage);
+        "Failed to load inventory log. Please check your connection and try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -192,17 +195,17 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       const { from, to } = getDateRange(period);
-      const response = await api.get('/reports/audit-log', {
+      const response = await api.get("/reports/audit-log", {
         params: { from, to },
       });
       setAuditData(response.data);
     } catch (error: any) {
-      console.error('Failed to load audit log', error);
+      console.error("Failed to load audit log", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        'Failed to load audit log. Please check your connection and try again.';
-      Alert.alert('Error', errorMessage);
+        "Failed to load audit log. Please check your connection and try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -213,17 +216,17 @@ export default function ReportsScreen() {
     try {
       setLoading(true);
       const { from, to } = getDateRange(period);
-      const response = await api.get('/reports/lab-report', {
+      const response = await api.get("/reports/lab-report", {
         params: { from, to },
       });
       setLabData(response.data);
     } catch (error: any) {
-      console.error('Failed to load lab report', error);
+      console.error("Failed to load lab report", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        'Failed to load lab report. Please check your connection and try again.';
-      Alert.alert('Error', errorMessage);
+        "Failed to load lab report. Please check your connection and try again.";
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -232,20 +235,27 @@ export default function ReportsScreen() {
 
   const loadData = useCallback(() => {
     switch (activeTab) {
-      case 'financial':
+      case "financial":
         loadFinancial();
         break;
-      case 'inventory':
+      case "inventory":
         loadInventoryLog();
         break;
-      case 'audit':
+      case "audit":
         loadAuditLog();
         break;
-      case 'lab':
+      case "lab":
         loadLabReport();
         break;
     }
-  }, [activeTab, period, loadFinancial, loadInventoryLog, loadAuditLog, loadLabReport]);
+  }, [
+    activeTab,
+    period,
+    loadFinancial,
+    loadInventoryLog,
+    loadAuditLog,
+    loadLabReport,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -271,10 +281,10 @@ export default function ReportsScreen() {
   };
 
   const tabs = [
-    { id: 'financial' as Tab, label: 'Financial', icon: DollarSign },
-    { id: 'inventory' as Tab, label: 'Inventory', icon: Package },
-    { id: 'audit' as Tab, label: 'Audit', icon: Shield },
-    { id: 'lab' as Tab, label: 'Lab', icon: FileText },
+    { id: "financial" as Tab, label: "Financial", icon: DollarSign },
+    { id: "inventory" as Tab, label: "Inventory", icon: Package },
+    { id: "audit" as Tab, label: "Audit", icon: Shield },
+    { id: "lab" as Tab, label: "Lab", icon: FileText },
   ];
 
   return (
@@ -329,15 +339,9 @@ export default function ReportsScreen() {
               style={[styles.tab, isActive && styles.tabActive]}
               onPress={() => handleTabChange(tab.id)}
             >
-              <Icon
-                color={isActive ? '#ac3434' : '#6B7280'}
-                size={16}
-              />
+              <Icon color={isActive ? "#ac3434" : "#6B7280"} size={16} />
               <Text
-                style={[
-                  styles.tabLabel,
-                  isActive && styles.tabLabelActive,
-                ]}
+                style={[styles.tabLabel, isActive && styles.tabLabelActive]}
               >
                 {tab.label}
               </Text>
@@ -348,7 +352,11 @@ export default function ReportsScreen() {
 
       {/* Content */}
       <View style={styles.contentContainer}>
-        {loading && !financialData && !inventoryData && !auditData && !labData ? (
+        {loading &&
+        !financialData &&
+        !inventoryData &&
+        !auditData &&
+        !labData ? (
           <View style={styles.loading}>
             <ActivityIndicator size="large" color="#ac3434" />
           </View>
@@ -357,7 +365,9 @@ export default function ReportsScreen() {
             <View
               style={[
                 styles.tabContentWrapper,
-                activeTab === 'financial' ? styles.tabVisible : styles.tabHidden,
+                activeTab === "financial"
+                  ? styles.tabVisible
+                  : styles.tabHidden,
               ]}
             >
               <FinancialTab
@@ -369,7 +379,9 @@ export default function ReportsScreen() {
             <View
               style={[
                 styles.tabContentWrapper,
-                activeTab === 'inventory' ? styles.tabVisible : styles.tabHidden,
+                activeTab === "inventory"
+                  ? styles.tabVisible
+                  : styles.tabHidden,
               ]}
             >
               <InventoryTab
@@ -381,7 +393,7 @@ export default function ReportsScreen() {
             <View
               style={[
                 styles.tabContentWrapper,
-                activeTab === 'audit' ? styles.tabVisible : styles.tabHidden,
+                activeTab === "audit" ? styles.tabVisible : styles.tabHidden,
               ]}
             >
               <AuditTab
@@ -393,7 +405,7 @@ export default function ReportsScreen() {
             <View
               style={[
                 styles.tabContentWrapper,
-                activeTab === 'lab' ? styles.tabVisible : styles.tabHidden,
+                activeTab === "lab" ? styles.tabVisible : styles.tabHidden,
               ]}
             >
               <LabTab
@@ -487,7 +499,7 @@ function FinancialTab({
             <View
               style={[
                 styles.badge,
-                item.payment_status === 'paid'
+                item.payment_status === "paid"
                   ? styles.badgePaid
                   : styles.badgePending,
               ]}
@@ -495,9 +507,9 @@ function FinancialTab({
               <Text
                 style={[
                   styles.badgeText,
-                  item.payment_status === 'paid'
-                    ? { color: '#065F46' }
-                    : { color: '#991B1B' },
+                  item.payment_status === "paid"
+                    ? { color: "#065F46" }
+                    : { color: "#991B1B" },
                 ]}
               >
                 {item.payment_method}
@@ -559,15 +571,17 @@ function InventoryTab({
             <View
               style={[
                 styles.typeBadge,
-                item.type === 'IN'
-                  ? { backgroundColor: '#D1FAE5' }
-                  : { backgroundColor: '#FEE2E2' },
+                item.type === "IN"
+                  ? { backgroundColor: "#D1FAE5" }
+                  : { backgroundColor: "#FEE2E2" },
               ]}
             >
               <Text
                 style={[
                   styles.typeBadgeText,
-                  item.type === 'IN' ? { color: '#065F46' } : { color: '#991B1B' },
+                  item.type === "IN"
+                    ? { color: "#065F46" }
+                    : { color: "#991B1B" },
                 ]}
               >
                 {item.type}
@@ -581,14 +595,14 @@ function InventoryTab({
           <View style={styles.stockRow}>
             <Text style={styles.stockLabel}>Quantity:</Text>
             <Text style={styles.stockValue}>
-              {item.type === 'IN' ? '+' : '-'}
+              {item.type === "IN" ? "+" : "-"}
               {item.quantity}
             </Text>
           </View>
           <View style={styles.stockRow}>
             <Text style={styles.stockLabel}>Stock:</Text>
             <Text style={styles.stockValue}>
-              {item.previous_stock ?? '—'} → {item.new_stock ?? '—'}
+              {item.previous_stock ?? "—"} → {item.new_stock ?? "—"}
             </Text>
           </View>
           <Text style={styles.reportMetaText}>Reason: {item.reason}</Text>
@@ -640,9 +654,7 @@ function AuditTab({
       }
       nestedScrollEnabled={false}
       removeClippedSubviews={true}
-      ListHeaderComponent={
-        <Text style={styles.sectionTitle}>Audit Log</Text>
-      }
+      ListHeaderComponent={<Text style={styles.sectionTitle}>Audit Log</Text>}
       renderItem={({ item }) => (
         <View style={styles.reportCard}>
           <View style={styles.reportHeader}>
@@ -650,21 +662,21 @@ function AuditTab({
             <View
               style={[
                 styles.severityBadge,
-                item.severity === 'critical'
-                  ? { backgroundColor: '#FEE2E2' }
-                  : item.severity === 'warning'
-                    ? { backgroundColor: '#FEF3C7' }
-                    : { backgroundColor: '#DBEAFE' },
+                item.severity === "critical"
+                  ? { backgroundColor: "#FEE2E2" }
+                  : item.severity === "warning"
+                    ? { backgroundColor: "#FEF3C7" }
+                    : { backgroundColor: "#DBEAFE" },
               ]}
             >
               <Text
                 style={[
                   styles.severityBadgeText,
-                  item.severity === 'critical'
-                    ? { color: '#991B1B' }
-                    : item.severity === 'warning'
-                      ? { color: '#92400E' }
-                      : { color: '#1E40AF' },
+                  item.severity === "critical"
+                    ? { color: "#991B1B" }
+                    : item.severity === "warning"
+                      ? { color: "#92400E" }
+                      : { color: "#1E40AF" },
                 ]}
               >
                 {item.severity}
@@ -757,10 +769,10 @@ function LabTab({
       }
       renderItem={({ item }) => {
         const statusColors: Record<string, { bg: string; text: string }> = {
-          pending: { bg: '#FEE2E2', text: '#991B1B' },
-          processing: { bg: '#FEF3C7', text: '#92400E' },
-          completed: { bg: '#DBEAFE', text: '#1E40AF' },
-          released: { bg: '#D1FAE5', text: '#065F46' },
+          pending: { bg: "#FEE2E2", text: "#991B1B" },
+          processing: { bg: "#FEF3C7", text: "#92400E" },
+          completed: { bg: "#DBEAFE", text: "#1E40AF" },
+          released: { bg: "#D1FAE5", text: "#065F46" },
         };
         const statusStyle = statusColors[item.status] || statusColors.pending;
 
@@ -769,9 +781,14 @@ function LabTab({
             <View style={styles.reportHeader}>
               <Text style={styles.reportDate}>{item.date}</Text>
               <View
-                style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: statusStyle.bg },
+                ]}
               >
-                <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
+                <Text
+                  style={[styles.statusBadgeText, { color: statusStyle.text }]}
+                >
                   {item.status}
                 </Text>
               </View>
@@ -816,51 +833,51 @@ const StatCard = ({
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: "#F3F4F6" },
   contentContainer: {
     flex: 1,
-    minHeight: '80%',
-    position: 'relative',
-    overflow: 'hidden',
+    minHeight: "80%",
+    position: "relative",
+    overflow: "hidden",
   },
   tabContentWrapper: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
   },
   tabVisible: {
     opacity: 1,
-    pointerEvents: 'auto',
+    pointerEvents: "auto",
     zIndex: 1,
   },
   tabHidden: {
     opacity: 0,
-    pointerEvents: 'none',
+    pointerEvents: "none",
     zIndex: 0,
   },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
   filterContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   periodHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginBottom: 6,
   },
   periodHeaderText: {
-    color: '#374151',
-    fontSize: 13,
-    fontWeight: '600',
+    color: "#374151",
+    fontSize: 15,
+    fontWeight: "600",
   },
   periodChips: {
     marginTop: 0,
@@ -870,161 +887,169 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   periodChip: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
+    borderColor: "#D1D5DB",
+    backgroundColor: "#F9FAFB",
   },
   periodChipActive: {
-    backgroundColor: '#ac3434',
-    borderColor: '#ac3434',
+    backgroundColor: "#ac3434",
+    borderColor: "#ac3434",
   },
   periodChipLabel: {
-    color: '#374151',
-    fontWeight: '600',
+    color: "#374151",
+    fontWeight: "600",
     fontSize: 12,
   },
   periodChipLabelActive: {
-    color: '#fff',
+    color: "#fff",
   },
   tabContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   tabContent: {
     flex: 1,
     minHeight: 0,
-    maxHeight: '100%',
+    maxHeight: "100%",
   },
   tabScrollContent: { paddingHorizontal: 6 },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 8,
     gap: 3,
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
   },
-  tabActive: { borderBottomColor: '#ac3434' },
-  tabLabel: { color: '#6B7280', fontWeight: '600', fontSize: 12 },
-  tabLabelActive: { color: '#ac3434' },
+  tabActive: { borderBottomColor: "#ac3434" },
+  tabLabel: { color: "#6B7280", fontWeight: "600", fontSize: 12 },
+  tabLabelActive: { color: "#ac3434" },
   cardsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
     gap: 8,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
-  statLabel: { color: '#6B7280', fontSize: 11, marginBottom: 3 },
-  statValue: { fontSize: 16, fontWeight: '700' },
+  statLabel: { color: "#6B7280", fontSize: 11, marginBottom: 3 },
+  statValue: { fontSize: 16, fontWeight: "700" },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 4,
     marginBottom: 8,
-    color: '#111827',
+    color: "#111827",
   },
   reportCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   reportHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  reportDate: { color: '#6B7280', fontSize: 11 },
-  reportAmount: { fontSize: 16, fontWeight: '700', color: '#10B981' },
+  reportDate: { color: "#6B7280", fontSize: 13 },
+  reportAmount: { fontSize: 18, fontWeight: "700", color: "#10B981" },
   reportPatient: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 3,
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
   reportItemName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 3,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
-  reportTests: { color: '#6B7280', fontSize: 12, marginBottom: 6 },
-  reportMeta: { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  reportMetaText: { color: '#6B7280', fontSize: 11 },
+  reportTests: { color: "#6B7280", fontSize: 14, marginBottom: 8 },
+  reportMeta: { flexDirection: "row", gap: 10, marginBottom: 8 },
+  reportMetaText: { color: "#6B7280", fontSize: 13 },
   reportUser: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 3,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
   reportAction: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1D4ED8',
-    marginBottom: 3,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1D4ED8",
+    marginBottom: 4,
   },
-  reportDetails: { color: '#6B7280', fontSize: 12, lineHeight: 18 },
+  reportDetails: { color: "#6B7280", fontSize: 14, lineHeight: 20 },
   performedBy: {
-    color: '#6B7280',
-    fontSize: 11,
-    marginTop: 6,
-    fontStyle: 'italic',
+    color: "#6B7280",
+    fontSize: 13,
+    marginTop: 8,
+    fontStyle: "italic",
   },
-  badgeRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  badgeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  badgePaid: { backgroundColor: '#D1FAE5' },
-  badgePending: { backgroundColor: '#FEE2E2' },
-  badgeText: { fontWeight: '600', fontSize: 11, textTransform: 'capitalize' },
+  badgePaid: { backgroundColor: "#D1FAE5" },
+  badgePending: { backgroundColor: "#FEE2E2" },
+  badgeText: { fontWeight: "600", fontSize: 13, textTransform: "capitalize" },
   typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  typeBadgeText: { fontWeight: '600', fontSize: 11 },
+  typeBadgeText: { fontWeight: "600", fontSize: 13 },
   severityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  severityBadgeText: { fontWeight: '600', fontSize: 10, textTransform: 'capitalize' },
+  severityBadgeText: {
+    fontWeight: "600",
+    fontSize: 12,
+    textTransform: "capitalize",
+  },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
   },
-  statusBadgeText: { fontWeight: '600', fontSize: 11, textTransform: 'capitalize' },
-  stockRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 3,
+  statusBadgeText: {
+    fontWeight: "600",
+    fontSize: 13,
+    textTransform: "capitalize",
   },
-  stockLabel: { color: '#6B7280', fontSize: 12 },
-  stockValue: { color: '#111827', fontWeight: '600', fontSize: 12 },
+  stockRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 5,
+  },
+  stockLabel: { color: "#6B7280", fontSize: 14 },
+  stockValue: { color: "#111827", fontWeight: "600", fontSize: 14 },
   emptyWrapper: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 60,
-    gap: 6,
+    gap: 8,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: "#111827" },
 });

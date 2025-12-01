@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Edit, Eye, EyeOff, Plus, Power, PowerOff, Search, UserCog, X } from 'lucide-react-native';
+import { ChevronDown, Edit, Eye, EyeOff, Plus, Power, PowerOff, Search, UserCog, X } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 
 import api from '@/app/services/api';
@@ -104,6 +104,10 @@ export default function UsersScreen() {
   };
 
   const handleToggle = async (user: User) => {
+    if (user.username === 'superadmin') {
+      Alert.alert('Action Not Allowed', 'Cannot deactivate the super admin account');
+      return;
+    }
     try {
       await api.post(`/users/${user.id}/toggle`);
       Alert.alert('Success', `User ${user.is_active ? 'deactivated' : 'activated'} successfully`);
@@ -227,7 +231,7 @@ export default function UsersScreen() {
                 <Edit color="#2563EB" size={16} />
                 <Text style={styles.actionButtonText}>Edit</Text>
               </TouchableOpacity>
-              {item.id !== currentUser?.id && (
+              {item.id !== currentUser?.id && item.username !== 'superadmin' && (
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => handleToggle(item)}
@@ -391,14 +395,10 @@ function CreateUserModal({
 
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Role</Text>
-              <View style={styles.selectContainer}>
-                <TextInput
-                  style={styles.formInput}
-                  value={formData.role}
-                  onChangeText={(text) => setFormData({ ...formData, role: text })}
-                  placeholder="Select role (admin, lab_staff, cashier)"
-                />
-              </View>
+              <RolePicker
+                selectedValue={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'lab_staff' | 'cashier' })}
+              />
             </View>
           </View>
 
@@ -421,6 +421,88 @@ function CreateUserModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function RolePicker({
+  selectedValue,
+  onValueChange,
+}: {
+  selectedValue: string;
+  onValueChange: (value: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const roles = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'lab_staff', label: 'Lab Staff' },
+    { value: 'cashier', label: 'Cashier' },
+  ];
+
+  const getSelectedLabel = () => {
+    const role = roles.find(r => r.value === selectedValue);
+    return role ? role.label : 'Select role';
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.pickerButton}
+        onPress={() => setShowPicker(true)}
+      >
+        <Text
+          style={[
+            styles.pickerButtonText,
+            !selectedValue && styles.pickerButtonPlaceholder,
+          ]}
+        >
+          {getSelectedLabel()}
+        </Text>
+        <ChevronDown color="#6B7280" size={20} />
+      </TouchableOpacity>
+
+      <Modal visible={showPicker} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.pickerOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Role</Text>
+              <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <X color="#6B7280" size={24} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pickerList}>
+              {roles.map((role) => (
+                <TouchableOpacity
+                  key={role.value}
+                  style={[
+                    styles.pickerOption,
+                    selectedValue === role.value && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    onValueChange(role.value);
+                    setShowPicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      selectedValue === role.value &&
+                        styles.pickerOptionTextSelected,
+                    ]}
+                  >
+                    {role.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }
 
@@ -751,5 +833,70 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#111827',
+    flex: 1,
+  },
+  pickerButtonPlaceholder: {
+    color: '#9CA3AF',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '80%',
+    maxHeight: '60%',
+    overflow: 'hidden',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pickerList: {
+    maxHeight: 400,
+  },
+  pickerOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  pickerOptionSelected: {
+    backgroundColor: '#EFF6FF',
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  pickerOptionTextSelected: {
+    color: '#2563EB',
+    fontWeight: '600',
   },
 });
