@@ -1,10 +1,9 @@
-import Checkbox from 'expo-checkbox';
-import { Stack, router } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
-import React, { useState } from 'react';
+import Checkbox from "expo-checkbox";
+import { Stack, router } from "expo-router";
+import { Eye, EyeOff } from "lucide-react-native";
+import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -14,50 +13,58 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
-} from 'react-native';
+    View,
+} from "react-native";
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "@/contexts/AuthContext";
+import { SuccessDialog } from "@/components";
 
 export default function Login() {
     // State Management
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(false);
     const { login } = useAuth();
-    
+
     // UI State
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [errors, setErrors] = useState({ username: '', password: '' });
+    const [errors, setErrors] = useState({ username: "", password: "" });
+    const [errorDialog, setErrorDialog] = useState({
+        visible: false,
+        message: "",
+    });
 
     // Validation
-    const isFormValid = username.trim() !== '' && password.trim() !== '';
+    const isFormValid = username.trim() !== "" && password.trim() !== "";
 
     // Handle Login Logic
     const handleLogin = async () => {
         if (!isFormValid) return;
 
         setIsLoading(true);
-        setErrors({ username: '', password: '' });
+        setErrors({ username: "", password: "" });
 
         try {
             await login({ username, password, remember });
-            router.replace('/(drawer)');
+            router.replace("/(drawer)");
         } catch (error: any) {
             console.log("Login Error:", error);
 
             const message =
                 error?.response?.data?.message ||
-                'Unable to log in. Please double-check your credentials.';
+                "Unable to log in. Please double-check your credentials.";
 
-            Alert.alert("Login Failed", message);
+            setErrorDialog({
+                visible: true,
+                message: message,
+            });
 
             const fieldErrors = error?.response?.data?.errors;
             if (fieldErrors) {
                 setErrors({
-                    username: fieldErrors.username?.[0] || '',
-                    password: fieldErrors.password?.[0] || '',
+                    username: fieldErrors.username?.[0] || "",
+                    password: fieldErrors.password?.[0] || "",
                 });
             }
         } finally {
@@ -66,21 +73,20 @@ export default function Login() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F8F8' }}>
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F8F8" }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={styles.container}
             >
                 {/* Hide the default header */}
                 <Stack.Screen options={{ headerShown: false }} />
-                
+
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.glassPanel}>
-                        
                         {/* LOGO SECTION */}
                         <View style={styles.header}>
-                            <Image 
-                                source={require('../assets/images/logo.png')} 
+                            <Image
+                                source={require("../assets/images/logo.png")}
                                 style={styles.logo}
                                 resizeMode="contain"
                             />
@@ -92,25 +98,40 @@ export default function Login() {
 
                         {/* FORM SECTION */}
                         <View style={styles.form}>
-                            
                             {/* Username Input */}
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Username</Text>
                                 <TextInput
-                                    style={[styles.input, errors.username ? styles.inputError : null]}
+                                    style={[
+                                        styles.input,
+                                        errors.username
+                                            ? styles.inputError
+                                            : null,
+                                    ]}
                                     value={username}
                                     onChangeText={setUsername}
                                     placeholder="Enter your Username"
                                     placeholderTextColor="#9CA3AF"
                                     autoCapitalize="none"
                                 />
-                                {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+                                {errors.username ? (
+                                    <Text style={styles.errorText}>
+                                        {errors.username}
+                                    </Text>
+                                ) : null}
                             </View>
 
                             {/* Password Input */}
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Password</Text>
-                                <View style={[styles.passwordContainer, errors.password ? styles.inputError : null]}>
+                                <View
+                                    style={[
+                                        styles.passwordContainer,
+                                        errors.password
+                                            ? styles.inputError
+                                            : null,
+                                    ]}
+                                >
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={password}
@@ -120,17 +141,24 @@ export default function Login() {
                                         secureTextEntry={!showPassword}
                                         autoCapitalize="none"
                                     />
-                                    <TouchableOpacity 
-                                        onPress={() => setShowPassword(!showPassword)}
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            setShowPassword(!showPassword)
+                                        }
                                         style={styles.eyeIcon}
                                     >
-                                        {showPassword ? 
-                                            <Eye color="#6B7280" size={20} /> : 
+                                        {showPassword ? (
+                                            <Eye color="#6B7280" size={20} />
+                                        ) : (
                                             <EyeOff color="#6B7280" size={20} />
-                                        }
+                                        )}
                                     </TouchableOpacity>
                                 </View>
-                                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+                                {errors.password ? (
+                                    <Text style={styles.errorText}>
+                                        {errors.password}
+                                    </Text>
+                                ) : null}
                             </View>
 
                             {/* Remember Me & Forgot PW */}
@@ -139,40 +167,62 @@ export default function Login() {
                                     <Checkbox
                                         value={remember}
                                         onValueChange={setRemember}
-                                        color={remember ? '#ac3434' : undefined}
+                                        color={remember ? "#ac3434" : undefined}
                                         style={styles.checkbox}
                                     />
-                                    <Text style={styles.rememberText}>Remember me</Text>
+                                    <Text style={styles.rememberText}>
+                                        Remember me
+                                    </Text>
                                 </View>
 
-                                <TouchableOpacity onPress={() => router.push('/forgot-password')}>
-                                    <Text style={styles.forgotText}>Forgot password?</Text>
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        router.push("/forgot-password")
+                                    }
+                                >
+                                    <Text style={styles.forgotText}>
+                                        Forgot password?
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
 
                             {/* Login Button */}
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[
-                                    styles.button, 
-                                    (!isFormValid || isLoading) && styles.buttonDisabled
-                                ]} 
+                                    styles.button,
+                                    (!isFormValid || isLoading) &&
+                                        styles.buttonDisabled,
+                                ]}
                                 onPress={handleLogin}
                                 disabled={!isFormValid || isLoading}
                             >
                                 {isLoading ? (
                                     <View style={styles.loadingRow}>
-                                        <ActivityIndicator color="white" size="small" />
-                                        <Text style={styles.buttonText}> Logging in...</Text>
+                                        <ActivityIndicator
+                                            color="white"
+                                            size="small"
+                                        />
+                                        <Text style={styles.buttonText}>
+                                            {" "}
+                                            Logging in...
+                                        </Text>
                                     </View>
                                 ) : (
                                     <Text style={styles.buttonText}>LOGIN</Text>
                                 )}
                             </TouchableOpacity>
-
                         </View>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <SuccessDialog
+                visible={errorDialog.visible}
+                title="Login Failed"
+                message={errorDialog.message}
+                type="error"
+                onClose={() => setErrorDialog({ visible: false, message: "" })}
+            />
         </SafeAreaView>
     );
 }
@@ -184,11 +234,11 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
+        justifyContent: "center",
         padding: 24,
     },
     glassPanel: {
-        backgroundColor: 'white',
+        backgroundColor: "white",
         borderRadius: 16,
         padding: 24,
         paddingTop: 32,
@@ -200,18 +250,18 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     header: {
-        alignItems: 'center',
+        alignItems: "center",
         marginBottom: 32,
     },
     logo: {
-        height: 64, 
+        height: 64,
         width: 64,
         marginBottom: 16,
     },
     brandTitle: {
         fontSize: 20,
-        fontWeight: '600',
-        color: 'black',
+        fontWeight: "600",
+        color: "black",
     },
     form: {
         gap: 20,
@@ -220,87 +270,87 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     label: {
-        color: '#374151', 
-        fontWeight: '500',
+        color: "#374151",
+        fontWeight: "500",
         fontSize: 14,
         marginBottom: 4,
     },
     input: {
-        backgroundColor: 'white',
+        backgroundColor: "white",
         borderWidth: 1, // slightly thinner than web usually looks better on mobile
-        borderColor: '#D1D5DB', 
+        borderColor: "#D1D5DB",
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
-        color: '#111827',
+        color: "#111827",
     },
     inputError: {
-        borderColor: '#DC2626',
+        borderColor: "#DC2626",
         borderWidth: 1.5,
     },
     errorText: {
-        color: '#DC2626',
+        color: "#DC2626",
         fontSize: 12,
         marginTop: 4,
     },
     passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "white",
         borderWidth: 1,
-        borderColor: '#D1D5DB',
+        borderColor: "#D1D5DB",
         borderRadius: 8,
     },
     passwordInput: {
         flex: 1,
         padding: 12,
         fontSize: 16,
-        color: '#111827',
+        color: "#111827",
     },
     eyeIcon: {
         padding: 10,
     },
     rowBetween: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
         marginTop: 4,
     },
     checkboxContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
     },
     checkbox: {
         borderRadius: 4,
         marginRight: 8,
-        borderColor: '#D1D5DB',
+        borderColor: "#D1D5DB",
     },
     rememberText: {
         fontSize: 14,
-        color: '#374151',
+        color: "#374151",
     },
     forgotText: {
         fontSize: 14,
-        color: '#ac3434',
+        color: "#ac3434",
     },
     button: {
-        backgroundColor: '#ac3434',
+        backgroundColor: "#ac3434",
         padding: 16,
         borderRadius: 8,
-        alignItems: 'center',
+        alignItems: "center",
         marginTop: 10,
     },
     buttonDisabled: {
-        backgroundColor: '#e57373', // Lighter red
+        backgroundColor: "#e57373", // Lighter red
         opacity: 0.8,
     },
     buttonText: {
-        color: 'white',
-        fontWeight: 'bold',
+        color: "white",
+        fontWeight: "bold",
         fontSize: 16,
     },
     loadingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    }
+        flexDirection: "row",
+        alignItems: "center",
+    },
 });
