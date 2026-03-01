@@ -1390,11 +1390,6 @@ export default function PatientDetails() {
                                                 <Image
                                                     source={{
                                                         uri: imageUrl,
-                                                        headers: token
-                                                            ? {
-                                                                  Authorization: `Bearer ${token}`,
-                                                              }
-                                                            : undefined,
                                                     }}
                                                     style={styles.resultImage}
                                                     resizeMode="contain"
