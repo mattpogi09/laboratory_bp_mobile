@@ -32,6 +32,7 @@ export default function Login() {
     const [errors, setErrors] = useState({ username: "", password: "" });
     const [errorDialog, setErrorDialog] = useState({
         visible: false,
+        title: "Login Failed",
         message: "",
     });
 
@@ -51,13 +52,25 @@ export default function Login() {
         } catch (error: any) {
             console.log("Login Error:", error);
 
-            const message =
-                error?.response?.data?.message ||
-                "Unable to log in. Please double-check your credentials.";
+            // No response = network/connectivity issue
+            const isNetworkError =
+                !error?.response &&
+                (error?.request ||
+                    error?.code === "ECONNABORTED" ||
+                    error?.message === "Network Error");
+
+            const title = isNetworkError
+                ? "No Internet Connection"
+                : "Login Failed";
+            const message = isNetworkError
+                ? "No internet connection. Please check your network and try again."
+                : error?.response?.data?.message ||
+                  "Unable to log in. Please double-check your credentials.";
 
             setErrorDialog({
                 visible: true,
-                message: message,
+                title,
+                message,
             });
 
             const fieldErrors = error?.response?.data?.errors;
@@ -218,10 +231,16 @@ export default function Login() {
 
             <SuccessDialog
                 visible={errorDialog.visible}
-                title="Login Failed"
+                title={errorDialog.title}
                 message={errorDialog.message}
                 type="error"
-                onClose={() => setErrorDialog({ visible: false, message: "" })}
+                onClose={() =>
+                    setErrorDialog({
+                        visible: false,
+                        title: "Login Failed",
+                        message: "",
+                    })
+                }
             />
         </SafeAreaView>
     );
