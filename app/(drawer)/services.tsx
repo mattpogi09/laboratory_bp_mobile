@@ -1,16 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
     ChevronDown,
     Edit,
     Grid,
@@ -22,12 +11,23 @@ import {
     X,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 import api from "@/app/services/api";
-import { showApiError } from "@/app/utils";
-import { SERVICE_CATEGORIES } from "@/app/types";
-import type { Service, ServicesResponse, GroupedServices } from "@/app/types";
-import { ConfirmDialog, SuccessDialog } from "@/components";
+import type { GroupedServices, Service, ServicesResponse } from "@/types";
+import { SERVICE_CATEGORIES } from "@/types";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 export default function ServicesScreen() {
     const [services, setServices] = useState<Service[]>([]);
@@ -43,10 +43,10 @@ export default function ServicesScreen() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedService, setSelectedService] = useState<Service | null>(
-        null
+        null,
     );
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-        new Set()
+        new Set(),
     );
 
     // Dialog states
@@ -69,8 +69,16 @@ export default function ServicesScreen() {
         try {
             const response = await api.get("/services/categories");
             setCategories(response.data);
-        } catch (error) {
-            console.error("Failed to load categories", error);
+        } catch (error: any) {
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to load categories.",
+                ),
+                type: "error",
+            });
         }
     }, []);
 
@@ -98,18 +106,18 @@ export default function ServicesScreen() {
                 // Auto-expand all categories on first load
                 if (page === 1 && servicesData.length > 0) {
                     const uniqueCategories = new Set(
-                        servicesData.map((s) => s.category)
+                        servicesData.map((s) => s.category),
                     );
                     setExpandedCategories(uniqueCategories);
                 }
             } catch (error: any) {
-                console.error("Failed to load services", error);
                 setSuccessDialog({
                     visible: true,
                     title: "Error",
-                    message:
-                        error.response?.data?.message ||
-                        "Failed to load services",
+                    message: getApiErrorMessage(
+                        error,
+                        "Failed to load services.",
+                    ),
                     type: "error",
                 });
             } finally {
@@ -117,14 +125,14 @@ export default function ServicesScreen() {
                 setRefreshing(false);
             }
         },
-        [refreshing, searchQuery, selectedCategory]
+        [refreshing, searchQuery, selectedCategory],
     );
 
     useFocusEffect(
         useCallback(() => {
             loadCategories();
             loadServices(1, true);
-        }, [loadCategories, loadServices])
+        }, [loadCategories, loadServices]),
     );
 
     const handleRefresh = () => {
@@ -133,50 +141,27 @@ export default function ServicesScreen() {
     };
 
     const handleCreate = async (formData: any) => {
-        try {
-            await api.post("/services", formData);
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message: "Service created successfully",
-                type: "success",
-            });
-            setShowCreateModal(false);
-            loadServices(1, true);
-            loadCategories();
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message:
-                    error.response?.data?.message || "Failed to create service",
-                type: "error",
-            });
-        }
+        await api.post("/services", formData);
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: "Service created successfully",
+            type: "success",
+        });
+        loadServices(1, true);
+        loadCategories();
     };
 
     const handleUpdate = async (id: number, formData: any) => {
-        try {
-            await api.put(`/services/${id}`, formData);
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message: "Service updated successfully",
-                type: "success",
-            });
-            setShowEditModal(false);
-            setSelectedService(null);
-            loadServices(1, true);
-            loadCategories();
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message:
-                    error.response?.data?.message || "Failed to update service",
-                type: "error",
-            });
-        }
+        await api.put(`/services/${id}`, formData);
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: "Service updated successfully",
+            type: "success",
+        });
+        loadServices(1, true);
+        loadCategories();
     };
 
     const handleToggle = async (service: Service) => {
@@ -190,7 +175,7 @@ export default function ServicesScreen() {
             }.\n\nAre you sure you want to ${
                 service.is_active ? "deactivate" : "activate"
             } ${service.name}?`,
-            confirmText: service.is_active ? "Deactivate" : "Activate",
+            confirmText: service.is_active ? "DEACTIVATE" : "ACTIVATE",
             type: service.is_active ? "warning" : "info",
             onConfirm: async () => {
                 setConfirmDialog({ ...confirmDialog, visible: false });
@@ -245,8 +230,10 @@ export default function ServicesScreen() {
 
     if (loading && !services.length) {
         return (
-            <View style={styles.loading}>
-                <ActivityIndicator size="large" color="#ac3434" />
+            <View style={styles.container}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                    <SkeletonRow count={6} />
+                </View>
             </View>
         );
     }
@@ -297,7 +284,7 @@ export default function ServicesScreen() {
                     const categoryServices = groupedServices[category];
                     const isExpanded = expandedCategories.has(category);
                     const activeCount = categoryServices.filter(
-                        (s) => s.is_active
+                        (s) => s.is_active,
                     ).length;
                     const totalCount = categoryServices.length;
 
@@ -524,6 +511,7 @@ export default function ServicesScreen() {
                 title={successDialog.title}
                 message={successDialog.message}
                 type={successDialog.type}
+                autoClose={successDialog.type === "success"}
                 onClose={() =>
                     setSuccessDialog({ ...successDialog, visible: false })
                 }
@@ -632,10 +620,35 @@ function CreateServiceModal({
         description: "",
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validate = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.name.trim()) errs.name = ["Service name is required."];
+        if (!formData.category) errs.category = ["Category is required."];
+        if (!formData.price) errs.price = ["Price is required."];
+        else if (
+            isNaN(parseFloat(formData.price)) ||
+            parseFloat(formData.price) < 0
+        )
+            errs.price = ["Enter a valid non-negative price."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (!formData.name || !formData.category || !formData.price) {
-            onError("Please fill in all required fields");
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -645,7 +658,14 @@ function CreateServiceModal({
                 price: parseFloat(formData.price),
             });
             setFormData({ name: "", category: "", price: "", description: "" });
+            setErrors({});
             onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(getApiErrorMessage(err, "Failed to create service."));
+            }
         } finally {
             setLoading(false);
         }
@@ -666,40 +686,65 @@ function CreateServiceModal({
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.name && styles.inputError,
+                                ]}
                                 value={formData.name}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, name: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, name: text });
+                                    clearError("name");
+                                }}
                                 placeholder="Enter service name"
                             />
+                            {errors.name?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.name[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Category</Text>
                             <CategoryPicker
                                 selectedValue={formData.category}
-                                onValueChange={(value) =>
+                                hasError={!!errors.category}
+                                onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
                                         category: value,
-                                    })
-                                }
+                                    });
+                                    clearError("category");
+                                }}
                                 categories={SERVICE_CATEGORIES}
                             />
+                            {errors.category?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.category[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Price</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.price && styles.inputError,
+                                ]}
                                 value={formData.price}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, price: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, price: text });
+                                    clearError("price");
+                                }}
                                 placeholder="Enter price"
                                 keyboardType="decimal-pad"
                             />
+                            {errors.price?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.price[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -773,10 +818,35 @@ function EditServiceModal({
         description: service.description || "",
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validate = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.name.trim()) errs.name = ["Service name is required."];
+        if (!formData.category) errs.category = ["Category is required."];
+        if (!formData.price) errs.price = ["Price is required."];
+        else if (
+            isNaN(parseFloat(formData.price)) ||
+            parseFloat(formData.price) < 0
+        )
+            errs.price = ["Enter a valid non-negative price."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (!formData.name || !formData.category || !formData.price) {
-            onError("Please fill in all required fields");
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -785,7 +855,14 @@ function EditServiceModal({
                 ...formData,
                 price: parseFloat(formData.price),
             });
+            setErrors({});
             onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(getApiErrorMessage(err, "Failed to update service."));
+            }
         } finally {
             setLoading(false);
         }
@@ -806,40 +883,65 @@ function EditServiceModal({
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.name && styles.inputError,
+                                ]}
                                 value={formData.name}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, name: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, name: text });
+                                    clearError("name");
+                                }}
                                 placeholder="Enter service name"
                             />
+                            {errors.name?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.name[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Category</Text>
                             <CategoryPicker
                                 selectedValue={formData.category}
-                                onValueChange={(value) =>
+                                hasError={!!errors.category}
+                                onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
                                         category: value,
-                                    })
-                                }
+                                    });
+                                    clearError("category");
+                                }}
                                 categories={SERVICE_CATEGORIES}
                             />
+                            {errors.category?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.category[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Price</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.price && styles.inputError,
+                                ]}
                                 value={formData.price}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, price: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, price: text });
+                                    clearError("price");
+                                }}
                                 placeholder="Enter price"
                                 keyboardType="decimal-pad"
                             />
+                            {errors.price?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.price[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -895,17 +997,22 @@ function CategoryPicker({
     selectedValue,
     onValueChange,
     categories,
+    hasError = false,
 }: {
     selectedValue: string;
     onValueChange: (value: string) => void;
     categories: string[];
+    hasError?: boolean;
 }) {
     const [showPicker, setShowPicker] = useState(false);
 
     return (
         <>
             <TouchableOpacity
-                style={styles.pickerButton}
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
                 onPress={() => setShowPicker(true)}
             >
                 <Text
@@ -1323,4 +1430,7 @@ const styles = StyleSheet.create({
         color: "#2563EB",
         fontWeight: "600",
     },
+    inputError: { borderColor: "#EF4444" },
+    errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
+    pickerButtonError: { borderColor: "#EF4444" },
 });

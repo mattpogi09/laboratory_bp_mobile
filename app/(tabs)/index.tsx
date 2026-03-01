@@ -1,8 +1,17 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import {
+    AlertCircle,
+    AlertTriangle,
+    Clock,
+    TrendingUp,
+    Users,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
+    Dimensions,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -10,21 +19,14 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import {
-    AlertTriangle,
-    Bell,
-    Clock,
-    TrendingUp,
-    Users,
-} from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { LineChart, PieChart } from "react-native-chart-kit";
 import {
     SafeAreaView,
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 
 import api from "@/app/services/api";
+import { getApiErrorMessage } from "@/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 type MetricCard = {
@@ -61,6 +63,7 @@ type DashboardResponse = {
     }[];
     revenueChartData: { label: string; value: number }[];
     testStatusData: Record<string, number>;
+    topTests?: { name: string; count: number; revenue: string | number }[];
     alerts: {
         type: string;
         message: string;
@@ -69,6 +72,8 @@ type DashboardResponse = {
         params?: any;
     }[];
 };
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const periods: { label: string; value: string }[] = [
     { label: "Day", value: "day" },
@@ -98,6 +103,7 @@ export default function Dashboard() {
     const [data, setData] = useState<DashboardResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadDashboard = useCallback(async () => {
         // Don't attempt to load if not authenticated
@@ -112,9 +118,11 @@ export default function Dashboard() {
                 params: { period },
             });
             setData(response.data);
+            setLoadError(null);
         } catch (error: any) {
-            console.error("Dashboard load failed", error);
-            Alert.alert("Error", "Unable to load dashboard data.");
+            setLoadError(
+                getApiErrorMessage(error, "Unable to load dashboard data."),
+            );
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -128,7 +136,7 @@ export default function Dashboard() {
     useFocusEffect(
         useCallback(() => {
             loadDashboard();
-        }, [loadDashboard])
+        }, [loadDashboard]),
     );
 
     const handleRefresh = () => {
@@ -186,14 +194,14 @@ export default function Dashboard() {
                 icon: <Clock color="white" size={20} />,
             },
         ],
-        [data]
+        [data],
     );
 
     const testStatusEntries = useMemo(() => {
         if (!data?.testStatusData) return [];
         const total = Object.values(data.testStatusData).reduce(
             (sum, value) => sum + value,
-            0
+            0,
         );
         return TEST_STATUSES.map((status) => {
             const value = data.testStatusData[status.key] ?? 0;
@@ -203,10 +211,85 @@ export default function Dashboard() {
         });
     }, [data]);
 
+    const pieChartData = useMemo(() => {
+        const entries = testStatusEntries.filter((s) => s.value > 0);
+        if (!entries.length) return null;
+        return entries.map((s) => ({
+            name: s.label,
+            population: s.value,
+            color: s.color,
+            legendFontColor: "#374151",
+            legendFontSize: 12,
+        }));
+    }, [testStatusEntries]);
+
+    const revenueLineData = useMemo(() => {
+        if (!data?.revenueChartData?.length) return null;
+        // Cap labels to avoid crowding — show last 7 or fewer
+        const items = data.revenueChartData.slice(-7);
+        return {
+            labels: items.map((d) => d.label),
+            datasets: [{ data: items.map((d) => Math.max(0, d.value)) }],
+        };
+    }, [data]);
+
     if (loading && !data) {
         return (
             <View style={styles.loading}>
                 <ActivityIndicator size="large" color="#ac3434" />
+            </View>
+        );
+    }
+
+    if (loadError && !data) {
+        return (
+            <View style={styles.loading}>
+                <AlertCircle color="#EF4444" size={36} />
+                <Text
+                    style={{
+                        fontSize: 16,
+                        color: "#111827",
+                        fontWeight: "600",
+                        marginTop: 12,
+                        textAlign: "center",
+                    }}
+                >
+                    Dashboard unavailable
+                </Text>
+                <Text
+                    style={{
+                        fontSize: 13,
+                        color: "#6B7280",
+                        marginTop: 4,
+                        textAlign: "center",
+                        paddingHorizontal: 32,
+                    }}
+                >
+                    {loadError}
+                </Text>
+                <TouchableOpacity
+                    style={{
+                        marginTop: 16,
+                        paddingHorizontal: 24,
+                        paddingVertical: 10,
+                        backgroundColor: "#ac3434",
+                        borderRadius: 10,
+                    }}
+                    onPress={() => {
+                        setLoadError(null);
+                        loadDashboard();
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: "#fff",
+                            fontWeight: "600",
+                            fontSize: 15,
+                        }}
+                    >
+                        Retry
+                    </Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -234,10 +317,10 @@ export default function Dashboard() {
                             {period === "day"
                                 ? "today"
                                 : period === "week"
-                                ? "this week"
-                                : period === "month"
-                                ? "this month"
-                                : "this year"}
+                                  ? "this week"
+                                  : period === "month"
+                                    ? "this month"
+                                    : "this year"}
                             .
                         </Text>
                     </View>
@@ -304,36 +387,93 @@ export default function Dashboard() {
                     ))}
                 </View>
 
+                {/* Revenue Trend Line Chart */}
+                {revenueLineData && (
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Revenue Trend</Text>
+                        <LineChart
+                            data={revenueLineData}
+                            width={SCREEN_WIDTH - 72}
+                            height={180}
+                            yAxisLabel="₱"
+                            yAxisSuffix=""
+                            chartConfig={{
+                                backgroundColor: "#fff",
+                                backgroundGradientFrom: "#fff",
+                                backgroundGradientTo: "#fff",
+                                decimalPlaces: 0,
+                                color: (opacity = 1) =>
+                                    `rgba(16, 185, 129, ${opacity})`,
+                                labelColor: (opacity = 1) =>
+                                    `rgba(107, 114, 128, ${opacity})`,
+                                propsForDots: {
+                                    r: "4",
+                                    strokeWidth: "2",
+                                    stroke: "#10B981",
+                                },
+                                propsForBackgroundLines: {
+                                    strokeDasharray: "",
+                                    stroke: "#F3F4F6",
+                                },
+                            }}
+                            bezier
+                            style={styles.chart}
+                            withInnerLines
+                            withOuterLines={false}
+                        />
+                    </View>
+                )}
+
                 <View style={styles.row}>
                     <View style={[styles.card, styles.flexCard]}>
                         <Text style={styles.cardTitle}>Test Status</Text>
-                        {testStatusEntries.length ? (
-                            <View style={styles.statusList}>
-                                {testStatusEntries.map((status) => (
-                                    <View
-                                        key={status.key}
-                                        style={styles.statusRow}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.statusDot,
-                                                {
-                                                    backgroundColor:
-                                                        status.color,
-                                                },
-                                            ]}
-                                        />
-                                        <Text style={styles.statusLabel}>
-                                            {status.label}
-                                        </Text>
-                                        <View style={styles.statusValueWrapper}>
-                                            <Text style={styles.statusValue}>
-                                                {status.value}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </View>
+                        {pieChartData ? (
+                            <>
+                                <PieChart
+                                    data={pieChartData}
+                                    width={SCREEN_WIDTH / 2 - 24}
+                                    height={140}
+                                    chartConfig={{
+                                        color: (opacity = 1) =>
+                                            `rgba(0,0,0,${opacity})`,
+                                    }}
+                                    accessor="population"
+                                    backgroundColor="transparent"
+                                    paddingLeft="0"
+                                    hasLegend={false}
+                                    center={[SCREEN_WIDTH / 4 - 36, 0]}
+                                />
+                                <View style={styles.statusList}>
+                                    {testStatusEntries
+                                        .filter((s) => s.value > 0)
+                                        .map((status) => (
+                                            <View
+                                                key={status.key}
+                                                style={styles.statusRow}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.statusDot,
+                                                        {
+                                                            backgroundColor:
+                                                                status.color,
+                                                        },
+                                                    ]}
+                                                />
+                                                <Text
+                                                    style={styles.statusLabel}
+                                                >
+                                                    {status.label}
+                                                </Text>
+                                                <Text
+                                                    style={styles.statusValue}
+                                                >
+                                                    {status.value}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                </View>
+                            </>
                         ) : (
                             <Text style={styles.emptyState}>
                                 No lab activity yet.
@@ -373,6 +513,67 @@ export default function Dashboard() {
                     </View>
                 </View>
 
+                {/* Top Performing Tests */}
+                {data?.topTests && data.topTests.length > 0 && (
+                    <View style={styles.card}>
+                        <View style={styles.stockHeader}>
+                            <Text style={styles.cardTitle}>Top Tests</Text>
+                            <TouchableOpacity
+                                onPress={() => router.push("/reports")}
+                            >
+                                <Text style={styles.viewAllLink}>
+                                    View All →
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        {data.topTests.map((test, index) => (
+                            <View key={index} style={styles.topTestRow}>
+                                <View
+                                    style={[
+                                        styles.topTestRank,
+                                        index === 0
+                                            ? { backgroundColor: "#FEF9C3" }
+                                            : index === 1
+                                              ? { backgroundColor: "#F3F4F6" }
+                                              : index === 2
+                                                ? { backgroundColor: "#FEF3C7" }
+                                                : {
+                                                      backgroundColor:
+                                                          "#EFF6FF",
+                                                  },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.topTestRankText,
+                                            index === 0
+                                                ? { color: "#92400E" }
+                                                : index === 1
+                                                  ? { color: "#374151" }
+                                                  : index === 2
+                                                    ? { color: "#92400E" }
+                                                    : { color: "#1D4ED8" },
+                                        ]}
+                                    >
+                                        #{index + 1}
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.topTestName}>
+                                        {test.name}
+                                    </Text>
+                                    <Text style={styles.topTestCount}>
+                                        {test.count} tests ordered
+                                    </Text>
+                                </View>
+                                <Text style={styles.topTestRevenue}>
+                                    ₱{test.revenue}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
                 <View style={styles.card}>
                     <View style={styles.stockHeader}>
                         <Text style={styles.cardTitle}>Stock Status</Text>
@@ -385,7 +586,7 @@ export default function Dashboard() {
                     {data?.lowStockItems?.map((item) => {
                         const needed = Math.max(
                             0,
-                            item.minimum_stock - item.current_stock
+                            item.minimum_stock - item.current_stock,
                         );
                         const percentage =
                             item.minimum_stock > 0
@@ -393,7 +594,7 @@ export default function Dashboard() {
                                       100,
                                       (item.current_stock /
                                           item.minimum_stock) *
-                                          100
+                                          100,
                                   )
                                 : 0;
                         let progressColor = "#F59E0B"; // Yellow/Orange for low stock
@@ -456,10 +657,10 @@ export default function Dashboard() {
                                         task.status === "pending"
                                             ? styles.statusPending
                                             : task.status === "processing"
-                                            ? styles.statusProcessing
-                                            : task.status === "completed"
-                                            ? styles.statusCompleted
-                                            : styles.statusReleased,
+                                              ? styles.statusProcessing
+                                              : task.status === "completed"
+                                                ? styles.statusCompleted
+                                                : styles.statusReleased,
                                     ]}
                                 >
                                     <Text
@@ -468,10 +669,10 @@ export default function Dashboard() {
                                             task.status === "pending"
                                                 ? { color: "#991B1B" }
                                                 : task.status === "processing"
-                                                ? { color: "#92400E" }
-                                                : task.status === "completed"
-                                                ? { color: "#1E40AF" }
-                                                : { color: "#065F46" },
+                                                  ? { color: "#92400E" }
+                                                  : task.status === "completed"
+                                                    ? { color: "#1E40AF" }
+                                                    : { color: "#065F46" },
                                         ]}
                                     >
                                         {task.status}
@@ -655,6 +856,30 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         fontSize: 12,
     },
+    chart: {
+        borderRadius: 8,
+        marginTop: 4,
+        marginLeft: -12,
+    },
+    topTestRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+        gap: 12,
+    },
+    topTestRank: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    topTestRankText: { fontSize: 12, fontWeight: "700" },
+    topTestName: { fontSize: 14, fontWeight: "600", color: "#111827" },
+    topTestCount: { fontSize: 12, color: "#6B7280", marginTop: 1 },
+    topTestRevenue: { fontSize: 13, fontWeight: "700", color: "#059669" },
     statusList: { marginTop: 4 },
     statusRow: {
         flexDirection: "row",

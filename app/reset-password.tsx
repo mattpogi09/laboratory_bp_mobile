@@ -16,8 +16,7 @@ import {
     View,
 } from "react-native";
 import axios from "axios";
-
-const API_BASE_URL = "http://192.168.254.102:8000/api";
+import { API_BASE_URL } from "@/app/services/api";
 
 export default function ResetPassword() {
     const params = useLocalSearchParams();
@@ -47,7 +46,7 @@ export default function ResetPassword() {
                     email: email,
                     password: password,
                     password_confirmation: passwordConfirmation,
-                }
+                },
             );
 
             Alert.alert(
@@ -58,7 +57,7 @@ export default function ResetPassword() {
                         text: "OK",
                         onPress: () => router.replace("/login"),
                     },
-                ]
+                ],
             );
         } catch (error: any) {
             console.log("Reset Password Error:", error);
@@ -193,7 +192,7 @@ export default function ResetPassword() {
                                     <TouchableOpacity
                                         onPress={() =>
                                             setShowConfirmPassword(
-                                                !showConfirmPassword
+                                                !showConfirmPassword,
                                             )
                                         }
                                         style={styles.eyeIcon}

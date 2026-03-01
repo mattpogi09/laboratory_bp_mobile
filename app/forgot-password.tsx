@@ -16,8 +16,7 @@ import {
     View,
 } from "react-native";
 import axios from "axios";
-
-const API_BASE_URL = "http://192.168.254.102:8000/api";
+import { API_BASE_URL } from "@/app/services/api";
 
 export default function ForgotPassword() {
     const [step, setStep] = useState(1); // 1 = Email entry, 2 = OTP verification
@@ -40,11 +39,11 @@ export default function ForgotPassword() {
                 `${API_BASE_URL}/forgot-password`,
                 {
                     email: email.trim(),
-                }
+                },
             );
 
             setStatus(
-                "We have sent a 6-digit OTP to your email address. Please check your inbox."
+                "We have sent a 6-digit OTP to your email address. Please check your inbox.",
             );
             setStep(2);
         } catch (error: any) {

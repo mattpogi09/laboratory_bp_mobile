@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import {
     PropsWithChildren,
     createContext,
@@ -10,6 +10,8 @@ import {
 } from "react";
 
 import api, { TOKEN_STORAGE_KEY, setAuthToken } from "@/app/services/api";
+
+const USER_STORAGE_KEY = "bp_mobile_user";
 
 type User = {
     id: number;
@@ -42,15 +44,34 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const hydrate = useCallback(async () => {
         try {
-            const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
+            const storedToken =
+                await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
             if (storedToken) {
-                setToken(storedToken);
                 setAuthToken(storedToken);
-                const profile = await api.get("/user");
-                setUser(profile.data);
+                setToken(storedToken);
+
+                // Restore cached user immediately so the app can render without a network round-trip.
+                const storedUser =
+                    await SecureStore.getItemAsync(USER_STORAGE_KEY);
+                if (storedUser) {
+                    setUser(JSON.parse(storedUser));
+                }
+
+                // Refresh profile in the background to pick up any server-side changes.
+                try {
+                    const profile = await api.get("/user");
+                    setUser(profile.data);
+                    await SecureStore.setItemAsync(
+                        USER_STORAGE_KEY,
+                        JSON.stringify(profile.data),
+                    );
+                } catch {
+                    // Network unavailable – cached user data is still valid.
+                }
             }
         } catch (error) {
-            await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+            await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+            await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
             setAuthToken(null);
         } finally {
             setInitializing(false);
@@ -81,10 +102,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
                 console.log("[Auth] Login successful");
                 const receivedToken = response.data.token as string;
+                const receivedUser = response.data.user as User;
                 setToken(receivedToken);
-                setUser(response.data.user);
+                setUser(receivedUser);
                 setAuthToken(receivedToken);
-                await AsyncStorage.setItem(TOKEN_STORAGE_KEY, receivedToken);
+                await SecureStore.setItemAsync(
+                    TOKEN_STORAGE_KEY,
+                    receivedToken,
+                );
+                await SecureStore.setItemAsync(
+                    USER_STORAGE_KEY,
+                    JSON.stringify(receivedUser),
+                );
             } catch (error: any) {
                 console.error("[Auth] Login error:", error.message);
                 console.error("[Auth] Error details:", {
@@ -95,7 +124,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 throw error;
             }
         },
-        []
+        [],
     );
 
     const logout = useCallback(async () => {
@@ -107,7 +136,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setUser(null);
             setToken(null);
             setAuthToken(null);
-            await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+            await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+            await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
         }
     }, []);
 
@@ -115,6 +145,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!token) return;
         const profile = await api.get("/user");
         setUser(profile.data);
+        await SecureStore.setItemAsync(
+            USER_STORAGE_KEY,
+            JSON.stringify(profile.data),
+        );
     }, [token]);
 
     const value = useMemo<AuthContextValue>(
@@ -127,7 +161,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             logout,
             refreshProfile,
         }),
-        [initializing, login, logout, refreshProfile, token, user]
+        [initializing, login, logout, refreshProfile, token, user],
     );
 
     return (

@@ -1,35 +1,35 @@
-import React, { useState, useEffect, useCallback } from "react";
+import api from "@/app/services/api";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import { useAuth } from "@/contexts/AuthContext";
+import { router } from "expo-router";
 import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    RefreshControl,
-    TouchableOpacity,
-    ActivityIndicator,
-    TextInput,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import {
-    Search,
-    TrendingUp,
-    TrendingDown,
+    AlertCircle,
+    CheckCheck,
     CheckCircle2,
-    Plus,
-    X,
     ChevronDown,
     Clipboard,
     DollarSign,
-    Wallet,
-    User,
     FileBarChart,
-    AlertCircle,
-    CheckCheck,
+    Search,
+    TrendingDown,
+    TrendingUp,
+    User,
+    Wallet,
+    X,
 } from "lucide-react-native";
-import { useAuth } from "@/contexts/AuthContext";
-import { router } from "expo-router";
-import api from "@/app/services/api";
-import { ConfirmDialog, SuccessDialog } from "@/components";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Reconciliation {
     id: number;
@@ -67,7 +67,7 @@ interface Stats {
 export default function ReconciliationScreen() {
     const { user } = useAuth();
     const [reconciliations, setReconciliations] = useState<Reconciliation[]>(
-        []
+        [],
     );
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -128,12 +128,14 @@ export default function ReconciliationScreen() {
 
                 setPage(response.data.current_page);
                 setLastPage(response.data.last_page);
-            } catch (error) {
-                console.error("Error fetching reconciliations:", error);
+            } catch (error: any) {
                 setSuccessDialog({
                     visible: true,
                     title: "Error",
-                    message: "Failed to load reconciliations",
+                    message: getApiErrorMessage(
+                        error,
+                        "Failed to load reconciliations.",
+                    ),
                     type: "error",
                 });
             } finally {
@@ -141,7 +143,7 @@ export default function ReconciliationScreen() {
                 setRefreshing(false);
             }
         },
-        [searchQuery, statusFilter, isAdmin]
+        [searchQuery, statusFilter, isAdmin],
     );
 
     useEffect(() => {
@@ -169,7 +171,10 @@ export default function ReconciliationScreen() {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message: error.message || "Failed to load reconciliation data",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to load reconciliation data.",
+                ),
                 type: "error",
             });
         }
@@ -207,7 +212,10 @@ export default function ReconciliationScreen() {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message: error.message || "Failed to create reconciliation",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to create reconciliation.",
+                ),
                 type: "error",
             });
         } finally {
@@ -223,7 +231,7 @@ export default function ReconciliationScreen() {
                 item.cashier?.name || "this cashier"
             } on ${new Date(item.reconciliation_date).toLocaleDateString(
                 "en-US",
-                { month: "short", day: "numeric", year: "numeric" }
+                { month: "short", day: "numeric", year: "numeric" },
             )}?\n\nReason: ${item.correction_reason || "No reason provided"}`,
             confirmText: "Approve",
             type: "info",
@@ -231,7 +239,7 @@ export default function ReconciliationScreen() {
                 setConfirmDialog({ ...confirmDialog, visible: false });
                 try {
                     const response = await api.post(
-                        `/reconciliations/${item.id}/approve`
+                        `/reconciliations/${item.id}/approve`,
                     );
                     setSuccessDialog({
                         visible: true,
@@ -244,9 +252,10 @@ export default function ReconciliationScreen() {
                     setSuccessDialog({
                         visible: true,
                         title: "Error",
-                        message:
-                            error.message ||
-                            "Failed to approve correction request",
+                        message: getApiErrorMessage(
+                            error,
+                            "Failed to approve correction request.",
+                        ),
                         type: "error",
                     });
                 }
@@ -295,7 +304,7 @@ export default function ReconciliationScreen() {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
-                            }
+                            },
                         )}
                     </Text>
                     {item.cashier && (
@@ -318,8 +327,8 @@ export default function ReconciliationScreen() {
                         {item.status === "balanced"
                             ? "Balanced"
                             : item.status === "overage"
-                            ? "Overage"
-                            : "Shortage"}
+                              ? "Overage"
+                              : "Shortage"}
                     </Text>
                 </View>
             </View>
@@ -448,8 +457,8 @@ export default function ReconciliationScreen() {
     if (loading && !refreshing) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#ac3434" />
+                <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                    <SkeletonRow count={6} />
                 </View>
             </SafeAreaView>
         );
@@ -558,10 +567,10 @@ export default function ReconciliationScreen() {
                         {statusFilter === ""
                             ? "All Reconciliations"
                             : statusFilter === "balanced"
-                            ? "Balanced"
-                            : statusFilter === "overage"
-                            ? "Overage"
-                            : "Shortage"}
+                              ? "Balanced"
+                              : statusFilter === "overage"
+                                ? "Overage"
+                                : "Shortage"}
                     </Text>
                     <ChevronDown color="#6B7280" size={20} />
                 </TouchableOpacity>
@@ -655,9 +664,24 @@ export default function ReconciliationScreen() {
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.5}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
+                    <View
+                        style={[
+                            styles.emptyContainer,
+                            { alignItems: "center", gap: 8 },
+                        ]}
+                    >
+                        <Wallet size={40} color="#D1D5DB" />
                         <Text style={styles.emptyText}>
                             No reconciliations found
+                        </Text>
+                        <Text
+                            style={{
+                                fontSize: 13,
+                                color: "#9CA3AF",
+                                textAlign: "center",
+                            }}
+                        >
+                            Submit today's cash count to get started
                         </Text>
                     </View>
                 }

@@ -1,5 +1,14 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    AlertCircle,
+    AlertTriangle,
+    CheckCircle,
+    FileText,
+    X,
+    XCircle,
+} from "lucide-react-native";
+import { useCallback, useState } from "react";
+import {
     ActivityIndicator,
     FlatList,
     Modal,
@@ -11,21 +20,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import {
-    AlertTriangle,
-    CheckCircle,
-    ChevronDown,
-    FileText,
-    Search,
-    X,
-    XCircle,
-} from "lucide-react-native";
-import { useCallback, useState } from "react";
 
 import api from "@/app/services/api";
-import { showApiError } from "@/app/utils";
-import { ConfirmDialog, SuccessDialog } from "@/components";
-import type { RefundRequest, RefundStatus } from "@/app/types";
+import type { RefundRequest, RefundStatus } from "@/types";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -72,6 +71,7 @@ export default function RefundsScreen() {
 
     // Action states
     const [actionLoading, setActionLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     // Dialogs
     const [confirmDialog, setConfirmDialog] = useState({
@@ -86,6 +86,7 @@ export default function RefundsScreen() {
         visible: false,
         title: "",
         message: "",
+        type: "success" as "success" | "error" | "info" | "warning",
     });
 
     // -------------------------------------------------------------------------
@@ -111,8 +112,19 @@ export default function RefundsScreen() {
                 setRefunds((prev) =>
                     replace || page === 1 ? data : [...prev, ...data],
                 );
-            } catch (err) {
-                showApiError(err);
+                setLoadError(null);
+            } catch (err: any) {
+                const msg = getApiErrorMessage(err, "Failed to load refunds.");
+                if (page === 1 && !refreshing) {
+                    setLoadError(msg);
+                } else {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: msg,
+                        type: "error",
+                    });
+                }
             } finally {
                 setLoading(false);
                 setRefreshing(false);
@@ -153,7 +165,7 @@ export default function RefundsScreen() {
                     minimumFractionDigits: 2,
                 },
             )} refund for ${refund.transaction?.patient?.full_name ?? "patient"}?`,
-            confirmText: "Approve",
+            confirmText: "APPROVE",
             type: "info",
             onConfirm: async () => {
                 setConfirmDialog((d) => ({ ...d, visible: false }));
@@ -165,10 +177,19 @@ export default function RefundsScreen() {
                         visible: true,
                         title: "Approved",
                         message: "Refund request has been approved.",
+                        type: "success",
                     });
                     loadRefunds(1, true);
-                } catch (err) {
-                    showApiError(err);
+                } catch (err: any) {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            err,
+                            "Failed to approve refund.",
+                        ),
+                        type: "error",
+                    });
                 } finally {
                     setActionLoading(false);
                 }
@@ -178,15 +199,20 @@ export default function RefundsScreen() {
 
     const handleDenyConfirm = (refund: RefundRequest) => {
         if (!denyNote.trim()) {
-            showApiError({ message: "A denial reason is required." });
+            setSuccessDialog({
+                visible: true,
+                title: "Validation Error",
+                message: "A denial reason is required.",
+                type: "error",
+            });
             return;
         }
 
         setConfirmDialog({
             visible: true,
             title: "Deny Refund",
-            message: "Are you sure you want to deny this refund request?",
-            confirmText: "Deny",
+            message: `Deny ₱${Number(refund.refund_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })} refund for ${refund.transaction?.patient?.full_name ?? "patient"}?\n\nThis action cannot be undone.`,
+            confirmText: "DENY",
             type: "danger",
             onConfirm: async () => {
                 setConfirmDialog((d) => ({ ...d, visible: false }));
@@ -202,10 +228,19 @@ export default function RefundsScreen() {
                         visible: true,
                         title: "Denied",
                         message: "Refund request has been denied.",
+                        type: "success",
                     });
                     loadRefunds(1, true);
-                } catch (err) {
-                    showApiError(err);
+                } catch (err: any) {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            err,
+                            "Failed to deny refund.",
+                        ),
+                        type: "error",
+                    });
                 } finally {
                     setActionLoading(false);
                 }
@@ -324,9 +359,26 @@ export default function RefundsScreen() {
             </ScrollView>
 
             {/* List */}
-            {loading && !refreshing ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color="#3B82F6" />
+            {loadError && !refunds.length ? (
+                <View style={styles.errorContainer}>
+                    <AlertCircle color="#EF4444" size={36} />
+                    <Text style={styles.errorTitle}>
+                        Unable to load refunds
+                    </Text>
+                    <Text style={styles.errorMessage}>{loadError}</Text>
+                    <TouchableOpacity
+                        style={styles.retryBtn}
+                        onPress={() => {
+                            setLoadError(null);
+                            loadRefunds(1, true);
+                        }}
+                    >
+                        <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : loading && !refreshing ? (
+                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+                    <SkeletonRow count={6} />
                 </View>
             ) : (
                 <FlatList
@@ -345,7 +397,17 @@ export default function RefundsScreen() {
                         <View style={styles.centered}>
                             <AlertTriangle size={40} color="#D1D5DB" />
                             <Text style={styles.emptyText}>
-                                No refund requests found
+                                No refund requests
+                            </Text>
+                            <Text
+                                style={{
+                                    fontSize: 13,
+                                    color: "#9CA3AF",
+                                    textAlign: "center",
+                                    marginTop: 4,
+                                }}
+                            >
+                                All requests have been processed
                             </Text>
                         </View>
                     }
@@ -653,6 +715,8 @@ export default function RefundsScreen() {
                 visible={successDialog.visible}
                 title={successDialog.title}
                 message={successDialog.message}
+                type={successDialog.type}
+                autoClose={successDialog.type === "success"}
                 onClose={() =>
                     setSuccessDialog((d) => ({ ...d, visible: false }))
                 }
@@ -816,4 +880,26 @@ const styles = StyleSheet.create({
         backgroundColor: "#F9FAFB",
     },
     denyActions: { flexDirection: "row" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 32,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "600",
+        color: "#111827",
+        textAlign: "center",
+    },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

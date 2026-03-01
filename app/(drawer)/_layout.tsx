@@ -1,25 +1,19 @@
-import { Drawer } from "expo-router/drawer";
-import { DrawerToggleButton } from "@react-navigation/drawer";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    Image,
-    ScrollView,
-} from "react-native";
+    NotificationProvider,
+    useNotificationBadge,
+} from "@/contexts/NotificationContext";
+import { DrawerToggleButton } from "@react-navigation/drawer";
 import { router } from "expo-router";
+import { Drawer } from "expo-router/drawer";
 import {
     ArrowLeftRight,
     BarChart3,
     Bell,
     Calendar,
     ClipboardList,
-    FolderOpen,
-    Grid,
+    FlaskConical,
     Home,
-    Layers,
     LogOut,
     Package,
     Percent,
@@ -28,7 +22,15 @@ import {
     UsersRound,
     Wallet,
 } from "lucide-react-native";
-import { useAuth } from "@/contexts/AuthContext";
+import {
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const drawerStyle = {
     backgroundColor: "#ffffff",
@@ -37,6 +39,7 @@ const drawerStyle = {
 function CustomDrawerContent(props: any) {
     const { logout, user } = useAuth();
     const insets = useSafeAreaInsets();
+    const { unreadCount } = useNotificationBadge();
 
     const handleLogout = async () => {
         await logout();
@@ -47,7 +50,7 @@ function CustomDrawerContent(props: any) {
         { name: "index", title: "Dashboard", icon: Home, section: null },
         {
             name: "patients",
-            title: "Patients",
+            title: "Patient Management",
             icon: UsersRound,
             section: "MANAGEMENT",
         },
@@ -58,33 +61,27 @@ function CustomDrawerContent(props: any) {
             section: "MANAGEMENT",
         },
         {
-            name: "appointments",
-            title: "Appointments",
-            icon: Calendar,
-            section: "MANAGEMENT",
-        },
-        {
             name: "services",
-            title: "Service Management",
-            icon: Grid,
+            title: "Lab Test Management",
+            icon: FlaskConical,
             section: "MANAGEMENT",
         },
         {
-            name: "test-categories",
-            title: "Test Categories",
-            icon: FolderOpen,
-            section: "MANAGEMENT",
+            name: "appointment-calendar",
+            title: "Appointment Calendar",
+            icon: Calendar,
+            section: "APPOINTMENTS",
+        },
+        {
+            name: "appointments",
+            title: "Appointment Management",
+            icon: ClipboardList,
+            section: "APPOINTMENTS",
         },
         {
             name: "inventory",
-            title: "Inventory",
+            title: "Inventory Management",
             icon: Package,
-            section: "CONFIGURATION",
-        },
-        {
-            name: "inventory-categories",
-            title: "Inventory Categories",
-            icon: Layers,
             section: "CONFIGURATION",
         },
         {
@@ -100,28 +97,28 @@ function CustomDrawerContent(props: any) {
             section: "CONFIGURATION",
         },
         {
+            name: "refunds",
+            title: "Refund Approvals",
+            icon: ArrowLeftRight,
+            section: "CONFIGURATION",
+        },
+        {
             name: "reports",
             title: "Reports & Logs",
             icon: BarChart3,
             section: "CONFIGURATION",
         },
         {
+            name: "settings",
+            title: "Settings",
+            icon: Settings2,
+            section: "CONFIGURATION",
+        },
+        {
             name: "notifications",
             title: "Notifications",
             icon: Bell,
-            section: "SYSTEM",
-        },
-        {
-            name: "refunds",
-            title: "Refund Requests",
-            icon: ArrowLeftRight,
-            section: "SYSTEM",
-        },
-        {
-            name: "settings",
-            title: "Clinic Settings",
-            icon: Settings2,
-            section: "SYSTEM",
+            section: "CONFIGURATION",
         },
     ];
 
@@ -184,6 +181,20 @@ function CustomDrawerContent(props: any) {
                                     >
                                         {item.title}
                                     </Text>
+                                    {item.name === "notifications" &&
+                                        unreadCount > 0 && (
+                                            <View style={styles.notifBadge}>
+                                                <Text
+                                                    style={
+                                                        styles.notifBadgeText
+                                                    }
+                                                >
+                                                    {unreadCount > 99
+                                                        ? "99+"
+                                                        : unreadCount}
+                                                </Text>
+                                            </View>
+                                        )}
                                 </TouchableOpacity>
                             </View>
                         );
@@ -225,139 +236,167 @@ function CustomDrawerContent(props: any) {
 
 export default function DrawerLayout() {
     return (
-        <Drawer
-            drawerContent={(props) => <CustomDrawerContent {...props} />}
-            screenOptions={{
-                drawerStyle,
-                headerLeft: () => <DrawerToggleButton tintColor="#111827" />,
-                headerTitleAlign: "left",
-                drawerActiveTintColor: "#ffffff",
-                drawerActiveBackgroundColor: "#ac3434",
-                drawerInactiveTintColor: "#374151",
-                drawerLabelStyle: { fontSize: 15, fontWeight: "600" },
-            }}
-        >
-            <Drawer.Screen
-                name="index"
-                options={{
-                    title: "Dashboard",
-                    drawerIcon: ({ color }) => <Home color={color} size={20} />,
-                }}
-            />
-            <Drawer.Screen
-                name="patients"
-                options={{
-                    title: "Patients",
-                    drawerIcon: ({ color }) => (
-                        <UsersRound color={color} size={20} />
+        <NotificationProvider>
+            <Drawer
+                drawerContent={(props) => <CustomDrawerContent {...props} />}
+                screenOptions={{
+                    drawerStyle,
+                    headerLeft: () => (
+                        <DrawerToggleButton tintColor="#111827" />
                     ),
+                    headerTitleAlign: "left",
+                    drawerActiveTintColor: "#ffffff",
+                    drawerActiveBackgroundColor: "#ac3434",
+                    drawerInactiveTintColor: "#374151",
+                    drawerLabelStyle: { fontSize: 15, fontWeight: "600" },
                 }}
-            />
-            <Drawer.Screen
-                name="users"
-                options={{
-                    title: "User Management",
-                    drawerIcon: ({ color }) => (
-                        <UserCog color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="services"
-                options={{
-                    title: "Service Management",
-                    drawerIcon: ({ color }) => <Grid color={color} size={20} />,
-                }}
-            />
-            <Drawer.Screen
-                name="inventory"
-                options={{
-                    title: "Inventory",
-                    drawerIcon: ({ color }) => (
-                        <Package color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="discounts-philhealth"
-                options={{
-                    title: "Discounts & PhilHealth",
-                    drawerIcon: ({ color }) => (
-                        <Percent color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="reconciliation"
-                options={{
-                    title: "Cash Reconciliation",
-                    drawerIcon: ({ color }) => (
-                        <Wallet color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="reports"
-                options={{
-                    title: "Reports & Logs",
-                    drawerIcon: ({ color }) => (
-                        <BarChart3 color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="lab-queue"
-                options={{
-                    title: "Lab Queue",
-                    drawerIcon: ({ color }) => (
-                        <ClipboardList color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="appointments"
-                options={{
-                    title: "Appointments",
-                    drawerIcon: ({ color }) => (
-                        <Calendar color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="test-categories"
-                options={{
-                    title: "Test Categories",
-                    drawerIcon: ({ color }) => (
-                        <FolderOpen color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="inventory-categories"
-                options={{
-                    title: "Inventory Categories",
-                    drawerIcon: ({ color }) => (
-                        <Layers color={color} size={20} />
-                    ),
-                }}
-            />
-            <Drawer.Screen
-                name="notifications"
-                options={{
-                    title: "Notifications",
-                    drawerIcon: ({ color }) => <Bell color={color} size={20} />,
-                }}
-            />
-            <Drawer.Screen
-                name="settings"
-                options={{
-                    title: "Clinic Settings",
-                    drawerIcon: ({ color }) => (
-                        <Settings2 color={color} size={20} />
-                    ),
-                }}
-            />
-        </Drawer>
+            >
+                <Drawer.Screen
+                    name="index"
+                    options={{
+                        title: "Dashboard",
+                        drawerIcon: ({ color }) => (
+                            <Home color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="patients"
+                    options={{
+                        title: "Patient Management",
+                        drawerIcon: ({ color }) => (
+                            <UsersRound color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="users"
+                    options={{
+                        title: "User Management",
+                        drawerIcon: ({ color }) => (
+                            <UserCog color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="services"
+                    options={{
+                        title: "Lab Test Management",
+                        drawerIcon: ({ color }) => (
+                            <FlaskConical color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="appointment-calendar"
+                    options={{
+                        title: "Appointment Calendar",
+                        drawerIcon: ({ color }) => (
+                            <Calendar color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="inventory"
+                    options={{
+                        title: "Inventory Management",
+                        drawerIcon: ({ color }) => (
+                            <Package color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="discounts-philhealth"
+                    options={{
+                        title: "Discounts & PhilHealth",
+                        drawerIcon: ({ color }) => (
+                            <Percent color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="reconciliation"
+                    options={{
+                        title: "Cash Reconciliation",
+                        drawerIcon: ({ color }) => (
+                            <Wallet color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="reports"
+                    options={{
+                        title: "Reports & Logs",
+                        drawerIcon: ({ color }) => (
+                            <BarChart3 color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="lab-queue"
+                    options={{
+                        title: "Lab Queue",
+                        drawerIcon: ({ color }) => (
+                            <ClipboardList color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="appointments"
+                    options={{
+                        title: "Appointment Management",
+                        drawerIcon: ({ color }) => (
+                            <ClipboardList color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="refunds"
+                    options={{
+                        title: "Refund Approvals",
+                        drawerIcon: ({ color }) => (
+                            <ArrowLeftRight color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="test-categories"
+                    options={{
+                        title: "Test Categories",
+                        drawerIcon: ({ color }) => (
+                            <FolderOpen color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="inventory-categories"
+                    options={{
+                        title: "Inventory Categories",
+                        drawerIcon: ({ color }) => (
+                            <Layers color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="notifications"
+                    options={{
+                        title: "Notifications",
+                        drawerIcon: ({ color }) => (
+                            <Bell color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="settings"
+                    options={{
+                        title: "Settings",
+                        drawerIcon: ({ color }) => (
+                            <Settings2 color={color} size={20} />
+                        ),
+                    }}
+                />
+            </Drawer>
+        </NotificationProvider>
     );
 }
 
@@ -479,5 +518,20 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
         color: "#ffffff",
+    },
+    notifBadge: {
+        marginLeft: "auto",
+        backgroundColor: "#EF4444",
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 5,
+    },
+    notifBadgeText: {
+        color: "#ffffff",
+        fontSize: 11,
+        fontWeight: "700",
     },
 });

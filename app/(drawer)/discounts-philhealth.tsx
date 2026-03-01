@@ -1,5 +1,15 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    Edit,
+    Percent,
+    Plus,
+    Power,
+    PowerOff,
+    Shield,
+    X,
+} from "lucide-react-native";
+import { useCallback, useState } from "react";
+import {
     ActivityIndicator,
     FlatList,
     Modal,
@@ -11,34 +21,24 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import {
-    Edit,
-    Percent,
-    Plus,
-    Power,
-    PowerOff,
-    Shield,
-    X,
-} from "lucide-react-native";
-import { useCallback, useState } from "react";
 
 import api from "@/app/services/api";
-import { ConfirmDialog, SuccessDialog } from "@/components";
-import { showApiError } from "@/app/utils";
 import type {
     Discount,
-    PhilHealthPlan,
     DiscountsResponse,
+    PhilHealthPlan,
     PhilHealthPlansResponse,
-} from "@/app/types";
+} from "@/types";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SuccessDialog } from "@/components";
 
 export default function DiscountsPhilhealthScreen() {
     const [activeTab, setActiveTab] = useState<"discounts" | "philhealth">(
-        "discounts"
+        "discounts",
     );
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [philHealthPlans, setPhilHealthPlans] = useState<PhilHealthPlan[]>(
-        []
+        [],
     );
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -68,12 +68,10 @@ export default function DiscountsPhilhealthScreen() {
             const data: DiscountsResponse = response.data;
             setDiscounts((prev) => data.data);
         } catch (error: any) {
-            console.error("Failed to load discounts", error);
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message:
-                    error.response?.data?.message || "Failed to load discounts",
+                message: getApiErrorMessage(error, "Failed to load discounts."),
                 type: "error",
             });
         }
@@ -85,13 +83,13 @@ export default function DiscountsPhilhealthScreen() {
             const data: PhilHealthPlansResponse = response.data;
             setPhilHealthPlans((prev) => data.data);
         } catch (error: any) {
-            console.error("Failed to load PhilHealth plans", error);
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message:
-                    error.response?.data?.message ||
-                    "Failed to load PhilHealth plans",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to load PhilHealth plans.",
+                ),
                 type: "error",
             });
         }
@@ -110,7 +108,7 @@ export default function DiscountsPhilhealthScreen() {
     useFocusEffect(
         useCallback(() => {
             loadData();
-        }, [loadData])
+        }, [loadData]),
     );
 
     const handleRefresh = () => {
@@ -219,7 +217,7 @@ export default function DiscountsPhilhealthScreen() {
             message: `Are you sure you want to ${
                 discount.is_active ? "deactivate" : "activate"
             } ${discount.name}?`,
-            confirmText: discount.is_active ? "Deactivate" : "Activate",
+            confirmText: discount.is_active ? "DEACTIVATE" : "ACTIVATE",
             type: discount.is_active ? "warning" : "info",
             onConfirm: async () => {
                 setConfirmDialog({ ...confirmDialog, visible: false });
@@ -257,7 +255,7 @@ export default function DiscountsPhilhealthScreen() {
             message: `Are you sure you want to ${
                 plan.is_active ? "deactivate" : "activate"
             } ${plan.name}?`,
-            confirmText: plan.is_active ? "Deactivate" : "Activate",
+            confirmText: plan.is_active ? "DEACTIVATE" : "ACTIVATE",
             type: plan.is_active ? "warning" : "info",
             onConfirm: async () => {
                 setConfirmDialog({ ...confirmDialog, visible: false });
@@ -642,6 +640,7 @@ export default function DiscountsPhilhealthScreen() {
                 title={successDialog.title}
                 message={successDialog.message}
                 type={successDialog.type}
+                autoClose={successDialog.type === "success"}
                 onClose={() =>
                     setSuccessDialog({ ...successDialog, visible: false })
                 }

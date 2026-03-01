@@ -1,7 +1,21 @@
-import { useLocalSearchParams, Stack, router } from "expo-router";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Stack, router, useLocalSearchParams } from "expo-router";
+import {
+    Calendar,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Edit,
+    FileText,
+    Power,
+    X,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Image,
     Modal,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -9,33 +23,19 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    Image,
-    Dimensions,
-    Platform,
 } from "react-native";
-import {
-    Edit,
-    X,
-    FileText,
-    Image as ImageIcon,
-    ChevronDown,
-    ChevronRight,
-    ChevronLeft,
-    Power,
-    Calendar,
-} from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import DateTimePicker from "@react-native-community/datetimepicker";
 
 import api, { API_BASE_URL } from "@/app/services/api";
-import AddressSelect from "@/components/AddressSelect";
+import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
+import AddressSelect from "@/components/AddressSelect";
 import { useAuth } from "@/contexts/AuthContext";
 
 type PatientDetail = {
     patient: {
         id: number;
+        patient_id?: string;
         first_name?: string;
         last_name?: string;
         middle_name?: string;
@@ -57,6 +57,7 @@ type PatientDetail = {
         total_transactions: number;
         pending_tests: number;
         completed_tests: number;
+        latest_test_name: string | null;
     };
     recent_transactions: {
         id: number;
@@ -147,14 +148,22 @@ export default function PatientDetails() {
                 if (!silent) setLoading(true);
                 const response = await api.get(`/patients/${id}`);
                 setData(response.data);
-            } catch (error) {
-                console.error("Failed to load patient details", error);
+            } catch (error: any) {
+                setSuccessDialog({
+                    visible: true,
+                    title: "Error",
+                    message: getApiErrorMessage(
+                        error,
+                        "Failed to load patient details.",
+                    ),
+                    type: "error",
+                });
             } finally {
                 if (!silent) setLoading(false);
                 setRefreshing(false);
             }
         },
-        [id]
+        [id],
     );
 
     const loadTestDetails = async (testId: number) => {
@@ -167,15 +176,15 @@ export default function PatientDetails() {
                 ...response.data,
                 images: response.data.documents || response.data.images || [],
             };
-            console.log("Test data loaded:", testData);
-            console.log("Images:", testData.images);
             setSelectedTest(testData);
-        } catch (error) {
-            console.error("Failed to load test details", error);
+        } catch (error: any) {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message: "Failed to load test details. Please try again.",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to load test details.",
+                ),
                 type: "error",
             });
             setShowTestModal(false);
@@ -212,7 +221,7 @@ export default function PatientDetails() {
             street: patient.street || "",
         });
         setShowOtherGender(
-            !!(patient.gender && !["Male", "Female"].includes(patient.gender))
+            !!(patient.gender && !["Male", "Female"].includes(patient.gender)),
         );
         setErrors({});
         setShowEditModal(true);
@@ -290,9 +299,19 @@ export default function PatientDetails() {
 
         if (event.type === "set" && selectedDate) {
             const formatted = selectedDate.toISOString().split("T")[0];
+            const today = new Date();
+            let calcAge = today.getFullYear() - selectedDate.getFullYear();
+            const monthDiff = today.getMonth() - selectedDate.getMonth();
+            if (
+                monthDiff < 0 ||
+                (monthDiff === 0 && today.getDate() < selectedDate.getDate())
+            ) {
+                calcAge--;
+            }
             setFormData((prev) => ({
                 ...prev,
                 birth_date: formatted,
+                ...(calcAge >= 0 ? { age: calcAge.toString() } : {}),
             }));
 
             if (Platform.OS === "ios") {
@@ -373,7 +392,7 @@ export default function PatientDetails() {
             formData.city_id,
             formData.barangay_code,
             formData.street,
-        ]
+        ],
     );
 
     const handleAddressChange = useCallback((address: any) => {
@@ -435,6 +454,12 @@ export default function PatientDetails() {
             >
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
+                        <View style={styles.avatarCircle}>
+                            <Text style={styles.avatarText}>
+                                {patient.full_name?.charAt(0).toUpperCase() ||
+                                    "?"}
+                            </Text>
+                        </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.title}>
                                 {patient.full_name}
@@ -442,8 +467,41 @@ export default function PatientDetails() {
                             <Text style={styles.subtitle}>
                                 {patient.gender} • {patient.age} yrs
                             </Text>
+                            {patient.patient_id ? (
+                                <Text style={styles.patientIdText}>
+                                    ID: {patient.patient_id}
+                                </Text>
+                            ) : null}
+                            <View
+                                style={[
+                                    styles.statusBadge,
+                                    patient.is_active
+                                        ? styles.statusActive
+                                        : styles.statusInactive,
+                                    { marginTop: 4, alignSelf: "flex-start" },
+                                ]}
+                            >
+                                <Text
+                                    style={[
+                                        styles.statusBadgeText,
+                                        {
+                                            color: patient.is_active
+                                                ? "#166534"
+                                                : "#991B1B",
+                                        },
+                                    ]}
+                                >
+                                    {patient.is_active ? "Active" : "Inactive"}
+                                </Text>
+                            </View>
                         </View>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                gap: 8,
+                                alignSelf: "flex-start",
+                            }}
+                        >
                             {isAdmin && (
                                 <TouchableOpacity
                                     style={[
@@ -489,7 +547,7 @@ export default function PatientDetails() {
                         <Text style={styles.value}>
                             {patient.birth_date
                                 ? new Date(
-                                      patient.birth_date
+                                      patient.birth_date,
                                   ).toLocaleDateString("en-US", {
                                       year: "numeric",
                                       month: "long",
@@ -513,16 +571,24 @@ export default function PatientDetails() {
 
                 <View style={styles.statsRow}>
                     <StatCard
-                        label="Transactions"
+                        label="Total Visits"
                         value={data.stats.total_transactions}
+                        color="#7C3AED"
                     />
                     <StatCard
-                        label="Pending Tests"
+                        label="Active Tests"
                         value={data.stats.pending_tests}
+                        color="#D97706"
                     />
                     <StatCard
-                        label="Completed Tests"
+                        label="Completed"
                         value={data.stats.completed_tests}
+                        color="#059669"
+                    />
+                    <StatCard
+                        label="Latest Test"
+                        value={data.stats.latest_test_name || "—"}
+                        color="#2563EB"
                     />
                 </View>
 
@@ -565,21 +631,21 @@ export default function PatientDetails() {
                                                                   "#FEE2E2",
                                                           }
                                                         : test.status ===
-                                                          "processing"
-                                                        ? {
-                                                              backgroundColor:
-                                                                  "#FEF3C7",
-                                                          }
-                                                        : test.status ===
-                                                          "completed"
-                                                        ? {
-                                                              backgroundColor:
-                                                                  "#DBEAFE",
-                                                          }
-                                                        : {
-                                                              backgroundColor:
-                                                                  "#D1FAE5",
-                                                          },
+                                                            "processing"
+                                                          ? {
+                                                                backgroundColor:
+                                                                    "#FEF3C7",
+                                                            }
+                                                          : test.status ===
+                                                              "completed"
+                                                            ? {
+                                                                  backgroundColor:
+                                                                      "#DBEAFE",
+                                                              }
+                                                            : {
+                                                                  backgroundColor:
+                                                                      "#D1FAE5",
+                                                              },
                                                 ]}
                                             >
                                                 <Text
@@ -591,18 +657,18 @@ export default function PatientDetails() {
                                                                   color: "#991B1B",
                                                               }
                                                             : test.status ===
-                                                              "processing"
-                                                            ? {
-                                                                  color: "#92400E",
-                                                              }
-                                                            : test.status ===
-                                                              "completed"
-                                                            ? {
-                                                                  color: "#1E40AF",
-                                                              }
-                                                            : {
-                                                                  color: "#065F46",
-                                                              },
+                                                                "processing"
+                                                              ? {
+                                                                    color: "#92400E",
+                                                                }
+                                                              : test.status ===
+                                                                  "completed"
+                                                                ? {
+                                                                      color: "#1E40AF",
+                                                                  }
+                                                                : {
+                                                                      color: "#065F46",
+                                                                  },
                                                     ]}
                                                 >
                                                     {test.status}
@@ -745,7 +811,7 @@ export default function PatientDetails() {
                                                     ...prev,
                                                     age: text.replace(
                                                         /[^0-9]/g,
-                                                        ""
+                                                        "",
                                                     ),
                                                 }))
                                             }
@@ -822,7 +888,7 @@ export default function PatientDetails() {
                                         >
                                             {formData.birth_date
                                                 ? formatDisplayDate(
-                                                      formData.birth_date
+                                                      formData.birth_date,
                                                   )
                                                 : "MM/DD/YYYY"}
                                         </Text>
@@ -968,15 +1034,21 @@ export default function PatientDetails() {
                                             selectedTest.status === "pending"
                                                 ? { backgroundColor: "#FEE2E2" }
                                                 : selectedTest.status ===
-                                                  "processing"
-                                                ? { backgroundColor: "#FEF3C7" }
-                                                : selectedTest.status ===
-                                                  "completed"
-                                                ? { backgroundColor: "#DBEAFE" }
-                                                : {
-                                                      backgroundColor:
-                                                          "#D1FAE5",
-                                                  },
+                                                    "processing"
+                                                  ? {
+                                                        backgroundColor:
+                                                            "#FEF3C7",
+                                                    }
+                                                  : selectedTest.status ===
+                                                      "completed"
+                                                    ? {
+                                                          backgroundColor:
+                                                              "#DBEAFE",
+                                                      }
+                                                    : {
+                                                          backgroundColor:
+                                                              "#D1FAE5",
+                                                      },
                                         ]}
                                     >
                                         <Text
@@ -986,12 +1058,12 @@ export default function PatientDetails() {
                                                 "pending"
                                                     ? { color: "#991B1B" }
                                                     : selectedTest.status ===
-                                                      "processing"
-                                                    ? { color: "#92400E" }
-                                                    : selectedTest.status ===
-                                                      "completed"
-                                                    ? { color: "#1E40AF" }
-                                                    : { color: "#065F46" },
+                                                        "processing"
+                                                      ? { color: "#92400E" }
+                                                      : selectedTest.status ===
+                                                          "completed"
+                                                        ? { color: "#1E40AF" }
+                                                        : { color: "#065F46" },
                                             ]}
                                         >
                                             {selectedTest.status}
@@ -1045,11 +1117,11 @@ export default function PatientDetails() {
                                                 Result Values
                                             </Text>
                                             {Object.entries(
-                                                selectedTest.result_values
+                                                selectedTest.result_values,
                                             ).map(
                                                 ([key, value]: [
                                                     string,
-                                                    any
+                                                    any,
                                                 ]) => (
                                                     <View
                                                         key={key}
@@ -1070,7 +1142,7 @@ export default function PatientDetails() {
                                                             {String(value)}
                                                         </Text>
                                                     </View>
-                                                )
+                                                ),
                                             )}
                                         </View>
                                     )}
@@ -1117,13 +1189,13 @@ export default function PatientDetails() {
                                                         // If it's a string that already starts with /storage/, just prepend base URL
                                                         if (
                                                             img.startsWith(
-                                                                "/storage/"
+                                                                "/storage/",
                                                             )
                                                         ) {
                                                             imageUrl = `${baseUrl}${img}`;
                                                         } else if (
                                                             img.startsWith(
-                                                                "http"
+                                                                "http",
                                                             )
                                                         ) {
                                                             imageUrl = img;
@@ -1135,7 +1207,7 @@ export default function PatientDetails() {
                                                         // If backend provided a URL, use it (prepend base URL if relative)
                                                         imageUrl =
                                                             img.url.startsWith(
-                                                                "http"
+                                                                "http",
                                                             )
                                                                 ? img.url
                                                                 : `${baseUrl}${img.url}`;
@@ -1146,11 +1218,11 @@ export default function PatientDetails() {
 
                                                     console.log(
                                                         "Image data:",
-                                                        img
+                                                        img,
                                                     );
                                                     console.log(
                                                         "Final URL:",
-                                                        imageUrl
+                                                        imageUrl,
                                                     );
 
                                                     return (
@@ -1169,35 +1241,35 @@ export default function PatientDetails() {
                                                                 }
                                                                 resizeMode="contain"
                                                                 onError={(
-                                                                    error
+                                                                    error,
                                                                 ) => {
                                                                     console.log(
                                                                         "❌ Image load error:",
                                                                         error
                                                                             .nativeEvent
-                                                                            .error
+                                                                            .error,
                                                                     );
                                                                     console.log(
                                                                         "Failed URL:",
-                                                                        imageUrl
+                                                                        imageUrl,
                                                                     );
                                                                 }}
                                                                 onLoadStart={() =>
                                                                     console.log(
                                                                         "⏳ Loading image:",
-                                                                        imageUrl
+                                                                        imageUrl,
                                                                     )
                                                                 }
                                                                 onLoadEnd={() =>
                                                                     console.log(
                                                                         "✅ Image loaded:",
-                                                                        imageUrl
+                                                                        imageUrl,
                                                                     )
                                                                 }
                                                             />
                                                         </View>
                                                     );
-                                                }
+                                                },
                                             )}
                                         </View>
                                     )}
@@ -1376,10 +1448,42 @@ export default function PatientDetails() {
     );
 }
 
-const StatCard = ({ label, value }: { label: string; value: number }) => (
-    <View style={styles.statCard}>
-        <Text style={styles.statLabel}>{label}</Text>
-        <Text style={styles.statValue}>{value}</Text>
+const StatCard = ({
+    label,
+    value,
+    color,
+}: {
+    label: string;
+    value: number | string;
+    color?: string;
+}) => (
+    <View
+        style={[
+            styles.statCard,
+            color
+                ? {
+                      backgroundColor: color + "15",
+                      borderColor: color + "33",
+                      borderWidth: 1,
+                  }
+                : undefined,
+        ]}
+    >
+        <Text style={[styles.statLabel, color ? { color } : undefined]}>
+            {label}
+        </Text>
+        {typeof value === "number" ? (
+            <Text style={[styles.statValue, color ? { color } : undefined]}>
+                {value}
+            </Text>
+        ) : (
+            <Text
+                style={[styles.statValueText, color ? { color } : undefined]}
+                numberOfLines={2}
+            >
+                {value}
+            </Text>
+        )}
     </View>
 );
 
@@ -1439,15 +1543,15 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         marginBottom: 16,
-        gap: 8,
+        gap: 6,
     },
     statCard: {
         flex: 1,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: 12,
+        padding: 10,
         alignItems: "center",
-        minWidth: 100,
+        minWidth: 0,
     },
     statLabel: { color: "#6B7280", fontSize: 10, textAlign: "center" },
     statValue: {
@@ -1455,6 +1559,43 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#111827",
         marginTop: 4,
+    },
+    statValueText: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+        marginTop: 4,
+    },
+    avatarCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: "#7C2D12",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 12,
+    },
+    avatarText: {
+        color: "#fff",
+        fontSize: 20,
+        fontWeight: "700",
+    },
+    statusBadge: {
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+    },
+    statusActive: { backgroundColor: "#DCFCE7" },
+    statusInactive: { backgroundColor: "#FEE2E2" },
+    statusBadgeText: {
+        fontSize: 11,
+        fontWeight: "700",
+    },
+    patientIdText: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        marginTop: 2,
     },
     sectionTitle: {
         fontSize: 18,

@@ -1,16 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
     ChevronDown,
     Edit,
     Eye,
@@ -22,11 +11,24 @@ import {
     UserCog,
     X,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 import api from "@/app/services/api";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
-import { ConfirmDialog, SuccessDialog } from "@/components";
 
 type User = {
     id: number;
@@ -35,6 +37,9 @@ type User = {
     email: string;
     role: "admin" | "lab_staff" | "cashier";
     is_active: boolean;
+    license_number: string | null;
+    professional_title: string | null;
+    test_categories: string[];
     created_at: string;
 };
 
@@ -56,6 +61,7 @@ export default function UsersScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [roleFilter, setRoleFilter] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -81,6 +87,7 @@ export default function UsersScreen() {
                 if (page === 1 && !refreshing) setLoading(true);
                 const params: any = { page, per_page: 20 };
                 if (searchQuery) params.search = searchQuery;
+                if (roleFilter) params.role = roleFilter;
 
                 const response = await api.get("/users", { params });
                 const data: UsersResponse = response.data;
@@ -89,15 +96,13 @@ export default function UsersScreen() {
                     last_page: data.last_page,
                 });
                 setUsers((prev) =>
-                    replace || page === 1 ? data.data : [...prev, ...data.data]
+                    replace || page === 1 ? data.data : [...prev, ...data.data],
                 );
             } catch (error: any) {
-                console.error("Failed to load users", error);
                 setSuccessDialog({
                     visible: true,
                     title: "Error",
-                    message:
-                        error.response?.data?.message || "Failed to load users",
+                    message: getApiErrorMessage(error, "Failed to load users."),
                     type: "error",
                 });
             } finally {
@@ -105,14 +110,19 @@ export default function UsersScreen() {
                 setRefreshing(false);
             }
         },
-        [refreshing, searchQuery]
+        [refreshing, searchQuery, roleFilter],
     );
 
     useFocusEffect(
         useCallback(() => {
             loadUsers(1, true);
-        }, [loadUsers])
+        }, [loadUsers]),
     );
+
+    useEffect(() => {
+        const t = setTimeout(() => loadUsers(1, true), 400);
+        return () => clearTimeout(t);
+    }, [loadUsers]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -120,48 +130,25 @@ export default function UsersScreen() {
     };
 
     const handleCreate = async (formData: any) => {
-        try {
-            await api.post("/users", formData);
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message: "User created successfully",
-                type: "success",
-            });
-            setShowCreateModal(false);
-            loadUsers(1, true);
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message:
-                    error.response?.data?.message || "Failed to create user",
-                type: "error",
-            });
-        }
+        await api.post("/users", formData);
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: "User created successfully",
+            type: "success",
+        });
+        loadUsers(1, true);
     };
 
     const handleUpdate = async (id: number, formData: any) => {
-        try {
-            await api.put(`/users/${id}`, formData);
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message: "User updated successfully",
-                type: "success",
-            });
-            setShowEditModal(false);
-            setSelectedUser(null);
-            loadUsers(1, true);
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message:
-                    error.response?.data?.message || "Failed to update user",
-                type: "error",
-            });
-        }
+        await api.put(`/users/${id}`, formData);
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: "User updated successfully",
+            type: "success",
+        });
+        loadUsers(1, true);
     };
 
     const handleToggle = async (user: User) => {
@@ -180,7 +167,7 @@ export default function UsersScreen() {
             message: `Are you sure you want to ${
                 user.is_active ? "deactivate" : "activate"
             } ${user.name}?`,
-            confirmText: user.is_active ? "Deactivate" : "Activate",
+            confirmText: user.is_active ? "DEACTIVATE" : "ACTIVATE",
             type: user.is_active ? "warning" : "info",
             onConfirm: async () => {
                 setConfirmDialog({ ...confirmDialog, visible: false });
@@ -237,8 +224,10 @@ export default function UsersScreen() {
 
     if (loading && !users.length) {
         return (
-            <View style={styles.loading}>
-                <ActivityIndicator size="large" color="#ac3434" />
+            <View style={styles.container}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                    <SkeletonRow count={6} />
+                </View>
             </View>
         );
     }
@@ -257,7 +246,6 @@ export default function UsersScreen() {
                         placeholder="Search users..."
                         value={searchQuery}
                         onChangeText={setSearchQuery}
-                        onSubmitEditing={() => loadUsers(1, true)}
                     />
                 </View>
                 <TouchableOpacity
@@ -268,6 +256,43 @@ export default function UsersScreen() {
                     <Text style={styles.addButtonText}>Add User</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Role filter pills */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.pillsRow}
+                contentContainerStyle={{
+                    gap: 6,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                }}
+            >
+                {[
+                    { label: "All", value: "" },
+                    { label: "Admin", value: "admin" },
+                    { label: "Lab Staff", value: "lab_staff" },
+                    { label: "Cashier", value: "cashier" },
+                ].map((r) => (
+                    <TouchableOpacity
+                        key={r.value}
+                        style={[
+                            styles.pill,
+                            roleFilter === r.value && styles.pillActive,
+                        ]}
+                        onPress={() => setRoleFilter(r.value)}
+                    >
+                        <Text
+                            style={[
+                                styles.pillText,
+                                roleFilter === r.value && styles.pillTextActive,
+                            ]}
+                        >
+                            {r.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
 
             <FlatList
                 data={users}
@@ -315,7 +340,7 @@ export default function UsersScreen() {
                                         styles.roleBadge,
                                         {
                                             backgroundColor: getRoleColor(
-                                                item.role
+                                                item.role,
                                             ).bg,
                                         },
                                     ]}
@@ -333,6 +358,61 @@ export default function UsersScreen() {
                                     </Text>
                                 </View>
                             </View>
+                            {item.professional_title ? (
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Title:</Text>
+                                    <Text style={styles.infoValue}>
+                                        {item.professional_title}
+                                    </Text>
+                                </View>
+                            ) : null}
+                            {item.license_number ? (
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>
+                                        License #:
+                                    </Text>
+                                    <Text style={styles.infoValue}>
+                                        {item.license_number}
+                                    </Text>
+                                </View>
+                            ) : null}
+                            {item.role === "lab_staff" &&
+                            item.test_categories?.length > 0 ? (
+                                <View
+                                    style={[
+                                        styles.infoRow,
+                                        {
+                                            flexWrap: "wrap",
+                                            alignItems: "flex-start",
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.infoLabel}>
+                                        Categories:
+                                    </Text>
+                                    <View
+                                        style={{
+                                            flexDirection: "row",
+                                            flexWrap: "wrap",
+                                            gap: 4,
+                                            flex: 1,
+                                        }}
+                                    >
+                                        {item.test_categories.map((cat) => (
+                                            <View
+                                                key={cat}
+                                                style={styles.catChip}
+                                            >
+                                                <Text
+                                                    style={styles.catChipText}
+                                                >
+                                                    {cat}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            ) : null}
                         </View>
                         <View style={styles.cardActions}>
                             <TouchableOpacity
@@ -451,6 +531,7 @@ export default function UsersScreen() {
                 title={successDialog.title}
                 message={successDialog.message}
                 type={successDialog.type}
+                autoClose={successDialog.type === "success"}
                 onClose={() =>
                     setSuccessDialog({ ...successDialog, visible: false })
                 }
@@ -476,19 +557,45 @@ function CreateUserModal({
         email: "",
         password: "",
         role: "",
+        license_number: "",
+        professional_title: "",
+        test_categories: [] as string[],
     });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validate = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.name.trim()) errs.name = ["Name is required."];
+        if (!formData.username.trim())
+            errs.username = ["Username is required."];
+        else if (/\s/.test(formData.username))
+            errs.username = ["Username must not contain spaces."];
+        if (!formData.email.trim()) errs.email = ["Email is required."];
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+            errs.email = ["Enter a valid email address."];
+        if (!formData.password) errs.password = ["Password is required."];
+        else if (formData.password.length < 8)
+            errs.password = ["Password must be at least 8 characters."];
+        if (!formData.role) errs.role = ["Role is required."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (
-            !formData.name ||
-            !formData.username ||
-            !formData.email ||
-            !formData.password ||
-            !formData.role
-        ) {
-            onError("Please fill in all fields");
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -500,8 +607,18 @@ function CreateUserModal({
                 email: "",
                 password: "",
                 role: "",
+                license_number: "",
+                professional_title: "",
+                test_categories: [],
             });
+            setErrors({});
             onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(getApiErrorMessage(err, "Failed to create user."));
+            }
         } finally {
             setLoading(false);
         }
@@ -522,53 +639,88 @@ function CreateUserModal({
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.name && styles.inputError,
+                                ]}
                                 value={formData.name}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, name: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, name: text });
+                                    clearError("name");
+                                }}
                                 placeholder="Enter full name"
                             />
+                            {errors.name?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.name[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Username</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.username && styles.inputError,
+                                ]}
                                 value={formData.username}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, username: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        username: text,
+                                    });
+                                    clearError("username");
+                                }}
                                 placeholder="Enter username"
+                                autoCapitalize="none"
                             />
+                            {errors.username?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.username[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Email</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.email && styles.inputError,
+                                ]}
                                 value={formData.email}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, email: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, email: text });
+                                    clearError("email");
+                                }}
                                 placeholder="Enter email address"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
+                            {errors.email?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.email[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Password</Text>
                             <View style={styles.passwordContainer}>
                                 <TextInput
-                                    style={styles.formInput}
+                                    style={[
+                                        styles.formInput,
+                                        errors.password && styles.inputError,
+                                    ]}
                                     value={formData.password}
-                                    onChangeText={(text) =>
+                                    onChangeText={(text) => {
                                         setFormData({
                                             ...formData,
                                             password: text,
-                                        })
-                                    }
+                                        });
+                                        clearError("password");
+                                    }}
                                     placeholder="Enter password"
                                     secureTextEntry={!showPassword}
                                 />
@@ -585,23 +737,145 @@ function CreateUserModal({
                                     )}
                                 </TouchableOpacity>
                             </View>
+                            {errors.password?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.password[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Role</Text>
                             <RolePicker
                                 selectedValue={formData.role}
-                                onValueChange={(value) =>
+                                hasError={!!errors.role}
+                                onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
                                         role: value as
                                             | "admin"
                                             | "lab_staff"
                                             | "cashier",
+                                    });
+                                    clearError("role");
+                                }}
+                            />
+                            {errors.role?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.role[0]}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Professional Title{" "}
+                                <Text style={{ color: "#9CA3AF" }}>
+                                    (optional)
+                                </Text>
+                            </Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.professional_title}
+                                onChangeText={(text) =>
+                                    setFormData({
+                                        ...formData,
+                                        professional_title: text,
                                     })
                                 }
+                                placeholder="e.g. Medical Technologist"
                             />
                         </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                License Number{" "}
+                                <Text style={{ color: "#9CA3AF" }}>
+                                    (optional)
+                                </Text>
+                            </Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.license_number}
+                                onChangeText={(text) =>
+                                    setFormData({
+                                        ...formData,
+                                        license_number: text,
+                                    })
+                                }
+                                placeholder="e.g. 0083687"
+                            />
+                        </View>
+
+                        {formData.role === "lab_staff" && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>
+                                    Test Categories
+                                </Text>
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        flexWrap: "wrap",
+                                        gap: 6,
+                                    }}
+                                >
+                                    {[
+                                        "Blood Chemistry",
+                                        "Hematology",
+                                        "Clinical Microscopy",
+                                        "Serology / Immunology",
+                                        "Procedure Ultrasound",
+                                        "X-ray",
+                                        "Drug Test",
+                                        "Others",
+                                    ].map((cat) => {
+                                        const selected =
+                                            formData.test_categories.includes(
+                                                cat,
+                                            );
+                                        return (
+                                            <TouchableOpacity
+                                                key={cat}
+                                                style={[
+                                                    styles.catChip,
+                                                    selected && {
+                                                        backgroundColor:
+                                                            "#ac3434",
+                                                    },
+                                                ]}
+                                                onPress={() =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        test_categories:
+                                                            selected
+                                                                ? formData.test_categories.filter(
+                                                                      (c) =>
+                                                                          c !==
+                                                                          cat,
+                                                                  )
+                                                                : [
+                                                                      ...formData.test_categories,
+                                                                      cat,
+                                                                  ],
+                                                    })
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.catChipText,
+                                                        selected && {
+                                                            color: "#fff",
+                                                        },
+                                                    ]}
+                                                >
+                                                    {cat}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.modalFooter}>
@@ -636,9 +910,11 @@ function CreateUserModal({
 function RolePicker({
     selectedValue,
     onValueChange,
+    hasError = false,
 }: {
     selectedValue: string;
     onValueChange: (value: string) => void;
+    hasError?: boolean;
 }) {
     const [showPicker, setShowPicker] = useState(false);
 
@@ -656,7 +932,10 @@ function RolePicker({
     return (
         <>
             <TouchableOpacity
-                style={styles.pickerButton}
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
                 onPress={() => setShowPicker(true)}
             >
                 <Text
@@ -741,17 +1020,43 @@ function EditUserModal({
         email: user.email,
         password: "",
         role: user.role,
+        license_number: user.license_number ?? "",
+        professional_title: user.professional_title ?? "",
+        test_categories: user.test_categories ?? [],
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validate = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.name.trim()) errs.name = ["Name is required."];
+        if (!formData.username.trim())
+            errs.username = ["Username is required."];
+        else if (/\s/.test(formData.username))
+            errs.username = ["Username must not contain spaces."];
+        if (!formData.email.trim()) errs.email = ["Email is required."];
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+            errs.email = ["Enter a valid email address."];
+        if (formData.password && formData.password.length < 8)
+            errs.password = ["Password must be at least 8 characters."];
+        if (!formData.role) errs.role = ["Role is required."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (
-            !formData.name ||
-            !formData.username ||
-            !formData.email ||
-            !formData.role
-        ) {
-            onError("Please fill in all required fields");
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -761,8 +1066,15 @@ function EditUserModal({
                 delete submitData.password;
             }
             await onSubmit(user.id, submitData);
+            setErrors({});
             setFormData({ ...formData, password: "" });
             onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(getApiErrorMessage(err, "Failed to update user."));
+            }
         } finally {
             setLoading(false);
         }
@@ -783,39 +1095,70 @@ function EditUserModal({
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.name && styles.inputError,
+                                ]}
                                 value={formData.name}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, name: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, name: text });
+                                    clearError("name");
+                                }}
                                 placeholder="Enter full name"
                             />
+                            {errors.name?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.name[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Username</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.username && styles.inputError,
+                                ]}
                                 value={formData.username}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, username: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        username: text,
+                                    });
+                                    clearError("username");
+                                }}
                                 placeholder="Enter username"
+                                autoCapitalize="none"
                             />
+                            {errors.username?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.username[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Email</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.email && styles.inputError,
+                                ]}
                                 value={formData.email}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, email: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, email: text });
+                                    clearError("email");
+                                }}
                                 placeholder="Enter email address"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
+                            {errors.email?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.email[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -824,14 +1167,18 @@ function EditUserModal({
                             </Text>
                             <View style={styles.passwordContainer}>
                                 <TextInput
-                                    style={styles.formInput}
+                                    style={[
+                                        styles.formInput,
+                                        errors.password && styles.inputError,
+                                    ]}
                                     value={formData.password}
-                                    onChangeText={(text) =>
+                                    onChangeText={(text) => {
                                         setFormData({
                                             ...formData,
                                             password: text,
-                                        })
-                                    }
+                                        });
+                                        clearError("password");
+                                    }}
                                     placeholder="Enter new password"
                                     secureTextEntry={!showPassword}
                                 />
@@ -848,27 +1195,145 @@ function EditUserModal({
                                     )}
                                 </TouchableOpacity>
                             </View>
+                            {errors.password?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.password[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Role</Text>
-                            <View style={styles.selectContainer}>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={formData.role}
-                                    onChangeText={(text) =>
-                                        setFormData({
-                                            ...formData,
-                                            role: text as
-                                                | "admin"
-                                                | "lab_staff"
-                                                | "cashier",
-                                        })
-                                    }
-                                    placeholder="Select role (admin, lab_staff, cashier)"
-                                />
-                            </View>
+                            <RolePicker
+                                selectedValue={formData.role}
+                                hasError={!!errors.role}
+                                onValueChange={(value) => {
+                                    setFormData({
+                                        ...formData,
+                                        role: value as
+                                            | "admin"
+                                            | "lab_staff"
+                                            | "cashier",
+                                    });
+                                    clearError("role");
+                                }}
+                            />
+                            {errors.role?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.role[0]}
+                                </Text>
+                            )}
                         </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Professional Title{" "}
+                                <Text style={{ color: "#9CA3AF" }}>
+                                    (optional)
+                                </Text>
+                            </Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.professional_title}
+                                onChangeText={(text) =>
+                                    setFormData({
+                                        ...formData,
+                                        professional_title: text,
+                                    })
+                                }
+                                placeholder="e.g. Medical Technologist"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                License Number{" "}
+                                <Text style={{ color: "#9CA3AF" }}>
+                                    (optional)
+                                </Text>
+                            </Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.license_number}
+                                onChangeText={(text) =>
+                                    setFormData({
+                                        ...formData,
+                                        license_number: text,
+                                    })
+                                }
+                                placeholder="e.g. 0083687"
+                            />
+                        </View>
+
+                        {formData.role === "lab_staff" && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>
+                                    Test Categories
+                                </Text>
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        flexWrap: "wrap",
+                                        gap: 6,
+                                    }}
+                                >
+                                    {[
+                                        "Blood Chemistry",
+                                        "Hematology",
+                                        "Clinical Microscopy",
+                                        "Serology / Immunology",
+                                        "Procedure Ultrasound",
+                                        "X-ray",
+                                        "Drug Test",
+                                        "Others",
+                                    ].map((cat) => {
+                                        const selected =
+                                            formData.test_categories.includes(
+                                                cat,
+                                            );
+                                        return (
+                                            <TouchableOpacity
+                                                key={cat}
+                                                style={[
+                                                    styles.catChip,
+                                                    selected && {
+                                                        backgroundColor:
+                                                            "#ac3434",
+                                                    },
+                                                ]}
+                                                onPress={() =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        test_categories:
+                                                            selected
+                                                                ? formData.test_categories.filter(
+                                                                      (c) =>
+                                                                          c !==
+                                                                          cat,
+                                                                  )
+                                                                : [
+                                                                      ...formData.test_categories,
+                                                                      cat,
+                                                                  ],
+                                                    })
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.catChipText,
+                                                        selected && {
+                                                            color: "#fff",
+                                                        },
+                                                    ]}
+                                                >
+                                                    {cat}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.modalFooter}>
@@ -1153,4 +1618,30 @@ const styles = StyleSheet.create({
         color: "#2563EB",
         fontWeight: "600",
     },
+    pillsRow: {
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    pill: {
+        paddingHorizontal: 16,
+        paddingVertical: 7,
+        borderRadius: 999,
+        backgroundColor: "#F3F4F6",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    pillActive: { backgroundColor: "#ac3434", borderColor: "#ac3434" },
+    pillText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    pillTextActive: { color: "#fff" },
+    inputError: { borderColor: "#EF4444" },
+    errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
+    pickerButtonError: { borderColor: "#EF4444" },
+    catChip: {
+        backgroundColor: "#EFF6FF",
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    catChipText: { fontSize: 11, fontWeight: "600", color: "#1D4ED8" },
 });

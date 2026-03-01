@@ -1,5 +1,18 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    ChevronDown,
+    History,
+    PackageSearch,
+    Plus,
+    Power,
+    PowerOff,
+    Search,
+    TrendingDown,
+    TrendingUp,
+    X,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
     ActivityIndicator,
     FlatList,
     Modal,
@@ -11,20 +24,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import {
-    ChevronDown,
-    History,
-    PackageSearch,
-    Search,
-    X,
-    Plus,
-    TrendingUp,
-    TrendingDown,
-} from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
 
 import api from "@/app/services/api";
-import { ConfirmDialog, SuccessDialog } from "@/components";
+import { getApiErrorMessage } from "@/utils";
+import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 type InventoryItem = {
     id: number;
@@ -68,12 +71,12 @@ const filters = [
 
 export default function InventoryScreen() {
     const [activeTab, setActiveTab] = useState<"items" | "transactions">(
-        "items"
+        "items",
     );
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [summary, setSummary] = useState<Summary | null>(null);
     const [transactions, setTransactions] = useState<InventoryTransaction[]>(
-        []
+        [],
     );
     const [statusFilter, setStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -116,12 +119,11 @@ export default function InventoryScreen() {
             });
             setItems(response.data.items);
             setSummary(response.data.summary);
-        } catch (error) {
-            console.error("Failed to load inventory", error);
+        } catch (error: any) {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message: "Failed to load inventory",
+                message: getApiErrorMessage(error, "Failed to load inventory."),
                 type: "error",
             });
         } finally {
@@ -135,12 +137,14 @@ export default function InventoryScreen() {
             setTransactionsLoading(true);
             const response = await api.get("/inventory/transactions");
             setTransactions(response.data.data);
-        } catch (error) {
-            console.error("Failed to load transactions", error);
+        } catch (error: any) {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
-                message: "Failed to load transactions",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to load transactions.",
+                ),
                 type: "error",
             });
         } finally {
@@ -150,53 +154,30 @@ export default function InventoryScreen() {
     }, []);
 
     const handleCreateStock = async (formData: any) => {
-        try {
-            const response = await api.post("/inventory", formData);
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message:
-                    response.data.message || "Stock item created successfully",
-                type: "success",
-            });
-            setShowCreateModal(false);
-            loadInventory();
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message:
-                    error.response?.data?.message ||
-                    "Failed to create stock item",
-                type: "error",
-            });
-        }
+        const response = await api.post("/inventory", formData);
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: response.data.message || "Stock item created successfully",
+            type: "success",
+        });
+        loadInventory();
     };
 
     const handleStockIn = async (formData: any) => {
-        try {
-            const response = await api.post("/inventory/stock-in", {
-                item_id: formData.item_id,
-                quantity: formData.quantity,
-                reason: formData.reason,
-            });
-            setSuccessDialog({
-                visible: true,
-                title: "Success",
-                message: response.data.message || "Stock added successfully",
-                type: "success",
-            });
-            setShowStockInModal(false);
-            loadInventory();
-            loadTransactions();
-        } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: error.response?.data?.message || "Failed to add stock",
-                type: "error",
-            });
-        }
+        const response = await api.post("/inventory/stock-in", {
+            item_id: formData.item_id,
+            quantity: formData.quantity,
+            reason: formData.reason,
+        });
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: response.data.message || "Stock added successfully",
+            type: "success",
+        });
+        loadInventory();
+        loadTransactions();
     };
 
     const handleStockOut = async (formData: any) => {
@@ -239,8 +220,40 @@ export default function InventoryScreen() {
         });
     };
 
+    const handleToggleItem = (item: InventoryItem) => {
+        setConfirmDialog({
+            visible: true,
+            title: `${item.is_active ? "Deactivate" : "Activate"} Item`,
+            message: `${item.is_active ? "Deactivate" : "Activate"} "${item.name}" from inventory?`,
+            confirmText: item.is_active ? "DEACTIVATE" : "ACTIVATE",
+            type: item.is_active ? "warning" : "info",
+            onConfirm: async () => {
+                setConfirmDialog({ ...confirmDialog, visible: false });
+                try {
+                    await api.post(`/inventory/${item.id}/toggle`);
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Success",
+                        message: `Item ${item.is_active ? "deactivated" : "activated"} successfully`,
+                        type: "success",
+                    });
+                    loadInventory();
+                } catch (error: any) {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message:
+                            error.response?.data?.message ||
+                            "Failed to toggle item status",
+                        type: "error",
+                    });
+                }
+            },
+        });
+    };
+
     useEffect(() => {
-        const debounce = setTimeout(() => loadInventory(), 300);
+        const debounce = setTimeout(() => loadInventory(), 400);
         return () => clearTimeout(debounce);
     }, [loadInventory]);
 
@@ -251,7 +264,7 @@ export default function InventoryScreen() {
             } else {
                 loadTransactions();
             }
-        }, [activeTab, loadInventory, loadTransactions])
+        }, [activeTab, loadInventory, loadTransactions]),
     );
 
     const handleRefresh = () => {
@@ -288,7 +301,7 @@ export default function InventoryScreen() {
                 color: "#DC2626",
             },
         ],
-        [summary]
+        [summary],
     );
 
     const renderItem = ({ item }: { item: InventoryItem }) => {
@@ -339,14 +352,34 @@ export default function InventoryScreen() {
                 <Text style={styles.stockMeta}>
                     Minimum required: {item.minimum_stock} {item.unit}
                 </Text>
+                <TouchableOpacity
+                    style={styles.toggleBtn}
+                    onPress={() => handleToggleItem(item)}
+                >
+                    {item.is_active ? (
+                        <PowerOff size={16} color="#EF4444" />
+                    ) : (
+                        <Power size={16} color="#10B981" />
+                    )}
+                    <Text
+                        style={[
+                            styles.toggleBtnText,
+                            { color: item.is_active ? "#EF4444" : "#10B981" },
+                        ]}
+                    >
+                        {item.is_active ? "Deactivate" : "Activate"}
+                    </Text>
+                </TouchableOpacity>
             </View>
         );
     };
 
     if (loading && !items.length && activeTab === "items") {
         return (
-            <View style={styles.loading}>
-                <ActivityIndicator size="large" color="#ac3434" />
+            <View style={styles.container}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                    <SkeletonRow count={6} />
+                </View>
             </View>
         );
     }
@@ -666,6 +699,7 @@ export default function InventoryScreen() {
                 title={successDialog.title}
                 message={successDialog.message}
                 type={successDialog.type}
+                autoClose={successDialog.type === "success"}
                 onClose={() =>
                     setSuccessDialog({ ...successDialog, visible: false })
                 }
@@ -776,7 +810,7 @@ function CategoryDropdown({
     const getDisplayText = () => {
         if (selectedValue === "all") return "All Categories";
         const option = categoryOptions.find(
-            (opt) => opt.value === selectedValue
+            (opt) => opt.value === selectedValue,
         );
         return option ? option.label : "All Categories";
     };
@@ -862,6 +896,75 @@ function CreateStockModal({
         minimum_stock: "",
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validate = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.name.trim()) errs.name = ["Item name is required."];
+        if (!formData.category) errs.category = ["Category is required."];
+        if (!formData.initial_stock)
+            errs.initial_stock = ["Initial stock is required."];
+        else if (
+            isNaN(parseInt(formData.initial_stock)) ||
+            parseInt(formData.initial_stock) < 0
+        )
+            errs.initial_stock = ["Enter a valid non-negative number."];
+        if (!formData.unit) errs.unit = ["Unit is required."];
+        if (!formData.minimum_stock)
+            errs.minimum_stock = ["Minimum stock level is required."];
+        else if (
+            isNaN(parseInt(formData.minimum_stock)) ||
+            parseInt(formData.minimum_stock) < 1
+        )
+            errs.minimum_stock = ["Minimum stock must be at least 1."];
+        return errs;
+    };
+
+    const handleSubmit = async () => {
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+        setLoading(true);
+        try {
+            await onSubmit({
+                ...formData,
+                initial_stock: parseInt(formData.initial_stock),
+                minimum_stock: parseInt(formData.minimum_stock),
+            });
+            setFormData({
+                name: "",
+                category: "",
+                initial_stock: "",
+                unit: "",
+                minimum_stock: "",
+            });
+            setErrors({});
+            onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(
+                    err.response?.data?.message ||
+                        "Failed to create stock item",
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const categories = [
         "Reagents",
@@ -885,37 +988,6 @@ function CreateStockModal({
         "kit",
     ];
 
-    const handleSubmit = async () => {
-        if (
-            !formData.name ||
-            !formData.category ||
-            !formData.initial_stock ||
-            !formData.unit ||
-            !formData.minimum_stock
-        ) {
-            onError("Please fill in all required fields");
-            return;
-        }
-        setLoading(true);
-        try {
-            await onSubmit({
-                ...formData,
-                initial_stock: parseInt(formData.initial_stock),
-                minimum_stock: parseInt(formData.minimum_stock),
-            });
-            setFormData({
-                name: "",
-                category: "",
-                initial_stock: "",
-                unit: "",
-                minimum_stock: "",
-            });
-            onClose();
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <Modal visible={show} animationType="slide" transparent>
             <View style={styles.modalOverlay}>
@@ -933,13 +1005,22 @@ function CreateStockModal({
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Item Name *</Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.name && styles.inputError,
+                                ]}
                                 value={formData.name}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, name: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, name: text });
+                                    clearError("name");
+                                }}
                                 placeholder="e.g., Blood Collection Tubes"
                             />
+                            {errors.name?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.name[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -947,14 +1028,21 @@ function CreateStockModal({
                             <PickerSelect
                                 items={categories}
                                 selectedValue={formData.category}
-                                onValueChange={(value) =>
+                                onValueChange={(value) => {
                                     setFormData({
                                         ...formData,
                                         category: value,
-                                    })
-                                }
+                                    });
+                                    clearError("category");
+                                }}
                                 placeholder="Select category"
+                                hasError={!!errors.category}
                             />
+                            {errors.category?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.category[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formRow}>
@@ -963,17 +1051,27 @@ function CreateStockModal({
                                     Initial Stock *
                                 </Text>
                                 <TextInput
-                                    style={styles.formInput}
+                                    style={[
+                                        styles.formInput,
+                                        errors.initial_stock &&
+                                            styles.inputError,
+                                    ]}
                                     value={formData.initial_stock}
-                                    onChangeText={(text) =>
+                                    onChangeText={(text) => {
                                         setFormData({
                                             ...formData,
                                             initial_stock: text,
-                                        })
-                                    }
+                                        });
+                                        clearError("initial_stock");
+                                    }}
                                     placeholder="0"
                                     keyboardType="numeric"
                                 />
+                                {errors.initial_stock?.[0] && (
+                                    <Text style={styles.errorText}>
+                                        {errors.initial_stock[0]}
+                                    </Text>
+                                )}
                             </View>
 
                             <View style={styles.formGroupHalf}>
@@ -981,14 +1079,21 @@ function CreateStockModal({
                                 <PickerSelect
                                     items={units}
                                     selectedValue={formData.unit}
-                                    onValueChange={(value) =>
+                                    onValueChange={(value) => {
                                         setFormData({
                                             ...formData,
                                             unit: value,
-                                        })
-                                    }
+                                        });
+                                        clearError("unit");
+                                    }}
                                     placeholder="Select unit"
+                                    hasError={!!errors.unit}
                                 />
+                                {errors.unit?.[0] && (
+                                    <Text style={styles.errorText}>
+                                        {errors.unit[0]}
+                                    </Text>
+                                )}
                             </View>
                         </View>
 
@@ -997,17 +1102,26 @@ function CreateStockModal({
                                 Minimum Stock Level *
                             </Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.minimum_stock && styles.inputError,
+                                ]}
                                 value={formData.minimum_stock}
-                                onChangeText={(text) =>
+                                onChangeText={(text) => {
                                     setFormData({
                                         ...formData,
                                         minimum_stock: text,
-                                    })
-                                }
+                                    });
+                                    clearError("minimum_stock");
+                                }}
                                 placeholder="Alert when stock falls below this level"
                                 keyboardType="numeric"
                             />
+                            {errors.minimum_stock?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.minimum_stock[0]}
+                                </Text>
+                            )}
                             <Text style={styles.formHint}>
                                 You'll receive alerts when stock falls below
                                 this threshold
@@ -1063,10 +1177,35 @@ function StockInModal({
         reason: "",
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validateStockIn = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.item_id) errs.item_id = ["Please select an item."];
+        if (!formData.quantity) errs.quantity = ["Quantity is required."];
+        else if (
+            isNaN(parseInt(formData.quantity)) ||
+            parseInt(formData.quantity) < 1
+        )
+            errs.quantity = ["Quantity must be at least 1."];
+        if (!formData.reason.trim()) errs.reason = ["Reason is required."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (!formData.item_id || !formData.quantity || !formData.reason) {
-            onError("Please fill in all required fields");
+        const validationErrors = validateStockIn();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -1076,7 +1215,14 @@ function StockInModal({
                 quantity: parseInt(formData.quantity),
             });
             setFormData({ item_id: "", quantity: "", reason: "" });
+            setErrors({});
             onClose();
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                setErrors(err.response.data.errors);
+            } else {
+                onError(err.response?.data?.message || "Failed to add stock");
+            }
         } finally {
             setLoading(false);
         }
@@ -1106,10 +1252,20 @@ function StockInModal({
                             <ItemPickerSelect
                                 items={items}
                                 selectedValue={formData.item_id}
-                                onValueChange={(value) =>
-                                    setFormData({ ...formData, item_id: value })
-                                }
+                                onValueChange={(value) => {
+                                    setFormData({
+                                        ...formData,
+                                        item_id: value,
+                                    });
+                                    clearError("item_id");
+                                }}
+                                hasError={!!errors.item_id}
                             />
+                            {errors.item_id?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.item_id[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1117,28 +1273,50 @@ function StockInModal({
                                 Quantity to Add *
                             </Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.quantity && styles.inputError,
+                                ]}
                                 value={formData.quantity}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, quantity: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        quantity: text,
+                                    });
+                                    clearError("quantity");
+                                }}
                                 placeholder="Enter quantity"
                                 keyboardType="numeric"
                             />
+                            {errors.quantity?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.quantity[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Reason *</Text>
                             <TextInput
-                                style={[styles.formInput, styles.textArea]}
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    errors.reason && styles.inputError,
+                                ]}
                                 value={formData.reason}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, reason: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, reason: text });
+                                    clearError("reason");
+                                }}
                                 placeholder="e.g., New delivery from supplier, Restocking, Emergency purchase"
                                 multiline
                                 numberOfLines={3}
                             />
+                            {errors.reason?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.reason[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.infoNote}>
@@ -1200,10 +1378,35 @@ function StockOutModal({
         reason: "",
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        }
+    };
+
+    const validateStockOut = () => {
+        const errs: Record<string, string[]> = {};
+        if (!formData.item_id) errs.item_id = ["Please select an item."];
+        if (!formData.quantity) errs.quantity = ["Quantity is required."];
+        else if (
+            isNaN(parseInt(formData.quantity)) ||
+            parseInt(formData.quantity) < 1
+        )
+            errs.quantity = ["Quantity must be at least 1."];
+        if (!formData.reason.trim()) errs.reason = ["Reason is required."];
+        return errs;
+    };
 
     const handleSubmit = async () => {
-        if (!formData.item_id || !formData.quantity || !formData.reason) {
-            onError("Please fill in all required fields");
+        const validationErrors = validateStockOut();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
             return;
         }
         setLoading(true);
@@ -1213,6 +1416,7 @@ function StockOutModal({
                 quantity: parseInt(formData.quantity),
             });
             setFormData({ item_id: "", quantity: "", reason: "" });
+            setErrors({});
             onClose();
         } finally {
             setLoading(false);
@@ -1243,10 +1447,20 @@ function StockOutModal({
                             <ItemPickerSelect
                                 items={items}
                                 selectedValue={formData.item_id}
-                                onValueChange={(value) =>
-                                    setFormData({ ...formData, item_id: value })
-                                }
+                                onValueChange={(value) => {
+                                    setFormData({
+                                        ...formData,
+                                        item_id: value,
+                                    });
+                                    clearError("item_id");
+                                }}
+                                hasError={!!errors.item_id}
                             />
+                            {errors.item_id?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.item_id[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1254,14 +1468,26 @@ function StockOutModal({
                                 Quantity to Remove *
                             </Text>
                             <TextInput
-                                style={styles.formInput}
+                                style={[
+                                    styles.formInput,
+                                    errors.quantity && styles.inputError,
+                                ]}
                                 value={formData.quantity}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, quantity: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        quantity: text,
+                                    });
+                                    clearError("quantity");
+                                }}
                                 placeholder="Enter quantity"
                                 keyboardType="numeric"
                             />
+                            {errors.quantity?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.quantity[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1269,15 +1495,25 @@ function StockOutModal({
                                 Reason for Removal *
                             </Text>
                             <TextInput
-                                style={[styles.formInput, styles.textArea]}
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    errors.reason && styles.inputError,
+                                ]}
                                 value={formData.reason}
-                                onChangeText={(text) =>
-                                    setFormData({ ...formData, reason: text })
-                                }
+                                onChangeText={(text) => {
+                                    setFormData({ ...formData, reason: text });
+                                    clearError("reason");
+                                }}
                                 placeholder="e.g., Used for patient testing, Consumed in procedure, Damaged items disposal"
                                 multiline
                                 numberOfLines={3}
                             />
+                            {errors.reason?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.reason[0]}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.infoNote}>
@@ -1325,18 +1561,23 @@ function PickerSelect({
     selectedValue,
     onValueChange,
     placeholder,
+    hasError = false,
 }: {
     items: string[];
     selectedValue: string;
     onValueChange: (value: string) => void;
     placeholder: string;
+    hasError?: boolean;
 }) {
     const [showPicker, setShowPicker] = useState(false);
 
     return (
         <>
             <TouchableOpacity
-                style={styles.pickerButton}
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
                 onPress={() => setShowPicker(true)}
             >
                 <Text
@@ -1404,21 +1645,26 @@ function ItemPickerSelect({
     items,
     selectedValue,
     onValueChange,
+    hasError = false,
 }: {
     items: InventoryItem[];
     selectedValue: string;
     onValueChange: (value: string) => void;
+    hasError?: boolean;
 }) {
     const [showPicker, setShowPicker] = useState(false);
 
     const selectedItem = items.find(
-        (item) => item.id.toString() === selectedValue
+        (item) => item.id.toString() === selectedValue,
     );
 
     return (
         <>
             <TouchableOpacity
-                style={styles.pickerButton}
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
                 onPress={() => setShowPicker(true)}
             >
                 <Text
@@ -1864,6 +2110,20 @@ const styles = StyleSheet.create({
     },
     progressFill: { height: "100%", borderRadius: 999 },
     stockMeta: { marginTop: 8, color: "#9CA3AF", fontSize: 12 },
+    toggleBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        alignSelf: "flex-end",
+        gap: 4,
+        marginTop: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        backgroundColor: "#F9FAFB",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    toggleBtnText: { fontSize: 12, fontWeight: "600" },
     emptyState: { alignItems: "center", paddingVertical: 80, gap: 6 },
     emptyTitle: { fontSize: 18, fontWeight: "600", color: "#111827" },
     emptySubtitle: { color: "#6B7280" },
@@ -1909,4 +2169,7 @@ const styles = StyleSheet.create({
         borderRadius: 999,
     },
     typeBadgeText: { fontWeight: "600", fontSize: 12 },
+    inputError: { borderColor: "#EF4444" },
+    errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
+    pickerButtonError: { borderColor: "#EF4444" },
 });
