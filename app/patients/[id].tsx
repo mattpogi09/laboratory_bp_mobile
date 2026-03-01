@@ -4,10 +4,11 @@ import {
     Calendar,
     ChevronDown,
     ChevronLeft,
-    ChevronRight,
     Edit,
     FileText,
+    Image as ImageIcon,
     Power,
+    User,
     X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -90,7 +91,7 @@ type TestDetail = {
 
 export default function PatientDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [data, setData] = useState<PatientDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -424,6 +425,16 @@ export default function PatientDetails() {
 
     const patient = data.patient;
     const baseUrl = API_BASE_URL.replace(/\/api\/?$/, "");
+    const testHistory = data.recent_transactions.flatMap((txn) =>
+        txn.tests.map((test) => ({
+            ...test,
+            date: new Date(txn.created_at).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+            }),
+        })),
+    );
 
     return (
         <SafeAreaView
@@ -592,6 +603,69 @@ export default function PatientDetails() {
                     />
                 </View>
 
+                {/* Test History */}
+                <View style={styles.card}>
+                    <Text style={styles.sectionTitle}>Test History</Text>
+                    {testHistory.length > 0 ? (
+                        testHistory.map((test) => (
+                            <TouchableOpacity
+                                key={test.id}
+                                style={styles.testHistoryRow}
+                                onPress={() => loadTestDetails(test.id)}
+                            >
+                                <View style={styles.testHistoryLeft}>
+                                    <View style={styles.testHistoryIconWrap}>
+                                        <FileText size={16} color="#2563EB" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.testHistoryName}>
+                                            {test.name}
+                                        </Text>
+                                        <Text style={styles.testHistoryDate}>
+                                            {test.date}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View
+                                    style={[
+                                        styles.testStatus,
+                                        test.status === "pending"
+                                            ? { backgroundColor: "#FEE2E2" }
+                                            : test.status === "processing"
+                                              ? { backgroundColor: "#FEF3C7" }
+                                              : test.status === "completed"
+                                                ? { backgroundColor: "#DBEAFE" }
+                                                : {
+                                                      backgroundColor:
+                                                          "#D1FAE5",
+                                                  },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.testStatusText,
+                                            test.status === "pending"
+                                                ? { color: "#991B1B" }
+                                                : test.status === "processing"
+                                                  ? { color: "#92400E" }
+                                                  : test.status === "completed"
+                                                    ? { color: "#1E40AF" }
+                                                    : { color: "#065F46" },
+                                        ]}
+                                    >
+                                        {test.status}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))
+                    ) : (
+                        <Text style={styles.emptyState}>
+                            No test history available.
+                        </Text>
+                    )}
+                </View>
+
+                {/* Recent Transactions */}
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Recent Transactions</Text>
                     {data.recent_transactions.map((txn) => (
@@ -605,83 +679,17 @@ export default function PatientDetails() {
                                 </Text>
                             </View>
                             <Text style={styles.transactionMeta}>
-                                {new Date(txn.created_at).toLocaleString()} •{" "}
-                                {txn.payment_status}
+                                {new Date(txn.created_at).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                    },
+                                )}{" "}
+                                • {txn.payment_status} • {txn.tests.length} test
+                                {txn.tests.length !== 1 ? "s" : ""}
                             </Text>
-                            <View style={styles.testsList}>
-                                {txn.tests.map((test) => (
-                                    <TouchableOpacity
-                                        key={test.id}
-                                        style={styles.testRow}
-                                        onPress={() => loadTestDetails(test.id)}
-                                    >
-                                        <Text style={styles.testName}>
-                                            {test.name}
-                                        </Text>
-                                        <View style={styles.testRight}>
-                                            <Text style={styles.testPrice}>
-                                                ₱{test.price}
-                                            </Text>
-                                            <View
-                                                style={[
-                                                    styles.testStatus,
-                                                    test.status === "pending"
-                                                        ? {
-                                                              backgroundColor:
-                                                                  "#FEE2E2",
-                                                          }
-                                                        : test.status ===
-                                                            "processing"
-                                                          ? {
-                                                                backgroundColor:
-                                                                    "#FEF3C7",
-                                                            }
-                                                          : test.status ===
-                                                              "completed"
-                                                            ? {
-                                                                  backgroundColor:
-                                                                      "#DBEAFE",
-                                                              }
-                                                            : {
-                                                                  backgroundColor:
-                                                                      "#D1FAE5",
-                                                              },
-                                                ]}
-                                            >
-                                                <Text
-                                                    style={[
-                                                        styles.testStatusText,
-                                                        test.status ===
-                                                        "pending"
-                                                            ? {
-                                                                  color: "#991B1B",
-                                                              }
-                                                            : test.status ===
-                                                                "processing"
-                                                              ? {
-                                                                    color: "#92400E",
-                                                                }
-                                                              : test.status ===
-                                                                  "completed"
-                                                                ? {
-                                                                      color: "#1E40AF",
-                                                                  }
-                                                                : {
-                                                                      color: "#065F46",
-                                                                  },
-                                                    ]}
-                                                >
-                                                    {test.status}
-                                                </Text>
-                                            </View>
-                                            <ChevronRight
-                                                size={16}
-                                                color="#9CA3AF"
-                                            />
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
                         </View>
                     ))}
                     {!data.recent_transactions.length && (
@@ -1017,270 +1025,395 @@ export default function PatientDetails() {
                             style={styles.modalContent}
                             contentContainerStyle={{ paddingBottom: 40 }}
                         >
-                            <View style={styles.resultCard}>
-                                <View style={styles.resultHeader}>
-                                    <View>
-                                        <Text style={styles.resultTestName}>
+                            {/* Test Information */}
+                            <View
+                                style={[
+                                    styles.sectionCard,
+                                    {
+                                        backgroundColor: "#F9FAFB",
+                                        borderColor: "#E5E7EB",
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.sectionCardTitle}>
+                                    Test Information
+                                </Text>
+                                <View style={styles.infoGrid}>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.gridLabel}>
+                                            Test Name
+                                        </Text>
+                                        <Text style={styles.gridValue}>
                                             {selectedTest.test_name}
                                         </Text>
-                                        <Text style={styles.resultCategory}>
-                                            {selectedTest.category}
+                                    </View>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.gridLabel}>
+                                            Category
+                                        </Text>
+                                        <Text style={styles.gridValue}>
+                                            {selectedTest.category || "N/A"}
                                         </Text>
                                     </View>
-                                    <View
-                                        style={[
-                                            styles.testStatus,
-                                            { alignSelf: "flex-start" },
-                                            selectedTest.status === "pending"
-                                                ? { backgroundColor: "#FEE2E2" }
-                                                : selectedTest.status ===
-                                                    "processing"
-                                                  ? {
-                                                        backgroundColor:
-                                                            "#FEF3C7",
-                                                    }
-                                                  : selectedTest.status ===
-                                                      "completed"
-                                                    ? {
-                                                          backgroundColor:
-                                                              "#DBEAFE",
-                                                      }
-                                                    : {
-                                                          backgroundColor:
-                                                              "#D1FAE5",
-                                                      },
-                                        ]}
-                                    >
-                                        <Text
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.gridLabel}>
+                                            Status
+                                        </Text>
+                                        <View
                                             style={[
-                                                styles.testStatusText,
+                                                styles.testStatus,
+                                                {
+                                                    alignSelf: "flex-start",
+                                                    marginTop: 4,
+                                                },
                                                 selectedTest.status ===
                                                 "pending"
-                                                    ? { color: "#991B1B" }
+                                                    ? {
+                                                          backgroundColor:
+                                                              "#FEE2E2",
+                                                      }
                                                     : selectedTest.status ===
                                                         "processing"
-                                                      ? { color: "#92400E" }
+                                                      ? {
+                                                            backgroundColor:
+                                                                "#FEF3C7",
+                                                        }
                                                       : selectedTest.status ===
                                                           "completed"
-                                                        ? { color: "#1E40AF" }
-                                                        : { color: "#065F46" },
+                                                        ? {
+                                                              backgroundColor:
+                                                                  "#DBEAFE",
+                                                          }
+                                                        : {
+                                                              backgroundColor:
+                                                                  "#D1FAE5",
+                                                          },
                                             ]}
                                         >
-                                            {selectedTest.status}
+                                            <Text
+                                                style={[
+                                                    styles.testStatusText,
+                                                    selectedTest.status ===
+                                                    "pending"
+                                                        ? { color: "#991B1B" }
+                                                        : selectedTest.status ===
+                                                            "processing"
+                                                          ? { color: "#92400E" }
+                                                          : selectedTest.status ===
+                                                              "completed"
+                                                            ? {
+                                                                  color: "#1E40AF",
+                                                              }
+                                                            : {
+                                                                  color: "#065F46",
+                                                              },
+                                                ]}
+                                            >
+                                                {selectedTest.status}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.gridItem}>
+                                        <Text style={styles.gridLabel}>
+                                            Price
+                                        </Text>
+                                        <Text style={styles.gridValue}>
+                                            ₱
+                                            {Number(
+                                                selectedTest.price,
+                                            ).toLocaleString()}
                                         </Text>
                                     </View>
                                 </View>
+                            </View>
 
-                                <View style={styles.resultMetaRow}>
-                                    <View>
-                                        <Text style={styles.metaLabel}>
-                                            Processed By
-                                        </Text>
-                                        <Text style={styles.metaValue}>
+                            {/* Processed By */}
+                            {selectedTest.processed_by &&
+                                selectedTest.processed_by !== "Pending" && (
+                                    <View
+                                        style={[
+                                            styles.sectionCard,
+                                            {
+                                                backgroundColor: "#EFF6FF",
+                                                borderColor: "#BFDBFE",
+                                            },
+                                        ]}
+                                    >
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                gap: 8,
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            <User size={16} color="#2563EB" />
+                                            <Text
+                                                style={styles.sectionCardTitle}
+                                            >
+                                                Processed By
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.gridValue}>
                                             {selectedTest.processed_by}
                                         </Text>
                                     </View>
-                                    <View>
-                                        <Text style={styles.metaLabel}>
-                                            Price
-                                        </Text>
-                                        <Text style={styles.metaValue}>
-                                            ₱{selectedTest.price}
-                                        </Text>
-                                    </View>
-                                </View>
+                                )}
 
-                                <View style={styles.resultMetaRow}>
-                                    <View>
-                                        <Text style={styles.metaLabel}>
-                                            Completed
-                                        </Text>
-                                        <Text style={styles.metaValue}>
-                                            {selectedTest.completed_at || "-"}
-                                        </Text>
-                                    </View>
-                                    <View>
-                                        <Text style={styles.metaLabel}>
-                                            Released
-                                        </Text>
-                                        <Text style={styles.metaValue}>
-                                            {selectedTest.released_at || "-"}
-                                        </Text>
-                                    </View>
+                            {/* Timeline */}
+                            <View
+                                style={[
+                                    styles.sectionCard,
+                                    {
+                                        backgroundColor: "#F9FAFB",
+                                        borderColor: "#E5E7EB",
+                                    },
+                                ]}
+                            >
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        marginBottom: 12,
+                                    }}
+                                >
+                                    <Calendar size={16} color="#6B7280" />
+                                    <Text style={styles.sectionCardTitle}>
+                                        Timeline
+                                    </Text>
                                 </View>
-
-                                {selectedTest.result_values &&
-                                    Object.keys(selectedTest.result_values)
-                                        .length > 0 && (
-                                        <View style={styles.section}>
-                                            <Text style={styles.sectionHeader}>
-                                                Result Values
-                                            </Text>
-                                            {Object.entries(
-                                                selectedTest.result_values,
-                                            ).map(
-                                                ([key, value]: [
-                                                    string,
-                                                    any,
-                                                ]) => (
-                                                    <View
-                                                        key={key}
-                                                        style={styles.resultRow}
-                                                    >
-                                                        <Text
-                                                            style={
-                                                                styles.resultLabel
-                                                            }
-                                                        >
-                                                            {key}
-                                                        </Text>
-                                                        <Text
-                                                            style={
-                                                                styles.resultValue
-                                                            }
-                                                        >
-                                                            {String(value)}
-                                                        </Text>
-                                                    </View>
-                                                ),
-                                            )}
-                                        </View>
+                                {selectedTest.completed_at ? (
+                                    <View style={styles.timelineRow}>
+                                        <Text style={styles.timelineLabel}>
+                                            Completed:
+                                        </Text>
+                                        <Text style={styles.timelineValue}>
+                                            {selectedTest.completed_at}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                                {selectedTest.released_at ? (
+                                    <View style={styles.timelineRow}>
+                                        <Text style={styles.timelineLabel}>
+                                            Released:
+                                        </Text>
+                                        <Text style={styles.timelineValue}>
+                                            {selectedTest.released_at}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                                {!selectedTest.completed_at &&
+                                    !selectedTest.released_at && (
+                                        <Text
+                                            style={{
+                                                color: "#9CA3AF",
+                                                fontSize: 14,
+                                                fontStyle: "italic",
+                                            }}
+                                        >
+                                            No timeline yet
+                                        </Text>
                                     )}
+                            </View>
 
-                                {selectedTest.normal_range && (
-                                    <View style={styles.section}>
-                                        <Text style={styles.sectionHeader}>
-                                            Normal Range
+                            {/* Result Values */}
+                            {selectedTest.result_values &&
+                                Object.keys(selectedTest.result_values).length >
+                                    0 && (
+                                    <View
+                                        style={[
+                                            styles.sectionCard,
+                                            {
+                                                backgroundColor: "#FFFFFF",
+                                                borderColor: "#E5E7EB",
+                                            },
+                                        ]}
+                                    >
+                                        <Text style={styles.sectionCardTitle}>
+                                            Result Values
                                         </Text>
-                                        <Text style={styles.notesText}>
-                                            {selectedTest.normal_range}
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {selectedTest.notes && (
-                                    <View style={styles.section}>
-                                        <Text style={styles.sectionHeader}>
-                                            Notes & Remarks
-                                        </Text>
-                                        <View style={styles.notesBox}>
-                                            <Text style={styles.notesText}>
-                                                {selectedTest.notes}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                )}
-
-                                {selectedTest.images &&
-                                    selectedTest.images.length > 0 && (
-                                        <View style={styles.section}>
-                                            <Text style={styles.sectionHeader}>
-                                                Uploaded Images (
-                                                {selectedTest.images.length})
-                                            </Text>
-                                            {selectedTest.images.map(
-                                                (img, index) => {
-                                                    // Handle different formats: string, object with url, or object with path
-                                                    let imageUrl: string = "";
-
-                                                    if (
-                                                        typeof img === "string"
-                                                    ) {
-                                                        // If it's a string that already starts with /storage/, just prepend base URL
-                                                        if (
-                                                            img.startsWith(
-                                                                "/storage/",
-                                                            )
-                                                        ) {
-                                                            imageUrl = `${baseUrl}${img}`;
-                                                        } else if (
-                                                            img.startsWith(
-                                                                "http",
-                                                            )
-                                                        ) {
-                                                            imageUrl = img;
-                                                        } else {
-                                                            // Otherwise construct the full path
-                                                            imageUrl = `${baseUrl}/storage/${img}`;
+                                        {Object.entries(
+                                            selectedTest.result_values,
+                                        ).map(([key, value]: [string, any]) =>
+                                            key !== "metadata" ? (
+                                                <View
+                                                    key={key}
+                                                    style={styles.resultRow}
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.resultLabel
                                                         }
-                                                    } else if (img.url) {
-                                                        // If backend provided a URL, use it (prepend base URL if relative)
-                                                        imageUrl =
-                                                            img.url.startsWith(
-                                                                "http",
-                                                            )
-                                                                ? img.url
-                                                                : `${baseUrl}${img.url}`;
-                                                    } else if (img.path) {
-                                                        // Fallback to constructing from path
-                                                        imageUrl = `${baseUrl}/storage/${img.path}`;
-                                                    }
-
-                                                    console.log(
-                                                        "Image data:",
-                                                        img,
-                                                    );
-                                                    console.log(
-                                                        "Final URL:",
-                                                        imageUrl,
-                                                    );
-
-                                                    return (
-                                                        <View
-                                                            key={index}
-                                                            style={
-                                                                styles.imageContainer
-                                                            }
-                                                        >
-                                                            <Image
-                                                                source={{
-                                                                    uri: imageUrl,
-                                                                }}
-                                                                style={
-                                                                    styles.resultImage
-                                                                }
-                                                                resizeMode="contain"
-                                                                onError={(
-                                                                    error,
-                                                                ) => {
-                                                                    console.log(
-                                                                        "❌ Image load error:",
-                                                                        error
-                                                                            .nativeEvent
-                                                                            .error,
-                                                                    );
-                                                                    console.log(
-                                                                        "Failed URL:",
-                                                                        imageUrl,
-                                                                    );
-                                                                }}
-                                                                onLoadStart={() =>
-                                                                    console.log(
-                                                                        "⏳ Loading image:",
-                                                                        imageUrl,
-                                                                    )
-                                                                }
-                                                                onLoadEnd={() =>
-                                                                    console.log(
-                                                                        "✅ Image loaded:",
-                                                                        imageUrl,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </View>
-                                                    );
-                                                },
-                                            )}
-                                        </View>
-                                    )}
-
-                                {selectedTest.status === "pending" && (
-                                    <View style={styles.pendingState}>
-                                        <FileText size={48} color="#9CA3AF" />
-                                        <Text style={styles.pendingText}>
-                                            Results pending
-                                        </Text>
+                                                    >
+                                                        {key
+                                                            .replace(/_/g, " ")
+                                                            .replace(
+                                                                /\b\w/g,
+                                                                (l) =>
+                                                                    l.toUpperCase(),
+                                                            )}
+                                                    </Text>
+                                                    <Text
+                                                        style={
+                                                            styles.resultValue
+                                                        }
+                                                    >
+                                                        {typeof value ===
+                                                        "object"
+                                                            ? JSON.stringify(
+                                                                  value,
+                                                              )
+                                                            : String(value)}
+                                                    </Text>
+                                                </View>
+                                            ) : null,
+                                        )}
                                     </View>
+                                )}
+
+                            {/* Normal Range */}
+                            {selectedTest.normal_range && (
+                                <View
+                                    style={[
+                                        styles.sectionCard,
+                                        {
+                                            backgroundColor: "#F0FDF4",
+                                            borderColor: "#BBF7D0",
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.sectionCardTitle}>
+                                        Normal Range
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 14,
+                                            color: "#374151",
+                                        }}
+                                    >
+                                        {selectedTest.normal_range}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Notes & Remarks */}
+                            {selectedTest.notes && (
+                                <View
+                                    style={[
+                                        styles.sectionCard,
+                                        {
+                                            backgroundColor: "#FFFBEB",
+                                            borderColor: "#FDE68A",
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.sectionCardTitle}>
+                                        Notes & Remarks
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 14,
+                                            color: "#92400E",
+                                            lineHeight: 20,
+                                        }}
+                                    >
+                                        {selectedTest.notes}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Uploaded Images */}
+                            <View
+                                style={[
+                                    styles.sectionCard,
+                                    {
+                                        backgroundColor: "#FFFFFF",
+                                        borderColor: "#E5E7EB",
+                                    },
+                                ]}
+                            >
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        marginBottom: 12,
+                                    }}
+                                >
+                                    <ImageIcon size={16} color="#6B7280" />
+                                    <Text style={styles.sectionCardTitle}>
+                                        Uploaded Images
+                                    </Text>
+                                    {selectedTest.images &&
+                                        selectedTest.images.length > 0 && (
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    color: "#9CA3AF",
+                                                }}
+                                            >
+                                                ({selectedTest.images.length})
+                                            </Text>
+                                        )}
+                                </View>
+                                {selectedTest.images &&
+                                selectedTest.images.length > 0 ? (
+                                    selectedTest.images.map((img, index) => {
+                                        let imageUrl = "";
+                                        if (typeof img === "string") {
+                                            if (img.startsWith("http")) {
+                                                imageUrl = img;
+                                            } else if (
+                                                img.startsWith("files/")
+                                            ) {
+                                                // New format: files/result_images/...
+                                                imageUrl = `${API_BASE_URL}/${img}`;
+                                            } else {
+                                                // Legacy: /storage/... or bare path
+                                                imageUrl = `${baseUrl}${img.startsWith("/") ? "" : "/"}${img}`;
+                                            }
+                                        } else if (img.url) {
+                                            imageUrl = img.url.startsWith(
+                                                "http",
+                                            )
+                                                ? img.url
+                                                : `${baseUrl}${img.url}`;
+                                        } else if (img.path) {
+                                            imageUrl = `${API_BASE_URL}/files/${img.path}`;
+                                        }
+                                        return (
+                                            <View
+                                                key={index}
+                                                style={styles.imageContainer}
+                                            >
+                                                <Image
+                                                    source={{
+                                                        uri: imageUrl,
+                                                        headers: token
+                                                            ? {
+                                                                  Authorization: `Bearer ${token}`,
+                                                              }
+                                                            : undefined,
+                                                    }}
+                                                    style={styles.resultImage}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        );
+                                    })
+                                ) : (
+                                    <Text
+                                        style={{
+                                            fontSize: 14,
+                                            color: "#9CA3AF",
+                                            textAlign: "center",
+                                            paddingVertical: 16,
+                                            fontStyle: "italic",
+                                        }}
+                                    >
+                                        No images uploaded
+                                    </Text>
                                 )}
                             </View>
                         </ScrollView>
@@ -1647,6 +1780,83 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     emptyState: { textAlign: "center", color: "#9CA3AF" },
+    testHistoryRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+        gap: 10,
+    },
+    testHistoryLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 1,
+        gap: 10,
+    },
+    testHistoryIconWrap: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: "#EFF6FF",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    testHistoryName: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#111827",
+    },
+    testHistoryDate: {
+        fontSize: 12,
+        color: "#6B7280",
+        marginTop: 2,
+    },
+    sectionCard: {
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    sectionCardTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#111827",
+        marginBottom: 12,
+    },
+    infoGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 12,
+    },
+    gridItem: {
+        width: "45%",
+    },
+    gridLabel: {
+        fontSize: 11,
+        color: "#6B7280",
+        marginBottom: 4,
+    },
+    gridValue: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#111827",
+    },
+    timelineRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 8,
+    },
+    timelineLabel: {
+        fontSize: 14,
+        color: "#6B7280",
+    },
+    timelineValue: {
+        fontSize: 14,
+        color: "#111827",
+        fontWeight: "500",
+    },
     modalContainer: {
         flex: 1,
         backgroundColor: "#fff",
