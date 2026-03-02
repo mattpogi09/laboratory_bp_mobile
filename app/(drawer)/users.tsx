@@ -267,64 +267,67 @@ export default function UsersScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <View style={styles.searchContainer}>
-                    <Search
-                        color="#6B7280"
-                        size={18}
-                        style={styles.searchIcon}
-                    />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search users..."
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                    />
-                </View>
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setShowCreateModal(true)}
-                >
-                    <Plus color="#fff" size={18} />
-                    <Text style={styles.addButtonText}>Add User</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Role filter pills */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.pillsRow}
-                contentContainerStyle={{
-                    gap: 6,
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                }}
-            >
-                {[
-                    { label: "All", value: "" },
-                    { label: "Admin", value: "admin" },
-                    { label: "Lab Staff", value: "lab_staff" },
-                    { label: "Cashier", value: "cashier" },
-                ].map((r) => (
+                <View style={styles.headerRow}>
+                    <View style={styles.searchContainer}>
+                        <Search
+                            color="#6B7280"
+                            size={18}
+                            style={styles.searchIcon}
+                        />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search users..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
                     <TouchableOpacity
-                        key={r.value}
-                        style={[
-                            styles.pill,
-                            roleFilter === r.value && styles.pillActive,
-                        ]}
-                        onPress={() => setRoleFilter(r.value)}
+                        style={styles.addButton}
+                        onPress={() => setShowCreateModal(true)}
                     >
-                        <Text
-                            style={[
-                                styles.pillText,
-                                roleFilter === r.value && styles.pillTextActive,
-                            ]}
-                        >
-                            {r.label}
-                        </Text>
+                        <Plus color="#fff" size={18} />
+                        <Text style={styles.addButtonText}>Add User</Text>
                     </TouchableOpacity>
-                ))}
-            </ScrollView>
+                </View>
+
+                {/* Role filter pills */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.pillsRow}
+                    contentContainerStyle={{
+                        gap: 6,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                    }}
+                >
+                    {[
+                        { label: "All", value: "" },
+                        { label: "Admin", value: "admin" },
+                        { label: "Lab Staff", value: "lab_staff" },
+                        { label: "Cashier", value: "cashier" },
+                    ].map((r) => (
+                        <TouchableOpacity
+                            key={r.value}
+                            style={[
+                                styles.pill,
+                                roleFilter === r.value && styles.pillActive,
+                            ]}
+                            onPress={() => setRoleFilter(r.value)}
+                        >
+                            <Text
+                                style={[
+                                    styles.pillText,
+                                    roleFilter === r.value &&
+                                        styles.pillTextActive,
+                                ]}
+                            >
+                                {r.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
             <FlatList
                 data={users}
@@ -774,7 +777,9 @@ function CreateUserModal({
                                     {errors.password[0]}
                                 </Text>
                             )}
-                            <PasswordStrengthChecker password={formData.password} />
+                            <PasswordStrengthChecker
+                                password={formData.password}
+                            />
                         </View>
 
                         <View style={styles.formGroup}>
@@ -943,17 +948,35 @@ function CreateUserModal({
 const PASSWORD_CHECKS = [
     { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
     { label: "At least 1 number", test: (p: string) => /\d/.test(p) },
-    { label: "At least 1 lowercase letter", test: (p: string) => /[a-z]/.test(p) },
-    { label: "At least 1 uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+    {
+        label: "At least 1 lowercase letter",
+        test: (p: string) => /[a-z]/.test(p),
+    },
+    {
+        label: "At least 1 uppercase letter",
+        test: (p: string) => /[A-Z]/.test(p),
+    },
 ];
 
 function PasswordStrengthChecker({ password }: { password: string }) {
     if (!password) return null;
     const passed = PASSWORD_CHECKS.filter((c) => c.test(password)).length;
     const strength =
-        passed <= 1 ? "Weak" : passed === 2 ? "Fair" : passed === 3 ? "Good" : "Strong";
+        passed <= 1
+            ? "Weak"
+            : passed === 2
+              ? "Fair"
+              : passed === 3
+                ? "Good"
+                : "Strong";
     const strengthColor =
-        passed <= 1 ? "#EF4444" : passed === 2 ? "#F59E0B" : passed === 3 ? "#3B82F6" : "#10B981";
+        passed <= 1
+            ? "#EF4444"
+            : passed === 2
+              ? "#F59E0B"
+              : passed === 3
+                ? "#3B82F6"
+                : "#10B981";
     return (
         <View style={styles.strengthContainer}>
             <Text style={[styles.strengthLabel, { color: strengthColor }]}>
@@ -1410,7 +1433,9 @@ function EditUserModal({
                                     {errors.password[0]}
                                 </Text>
                             )}
-                            <PasswordStrengthChecker password={formData.password} />
+                            <PasswordStrengthChecker
+                                password={formData.password}
+                            />
                         </View>
                     </View>
 
@@ -1449,16 +1474,23 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: "#fff",
         padding: 16,
+        paddingBottom: 0,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 0,
+    },
     searchContainer: {
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#F9FAFB",
         borderRadius: 12,
         paddingHorizontal: 12,
-        marginBottom: 12,
     },
     searchIcon: { marginRight: 8 },
     searchInput: {
@@ -1472,10 +1504,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#2563EB",
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
         borderRadius: 12,
-        gap: 6,
+        gap: 4,
     },
     addButtonText: {
         color: "#fff",
@@ -1697,9 +1729,10 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     pillsRow: {
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        marginTop: 8,
+        marginHorizontal: -16,
+        borderTopWidth: 1,
+        borderTopColor: "#F3F4F6",
     },
     pill: {
         paddingHorizontal: 16,
