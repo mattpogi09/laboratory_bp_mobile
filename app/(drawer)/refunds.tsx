@@ -5,10 +5,11 @@ import {
     CheckCircle,
     ChevronRight,
     FileText,
+    Search,
     X,
     XCircle,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -33,18 +34,19 @@ import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 const STATUS_TABS: { label: string; value: string }[] = [
     { label: "All Active", value: "" },
-    { label: "Pending", value: "pending" },
-    { label: "Approved", value: "approved" },
-    { label: "Denied", value: "denied" },
+    { label: "Pending",    value: "pending" },
+    { label: "Approved",   value: "approved" },
+    { label: "Denied",     value: "denied" },
+    { label: "Completed",  value: "completed" },
 ];
 
 const STATUS_COLORS: Record<
     RefundStatus | string,
     { bg: string; text: string; accent: string }
 > = {
-    pending:   { bg: "#FFFBEB", text: "#92400E", accent: "#F59E0B" },
-    approved:  { bg: "#ECFDF5", text: "#065F46", accent: "#10B981" },
-    denied:    { bg: "#FFF1F2", text: "#9F1239", accent: "#F43F5E" },
+    pending: { bg: "#FFFBEB", text: "#92400E", accent: "#F59E0B" },
+    approved: { bg: "#ECFDF5", text: "#065F46", accent: "#10B981" },
+    denied: { bg: "#FFF1F2", text: "#9F1239", accent: "#F43F5E" },
     completed: { bg: "#F0F9FF", text: "#075985", accent: "#0EA5E9" },
 };
 
@@ -61,6 +63,22 @@ export default function RefundsScreen() {
     const [lastPage, setLastPage] = useState(1);
 
     const [statusFilter, setStatusFilter] = useState("");
+
+    // Search
+    const [searchInput, setSearchInput] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleSearchChange = (text: string) => {
+        setSearchInput(text);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => setSearchQuery(text.trim()), 400);
+    };
+
+    const clearSearch = () => {
+        setSearchInput("");
+        setSearchQuery("");
+    };
 
     // Detail modal
     const [selected, setSelected] = useState<RefundRequest | null>(null);
@@ -104,6 +122,7 @@ export default function RefundsScreen() {
                     params: {
                         page,
                         status: statusFilter || undefined,
+                        search: searchQuery || undefined,
                     },
                 });
 
@@ -133,7 +152,7 @@ export default function RefundsScreen() {
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [statusFilter, refreshing],
+        [statusFilter, searchQuery, refreshing],
     );
 
     useFocusEffect(
@@ -269,10 +288,16 @@ export default function RefundsScreen() {
     };
 
     const statusBadge = (status: RefundStatus | string) => {
-        const c = STATUS_COLORS[status] ?? { bg: "#F3F4F6", text: "#374151", accent: "#9CA3AF" };
+        const c = STATUS_COLORS[status] ?? {
+            bg: "#F3F4F6",
+            text: "#374151",
+            accent: "#9CA3AF",
+        };
         return (
             <View style={[styles.badge, { backgroundColor: c.bg }]}>
-                <View style={[styles.badgeDot, { backgroundColor: c.accent }]} />
+                <View
+                    style={[styles.badgeDot, { backgroundColor: c.accent }]}
+                />
                 <Text style={[styles.badgeText, { color: c.text }]}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Text>
@@ -281,7 +306,11 @@ export default function RefundsScreen() {
     };
 
     const renderItem = ({ item }: { item: RefundRequest }) => {
-        const c = STATUS_COLORS[item.status] ?? { bg: "#F3F4F6", text: "#374151", accent: "#9CA3AF" };
+        const c = STATUS_COLORS[item.status] ?? {
+            bg: "#F3F4F6",
+            text: "#374151",
+            accent: "#9CA3AF",
+        };
         return (
             <TouchableOpacity
                 style={styles.card}
@@ -294,7 +323,9 @@ export default function RefundsScreen() {
                 activeOpacity={0.72}
             >
                 {/* Left status accent */}
-                <View style={[styles.cardAccent, { backgroundColor: c.accent }]} />
+                <View
+                    style={[styles.cardAccent, { backgroundColor: c.accent }]}
+                />
 
                 <View style={styles.cardBody}>
                     {/* Top row: name + badge */}
@@ -302,7 +333,8 @@ export default function RefundsScreen() {
                         <View style={styles.cardNameRow}>
                             <FileText size={14} color={c.accent} />
                             <Text style={styles.cardPatient} numberOfLines={1}>
-                                {item.transaction?.patient?.full_name ?? "Unknown Patient"}
+                                {item.transaction?.patient?.full_name ??
+                                    "Unknown Patient"}
                             </Text>
                         </View>
                         {statusBadge(item.status)}
@@ -321,7 +353,9 @@ export default function RefundsScreen() {
                     {/* Type + date */}
                     <View style={styles.cardFooter}>
                         <Text style={styles.cardLabel}>
-                            {item.refund_type === "full" ? "Full Refund" : "Partial Refund"}
+                            {item.refund_type === "full"
+                                ? "Full Refund"
+                                : "Partial Refund"}
                             {"  ·  "}
                             {formatDate(item.created_at)}
                         </Text>
@@ -349,35 +383,74 @@ export default function RefundsScreen() {
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Refund Requests</Text>
                 {refunds.length > 0 && !loading && (
-                    <Text style={styles.headerCount}>{refunds.length} request{refunds.length !== 1 ? "s" : ""}</Text>
+                    <Text style={styles.headerCount}>
+                        {refunds.length} request
+                        {refunds.length !== 1 ? "s" : ""}
+                    </Text>
                 )}
             </View>
 
-            {/* Status filter tabs — underline style, all equal width */}
-            <View style={styles.tabBar}>
-                {STATUS_TABS.map((tab) => {
-                    const active = statusFilter === tab.value;
-                    return (
-                        <TouchableOpacity
-                            key={tab.value}
-                            style={styles.tabItem}
-                            onPress={() => setStatusFilter(tab.value)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                                {tab.label}
-                            </Text>
-                            {active && <View style={styles.tabUnderline} />}
-                        </TouchableOpacity>
-                    );
-                })}
+            {/* Status filter tabs — horizontal scroll for 5 tabs */}
+            <View style={styles.tabBarWrapper}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tabBarContent}
+                    style={styles.tabBarScroll}
+                    bounces={false}
+                >
+                    {STATUS_TABS.map((tab) => {
+                        const active = statusFilter === tab.value;
+                        return (
+                            <TouchableOpacity
+                                key={tab.value}
+                                style={styles.tabItem}
+                                onPress={() => setStatusFilter(tab.value)}
+                                activeOpacity={0.7}
+                            >
+                                <Text
+                                    style={[
+                                        styles.tabText,
+                                        active && styles.tabTextActive,
+                                    ]}
+                                >
+                                    {tab.label}
+                                </Text>
+                                {active && <View style={styles.tabUnderline} />}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+
+            {/* Search bar */}
+            <View style={styles.searchContainer}>
+                <Search size={15} color="#94A3B8" />
+                <TextInput
+                    style={styles.searchInput}
+                    value={searchInput}
+                    onChangeText={handleSearchChange}
+                    placeholder="Search patient or TXN#..."
+                    placeholderTextColor="#CBD5E1"
+                    returnKeyType="search"
+                />
+                {searchInput.length > 0 && (
+                    <TouchableOpacity
+                        onPress={clearSearch}
+                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                    >
+                        <X size={15} color="#94A3B8" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* List */}
             {loadError && !refunds.length ? (
                 <View style={styles.errorContainer}>
                     <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>Unable to load refunds</Text>
+                    <Text style={styles.errorTitle}>
+                        Unable to load refunds
+                    </Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
@@ -399,24 +472,38 @@ export default function RefundsScreen() {
                     keyExtractor={(r) => String(r.id)}
                     renderItem={renderItem}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#2563EB"
+                        />
                     }
                     onEndReached={onEndReached}
                     onEndReachedThreshold={0.3}
                     ListEmptyComponent={
                         <View style={styles.centered}>
                             <AlertTriangle size={44} color="#E5E7EB" />
-                            <Text style={styles.emptyTitle}>No refund requests</Text>
+                            <Text style={styles.emptyTitle}>
+                                No refund requests
+                            </Text>
                             <Text style={styles.emptySubtitle}>
-                                {statusFilter === ""
-                                    ? "There are no active refund requests."
-                                    : `No ${statusFilter} requests found.`}
+                                {searchQuery
+                                    ? `No results for "${searchQuery}".`
+                                    : statusFilter === ""
+                                      ? "There are no active refund requests."
+                                      : statusFilter === "completed"
+                                        ? "No completed refunds yet."
+                                        : `No ${statusFilter} requests found.`}
                             </Text>
                         </View>
                     }
                     ListFooterComponent={
                         loadingMore ? (
-                            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 16 }} />
+                            <ActivityIndicator
+                                size="small"
+                                color="#2563EB"
+                                style={{ marginVertical: 16 }}
+                            />
                         ) : null
                     }
                     contentContainerStyle={styles.listContent}
@@ -440,17 +527,27 @@ export default function RefundsScreen() {
                         {/* Drag handle */}
                         <View style={styles.dragHandle} />
 
-                        <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
                             {/* Modal header */}
                             <View style={styles.modalHeader}>
                                 <View style={styles.modalHeaderLeft}>
-                                    <Text style={styles.modalTitle}>Refund Details</Text>
+                                    <Text style={styles.modalTitle}>
+                                        Refund Details
+                                    </Text>
                                     {selected && statusBadge(selected.status)}
                                 </View>
                                 <TouchableOpacity
                                     onPress={() => setShowDetail(false)}
                                     style={styles.closeBtn}
-                                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                                    hitSlop={{
+                                        top: 8,
+                                        right: 8,
+                                        bottom: 8,
+                                        left: 8,
+                                    }}
                                 >
                                     <X size={18} color="#6B7280" />
                                 </TouchableOpacity>
@@ -460,60 +557,130 @@ export default function RefundsScreen() {
                                 <>
                                     {/* Amount hero */}
                                     <View style={styles.amountHero}>
-                                        <Text style={styles.amountLabel}>Refund Amount</Text>
+                                        <Text style={styles.amountLabel}>
+                                            Refund Amount
+                                        </Text>
                                         <Text style={styles.amountValue}>
-                                            {formatCurrency(selected.refund_amount)}
+                                            {formatCurrency(
+                                                selected.refund_amount,
+                                            )}
                                         </Text>
                                         <Text style={styles.amountSub}>
-                                            of {formatCurrency(selected.total_transaction_amount)} total
+                                            of{" "}
+                                            {formatCurrency(
+                                                selected.total_transaction_amount,
+                                            )}{" "}
+                                            total
                                         </Text>
                                     </View>
 
                                     {/* Key info rows */}
                                     <View style={styles.infoBlock}>
-                                        <InfoRow label="Patient" value={selected.transaction?.patient?.full_name ?? "—"} />
-                                        <InfoRow label="Transaction" value={`#${selected.transaction?.transaction_number ?? "—"}`} mono />
-                                        <InfoRow label="Type" value={selected.refund_type === "full" ? "Full Refund" : "Partial Refund"} />
-                                        <InfoRow label="Requested by" value={selected.requested_by?.name ?? "—"} />
-                                        <InfoRow label="Date" value={formatDate(selected.created_at)} last />
+                                        <InfoRow
+                                            label="Patient"
+                                            value={
+                                                selected.transaction?.patient
+                                                    ?.full_name ?? "—"
+                                            }
+                                        />
+                                        <InfoRow
+                                            label="Transaction"
+                                            value={`#${selected.transaction?.transaction_number ?? "—"}`}
+                                            mono
+                                        />
+                                        <InfoRow
+                                            label="Type"
+                                            value={
+                                                selected.refund_type === "full"
+                                                    ? "Full Refund"
+                                                    : "Partial Refund"
+                                            }
+                                        />
+                                        <InfoRow
+                                            label="Requested by"
+                                            value={
+                                                selected.requested_by?.name ??
+                                                "—"
+                                            }
+                                        />
+                                        <InfoRow
+                                            label="Date"
+                                            value={formatDate(
+                                                selected.created_at,
+                                            )}
+                                            last
+                                        />
                                     </View>
 
                                     {/* Reason */}
                                     <View style={styles.textBlock}>
-                                        <Text style={styles.blockLabel}>Reason</Text>
-                                        <Text style={styles.blockText}>{selected.reason}</Text>
+                                        <Text style={styles.blockLabel}>
+                                            Reason
+                                        </Text>
+                                        <Text style={styles.blockText}>
+                                            {selected.reason}
+                                        </Text>
                                     </View>
 
                                     {/* Tests included */}
-                                    {selected.tests && selected.tests.length > 0 && (
-                                        <View style={styles.testsBlock}>
-                                            <Text style={styles.blockLabel}>
-                                                {selected.refund_type === "full"
-                                                    ? "Tests Included in Refund"
-                                                    : "Tests Selected for Refund"}
-                                            </Text>
-                                            {selected.tests.map((test, idx) => (
-                                                <View
-                                                    key={test.id}
-                                                    style={[
-                                                        styles.testItem,
-                                                        idx === selected.tests.length - 1 && { borderBottomWidth: 0 },
-                                                    ]}
-                                                >
-                                                    <Text style={styles.testName}>{test.test_name}</Text>
-                                                    <Text style={styles.testPrice}>
-                                                        ₱{Number(test.price).toLocaleString("en-PH")}
-                                                    </Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    )}
+                                    {selected.tests &&
+                                        selected.tests.length > 0 && (
+                                            <View style={styles.testsBlock}>
+                                                <Text style={styles.blockLabel}>
+                                                    {selected.refund_type ===
+                                                    "full"
+                                                        ? "Tests Included in Refund"
+                                                        : "Tests Selected for Refund"}
+                                                </Text>
+                                                {selected.tests.map(
+                                                    (test, idx) => (
+                                                        <View
+                                                            key={test.id}
+                                                            style={[
+                                                                styles.testItem,
+                                                                idx ===
+                                                                    selected
+                                                                        .tests
+                                                                        .length -
+                                                                        1 && {
+                                                                    borderBottomWidth: 0,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.testName
+                                                                }
+                                                            >
+                                                                {test.test_name}
+                                                            </Text>
+                                                            <Text
+                                                                style={
+                                                                    styles.testPrice
+                                                                }
+                                                            >
+                                                                ₱
+                                                                {Number(
+                                                                    test.price,
+                                                                ).toLocaleString(
+                                                                    "en-PH",
+                                                                )}
+                                                            </Text>
+                                                        </View>
+                                                    ),
+                                                )}
+                                            </View>
+                                        )}
 
                                     {/* Admin notes if already processed */}
                                     {selected.admin_notes ? (
                                         <View style={styles.textBlock}>
-                                            <Text style={styles.blockLabel}>Admin Notes</Text>
-                                            <Text style={styles.blockText}>{selected.admin_notes}</Text>
+                                            <Text style={styles.blockLabel}>
+                                                Admin Notes
+                                            </Text>
+                                            <Text style={styles.blockText}>
+                                                {selected.admin_notes}
+                                            </Text>
                                         </View>
                                     ) : null}
 
@@ -522,52 +689,129 @@ export default function RefundsScreen() {
                                         <View style={styles.actionsBlock}>
                                             {/* Approve */}
                                             <TouchableOpacity
-                                                style={[styles.actionBtn, styles.approveBtn]}
-                                                onPress={() => handleApprove(selected)}
+                                                style={[
+                                                    styles.actionBtn,
+                                                    styles.approveBtn,
+                                                ]}
+                                                onPress={() =>
+                                                    handleApprove(selected)
+                                                }
                                                 disabled={actionLoading}
                                                 activeOpacity={0.8}
                                             >
-                                                <CheckCircle size={18} color="#fff" />
-                                                <Text style={styles.actionBtnText}>Approve Refund</Text>
+                                                <CheckCircle
+                                                    size={18}
+                                                    color="#fff"
+                                                />
+                                                <Text
+                                                    style={styles.actionBtnText}
+                                                >
+                                                    Approve Refund
+                                                </Text>
                                             </TouchableOpacity>
 
                                             {/* Deny */}
                                             {!showDenyInput ? (
                                                 <TouchableOpacity
-                                                    style={[styles.actionBtn, styles.denyBtn]}
-                                                    onPress={() => setShowDenyInput(true)}
+                                                    style={[
+                                                        styles.actionBtn,
+                                                        styles.denyBtn,
+                                                    ]}
+                                                    onPress={() =>
+                                                        setShowDenyInput(true)
+                                                    }
                                                     disabled={actionLoading}
                                                     activeOpacity={0.8}
                                                 >
-                                                    <XCircle size={18} color="#fff" />
-                                                    <Text style={styles.actionBtnText}>Deny Refund</Text>
+                                                    <XCircle
+                                                        size={18}
+                                                        color="#fff"
+                                                    />
+                                                    <Text
+                                                        style={
+                                                            styles.actionBtnText
+                                                        }
+                                                    >
+                                                        Deny Refund
+                                                    </Text>
                                                 </TouchableOpacity>
                                             ) : (
-                                                <View style={styles.denyInputWrapper}>
-                                                    <Text style={styles.denyLabel}>Reason for Denial *</Text>
+                                                <View
+                                                    style={
+                                                        styles.denyInputWrapper
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={styles.denyLabel}
+                                                    >
+                                                        Reason for Denial *
+                                                    </Text>
                                                     <TextInput
                                                         style={styles.denyInput}
                                                         value={denyNote}
-                                                        onChangeText={setDenyNote}
+                                                        onChangeText={
+                                                            setDenyNote
+                                                        }
                                                         placeholder="Enter denial reason..."
                                                         placeholderTextColor="#9CA3AF"
                                                         multiline
                                                         numberOfLines={3}
                                                     />
-                                                    <View style={styles.denyActions}>
+                                                    <View
+                                                        style={
+                                                            styles.denyActions
+                                                        }
+                                                    >
                                                         <TouchableOpacity
-                                                            style={[styles.actionBtn, styles.cancelBtn, { flex: 1, marginRight: 8 }]}
-                                                            onPress={() => { setShowDenyInput(false); setDenyNote(""); }}
+                                                            style={[
+                                                                styles.actionBtn,
+                                                                styles.cancelBtn,
+                                                                {
+                                                                    flex: 1,
+                                                                    marginRight: 8,
+                                                                },
+                                                            ]}
+                                                            onPress={() => {
+                                                                setShowDenyInput(
+                                                                    false,
+                                                                );
+                                                                setDenyNote("");
+                                                            }}
                                                         >
-                                                            <Text style={[styles.actionBtnText, { color: "#374151" }]}>Cancel</Text>
+                                                            <Text
+                                                                style={[
+                                                                    styles.actionBtnText,
+                                                                    {
+                                                                        color: "#374151",
+                                                                    },
+                                                                ]}
+                                                            >
+                                                                Cancel
+                                                            </Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
-                                                            style={[styles.actionBtn, styles.denyBtn, { flex: 1 }]}
-                                                            onPress={() => handleDenyConfirm(selected)}
-                                                            disabled={actionLoading}
+                                                            style={[
+                                                                styles.actionBtn,
+                                                                styles.denyBtn,
+                                                                { flex: 1 },
+                                                            ]}
+                                                            onPress={() =>
+                                                                handleDenyConfirm(
+                                                                    selected,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                actionLoading
+                                                            }
                                                             activeOpacity={0.8}
                                                         >
-                                                            <Text style={styles.actionBtnText}>Confirm Deny</Text>
+                                                            <Text
+                                                                style={
+                                                                    styles.actionBtnText
+                                                                }
+                                                            >
+                                                                Confirm Deny
+                                                            </Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -589,7 +833,9 @@ export default function RefundsScreen() {
                 confirmText={confirmDialog.confirmText}
                 type={confirmDialog.type}
                 onConfirm={confirmDialog.onConfirm}
-                onCancel={() => setConfirmDialog((d) => ({ ...d, visible: false }))}
+                onCancel={() =>
+                    setConfirmDialog((d) => ({ ...d, visible: false }))
+                }
             />
             <SuccessDialog
                 visible={successDialog.visible}
@@ -597,7 +843,9 @@ export default function RefundsScreen() {
                 message={successDialog.message}
                 type={successDialog.type}
                 autoClose={successDialog.type === "success"}
-                onClose={() => setSuccessDialog((d) => ({ ...d, visible: false }))}
+                onClose={() =>
+                    setSuccessDialog((d) => ({ ...d, visible: false }))
+                }
             />
         </View>
     );
@@ -621,7 +869,10 @@ function InfoRow({
     return (
         <View style={[infoRowStyles.row, last && infoRowStyles.lastRow]}>
             <Text style={infoRowStyles.label}>{label}</Text>
-            <Text style={[infoRowStyles.value, mono && infoRowStyles.mono]} numberOfLines={1}>
+            <Text
+                style={[infoRowStyles.value, mono && infoRowStyles.mono]}
+                numberOfLines={1}
+            >
                 {value}
             </Text>
         </View>
@@ -639,7 +890,13 @@ const infoRowStyles = StyleSheet.create({
     },
     lastRow: { borderBottomWidth: 0 },
     label: { fontSize: 13, color: "#9CA3AF", flex: 1 },
-    value: { fontSize: 13, color: "#111827", fontWeight: "500", flex: 2, textAlign: "right" },
+    value: {
+        fontSize: 13,
+        color: "#111827",
+        fontWeight: "500",
+        flex: 2,
+        textAlign: "right",
+    },
     mono: { fontFamily: "monospace", fontSize: 12 },
 });
 
@@ -660,21 +917,27 @@ const styles = StyleSheet.create({
         paddingBottom: 14,
         backgroundColor: "#fff",
     },
-    headerTitle: { fontSize: 22, fontWeight: "700", color: "#0F172A", letterSpacing: -0.4 },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: "700",
+        color: "#0F172A",
+        letterSpacing: -0.4,
+    },
     headerCount: { fontSize: 13, color: "#94A3B8", fontWeight: "500" },
 
-    // ── Tab bar — equal-width underline style ──
-    tabBar: {
-        flexDirection: "row",
+    // ── Tab bar — horizontal scroll ──
+    tabBarWrapper: {
         backgroundColor: "#fff",
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: "#E2E8F0",
-        marginBottom: 4,
     },
+    tabBarScroll: { height: 46 },
+    tabBarContent: { paddingHorizontal: 4 },
     tabItem: {
-        flex: 1,
         alignItems: "center",
-        paddingVertical: 12,
+        justifyContent: "center",
+        paddingHorizontal: 18,
+        height: 46,
         position: "relative",
     },
     tabText: { fontSize: 13, fontWeight: "500", color: "#94A3B8" },
@@ -687,6 +950,27 @@ const styles = StyleSheet.create({
         height: 2.5,
         borderRadius: 2,
         backgroundColor: "#2563EB",
+    },
+
+    // ── Search bar ──
+    searchContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginHorizontal: 16,
+        marginVertical: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        backgroundColor: "#fff",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 13,
+        color: "#0F172A",
+        paddingVertical: 0,
     },
 
     // ── List ──
@@ -714,12 +998,30 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 8,
     },
-    cardNameRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+    cardNameRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        flex: 1,
+    },
     cardPatient: { fontSize: 15, fontWeight: "600", color: "#0F172A", flex: 1 },
-    cardMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    cardMono: { fontSize: 11, color: "#94A3B8", fontFamily: "monospace", letterSpacing: 0.2 },
+    cardMeta: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    cardMono: {
+        fontSize: 11,
+        color: "#94A3B8",
+        fontFamily: "monospace",
+        letterSpacing: 0.2,
+    },
     cardAmount: { fontSize: 15, fontWeight: "700" },
-    cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    cardFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
     cardLabel: { fontSize: 12, color: "#94A3B8" },
     cardReason: { fontSize: 12, color: "#64748B", fontStyle: "italic" },
 
@@ -744,16 +1046,41 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     emptyTitle: { fontSize: 16, fontWeight: "600", color: "#94A3B8" },
-    emptySubtitle: { fontSize: 13, color: "#CBD5E1", textAlign: "center", paddingHorizontal: 32 },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "600", color: "#0F172A", textAlign: "center" },
+    emptySubtitle: {
+        fontSize: 13,
+        color: "#CBD5E1",
+        textAlign: "center",
+        paddingHorizontal: 32,
+    },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 32,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "600",
+        color: "#0F172A",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#64748B", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 28, paddingVertical: 11, backgroundColor: "#2563EB", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 28,
+        paddingVertical: 11,
+        backgroundColor: "#2563EB",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 
     // ── Modal ──
     modalOverlay: { flex: 1, justifyContent: "flex-end" },
-    modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15,23,42,0.5)" },
+    modalBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(15,23,42,0.5)",
+    },
     modalContainer: {
         backgroundColor: "#fff",
         borderTopLeftRadius: 24,
@@ -800,8 +1127,19 @@ const styles = StyleSheet.create({
         borderBottomColor: "#E2E8F0",
         gap: 2,
     },
-    amountLabel: { fontSize: 12, color: "#94A3B8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8 },
-    amountValue: { fontSize: 34, fontWeight: "800", color: "#0F172A", letterSpacing: -1 },
+    amountLabel: {
+        fontSize: 12,
+        color: "#94A3B8",
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+    },
+    amountValue: {
+        fontSize: 34,
+        fontWeight: "800",
+        color: "#0F172A",
+        letterSpacing: -1,
+    },
     amountSub: { fontSize: 13, color: "#94A3B8" },
 
     // Info block
@@ -820,7 +1158,13 @@ const styles = StyleSheet.create({
         borderBottomColor: "#F1F5F9",
         gap: 6,
     },
-    blockLabel: { fontSize: 11, fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: 0.8 },
+    blockLabel: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#94A3B8",
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+    },
     blockText: { fontSize: 14, color: "#374151", lineHeight: 20 },
 
     // Tests block
