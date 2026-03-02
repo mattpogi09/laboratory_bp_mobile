@@ -8,6 +8,7 @@ import {
     Power,
     PowerOff,
     Search,
+    Settings2,
     TestTube,
     X,
 } from "lucide-react-native";
@@ -23,6 +24,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import type { GroupedServices, Service, ServicesResponse } from "@/types";
@@ -299,13 +301,24 @@ export default function ServicesScreen() {
                         />
                     </View>
                 </View>
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setShowCreateModal(true)}
-                >
-                    <Plus color="#fff" size={18} />
-                    <Text style={styles.addButtonText}>Add Service</Text>
-                </TouchableOpacity>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity
+                        style={styles.manageCategoriesButton}
+                        onPress={() => router.push("/(drawer)/test-categories")}
+                    >
+                        <Settings2 color="#374151" size={16} />
+                        <Text style={styles.manageCategoriesText}>
+                            Manage Categories
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => setShowCreateModal(true)}
+                    >
+                        <Plus color="#fff" size={18} />
+                        <Text style={styles.addButtonText}>Add Service</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <FlatList
@@ -1194,6 +1207,29 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderRadius: 12,
         gap: 6,
+        flex: 1,
+    },
+    actionRow: {
+        flexDirection: "row",
+        gap: 8,
+        marginTop: 4,
+    },
+    manageCategoriesButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        gap: 6,
+    },
+    manageCategoriesText: {
+        color: "#374151",
+        fontWeight: "600",
+        fontSize: 14,
     },
     addButtonText: {
         color: "#fff",
