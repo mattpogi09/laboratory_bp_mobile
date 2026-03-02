@@ -63,13 +63,17 @@ export default function AppointmentCalendarScreen() {
         fmt(today.getFullYear(), today.getMonth(), today.getDate()),
     );
     const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [holidays, setHolidays] = useState<{ date: string; name: string }[]>([]);
+    const [holidays, setHolidays] = useState<{ date: string; name: string }[]>(
+        [],
+    );
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadHolidays = useCallback(async (y: number) => {
         try {
-            const res = await api.get("/appointments/holidays", { params: { year: y } });
+            const res = await api.get("/appointments/holidays", {
+                params: { year: y },
+            });
             setHolidays(res.data ?? []);
         } catch {
             // silent — backend serves hardcoded fallback if Google Calendar is unavailable
@@ -78,7 +82,9 @@ export default function AppointmentCalendarScreen() {
 
     const holidayMap = useMemo(() => {
         const map: Record<string, string> = {};
-        holidays.forEach((h) => { map[h.date] = h.name; });
+        holidays.forEach((h) => {
+            map[h.date] = h.name;
+        });
         return map;
     }, [holidays]);
 
@@ -190,7 +196,14 @@ export default function AppointmentCalendarScreen() {
                 <View style={styles.weekRow}>
                     {WEEKDAYS.map((d, i) => (
                         <View key={d} style={styles.weekCell}>
-                            <Text style={[styles.weekLabel, i === 0 && styles.weekLabelSunday]}>{d}</Text>
+                            <Text
+                                style={[
+                                    styles.weekLabel,
+                                    i === 0 && styles.weekLabelSunday,
+                                ]}
+                            >
+                                {d}
+                            </Text>
                         </View>
                     ))}
                 </View>
@@ -208,16 +221,21 @@ export default function AppointmentCalendarScreen() {
                         const apptCount = cell.date
                             ? (apptMap[cell.date]?.length ?? 0)
                             : 0;
-                        const dayOfWeek = cell.day ? new Date(year, month, cell.day).getDay() : -1;
+                        const dayOfWeek = cell.day
+                            ? new Date(year, month, cell.day).getDay()
+                            : -1;
                         const isSunday = dayOfWeek === 0;
-                        const isHoliday = !!(cell.date && holidayMap[cell.date]);
+                        const isHoliday = !!(
+                            cell.date && holidayMap[cell.date]
+                        );
 
                         return (
                             <TouchableOpacity
                                 key={idx}
                                 style={[
                                     styles.dayCell,
-                                    (isSunday || isHoliday) && styles.dayCellClosed,
+                                    (isSunday || isHoliday) &&
+                                        styles.dayCellClosed,
                                     isToday && styles.dayCellToday,
                                     isSelected && styles.dayCellSelected,
                                 ]}
@@ -229,7 +247,8 @@ export default function AppointmentCalendarScreen() {
                                 <Text
                                     style={[
                                         styles.dayNum,
-                                        (isSunday || isHoliday) && styles.dayNumClosed,
+                                        (isSunday || isHoliday) &&
+                                            styles.dayNumClosed,
                                         isToday && styles.dayNumToday,
                                         isSelected && styles.dayNumSelected,
                                     ]}
@@ -275,7 +294,8 @@ export default function AppointmentCalendarScreen() {
                                     {holidayMap[selectedDate]}
                                 </Text>
                                 <Text style={styles.closedBannerSub}>
-                                    Philippine National Holiday – No bookings accepted
+                                    Philippine National Holiday – No bookings
+                                    accepted
                                 </Text>
                             </View>
                         </View>
@@ -292,7 +312,8 @@ export default function AppointmentCalendarScreen() {
                                         Sunday – Walk-ins Only
                                     </Text>
                                     <Text style={styles.closedBannerSub}>
-                                        Clinic open for walk-in patients. No online appointments.
+                                        Clinic open for walk-in patients. No
+                                        online appointments.
                                     </Text>
                                 </View>
                             </View>
@@ -391,16 +412,41 @@ export default function AppointmentCalendarScreen() {
                 <View style={styles.legend}>
                     <Text style={styles.legendTitle}>Calendar Legend</Text>
                     <View style={styles.legendRow}>
-                        <View style={[styles.legendSwatch, { backgroundColor: "#ac3434" }]} />
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#ac3434" },
+                            ]}
+                        />
                         <Text style={styles.legendText}>Has Appointments</Text>
                     </View>
                     <View style={styles.legendRow}>
-                        <View style={[styles.legendSwatch, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", borderWidth: 1 }]} />
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                {
+                                    backgroundColor: "#FEF2F2",
+                                    borderColor: "#FECACA",
+                                    borderWidth: 1,
+                                },
+                            ]}
+                        />
                         <Text style={styles.legendText}>Holiday (Closed)</Text>
                     </View>
                     <View style={styles.legendRow}>
-                        <View style={[styles.legendSwatch, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", borderWidth: 1 }]} />
-                        <Text style={styles.legendText}>Sunday (Walk-in Only)</Text>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                {
+                                    backgroundColor: "#FEF2F2",
+                                    borderColor: "#FECACA",
+                                    borderWidth: 1,
+                                },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>
+                            Sunday (Walk-in Only)
+                        </Text>
                     </View>
                 </View>
             </ScrollView>
@@ -555,8 +601,18 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 1,
     },
-    legendTitle: { fontSize: 13, fontWeight: "700", color: "#374151", marginBottom: 8 },
-    legendRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+    legendTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#374151",
+        marginBottom: 8,
+    },
+    legendRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 6,
+    },
     legendSwatch: { width: 14, height: 14, borderRadius: 3 },
     legendText: { fontSize: 12, color: "#6B7280" },
 });
