@@ -110,6 +110,21 @@ export default function InventoryScreen() {
         type: "success" as "success" | "error" | "info" | "warning",
     });
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [allCategories, setAllCategories] = useState<string[]>([]);
+
+    const loadAllCategories = useCallback(async () => {
+        try {
+            const res = await api.get("/inventory-categories");
+            const data: any[] = res.data.data ?? res.data;
+            const names = data
+                .filter((c) => c.is_active)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((c) => c.name as string);
+            setAllCategories(names);
+        } catch {
+            // silently fail — filter will just show All Categories
+        }
+    }, []);
 
     const loadInventory = useCallback(async () => {
         try {
@@ -261,12 +276,13 @@ export default function InventoryScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            loadAllCategories();
             if (activeTab === "items") {
                 loadInventory();
             } else {
                 loadTransactions();
             }
-        }, [activeTab, loadInventory, loadTransactions]),
+        }, [activeTab, loadInventory, loadTransactions, loadAllCategories]),
     );
 
     const handleRefresh = () => {
@@ -283,28 +299,6 @@ export default function InventoryScreen() {
             loadTransactions();
         }
     }, [activeTab, loadTransactions]);
-
-    const summaryCards = useMemo(
-        () => [
-            {
-                label: "Total Items",
-                value: summary?.total_items ?? 0,
-                color: "#1D4ED8",
-            },
-            { label: "Good", value: summary?.good ?? 0, color: "#10B981" },
-            {
-                label: "Low Stock",
-                value: summary?.low_stock ?? 0,
-                color: "#F59E0B",
-            },
-            {
-                label: "Out of Stock",
-                value: summary?.out_of_stock ?? 0,
-                color: "#DC2626",
-            },
-        ],
-        [summary],
-    );
 
     const renderItem = ({ item }: { item: InventoryItem }) => {
         let progressColor = "#10B981";
@@ -517,26 +511,149 @@ export default function InventoryScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={styles.summaryRow}>
-                                {summaryCards.map((card) => (
+                            {/* Status Summary 2x2 Grid */}
+                            <View style={styles.summaryGrid}>
+                                <View style={styles.summaryRow}>
                                     <View
-                                        key={card.label}
-                                        style={styles.summaryCard}
+                                        style={[
+                                            styles.summaryCard,
+                                            { borderLeftColor: "#1D4ED8" },
+                                        ]}
                                     >
                                         <Text style={styles.summaryLabel}>
-                                            {card.label}
+                                            Total Items
                                         </Text>
                                         <Text
                                             style={[
                                                 styles.summaryValue,
-                                                { color: card.color },
+                                                { color: "#1D4ED8" },
                                             ]}
                                         >
-                                            {card.value}
+                                            {summary?.total_items ?? 0}
                                         </Text>
                                     </View>
-                                ))}
+                                    <View
+                                        style={[
+                                            styles.summaryCard,
+                                            { borderLeftColor: "#10B981" },
+                                        ]}
+                                    >
+                                        <Text style={styles.summaryLabel}>
+                                            Good
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.summaryValue,
+                                                { color: "#10B981" },
+                                            ]}
+                                        >
+                                            {summary?.good ?? 0}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View style={styles.summaryRow}>
+                                    <View
+                                        style={[
+                                            styles.summaryCard,
+                                            { borderLeftColor: "#F59E0B" },
+                                        ]}
+                                    >
+                                        <Text style={styles.summaryLabel}>
+                                            Low Stock
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.summaryValue,
+                                                { color: "#F59E0B" },
+                                            ]}
+                                        >
+                                            {summary?.low_stock ?? 0}
+                                        </Text>
+                                    </View>
+                                    <View
+                                        style={[
+                                            styles.summaryCard,
+                                            { borderLeftColor: "#DC2626" },
+                                        ]}
+                                    >
+                                        <Text style={styles.summaryLabel}>
+                                            Out of Stock
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.summaryValue,
+                                                { color: "#DC2626" },
+                                            ]}
+                                        >
+                                            {summary?.out_of_stock ?? 0}
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
+
+                            {/* By Category Chips */}
+                            {summary?.by_category &&
+                                Object.keys(summary.by_category).length > 0 && (
+                                    <View style={styles.categorySummarySection}>
+                                        <Text
+                                            style={styles.categorySummaryTitle}
+                                        >
+                                            By Category
+                                        </Text>
+                                        <ScrollView
+                                            horizontal
+                                            showsHorizontalScrollIndicator={
+                                                false
+                                            }
+                                            contentContainerStyle={
+                                                styles.categorySummaryScroll
+                                            }
+                                        >
+                                            {Object.entries(
+                                                summary.by_category,
+                                            ).map(([cat, count]) => (
+                                                <TouchableOpacity
+                                                    key={cat}
+                                                    style={[
+                                                        styles.categoryChip,
+                                                        categoryFilter ===
+                                                            cat &&
+                                                            styles.categoryChipActive,
+                                                    ]}
+                                                    onPress={() =>
+                                                        setCategoryFilter(
+                                                            categoryFilter ===
+                                                                cat
+                                                                ? "all"
+                                                                : cat,
+                                                        )
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.categoryChipLabel,
+                                                            categoryFilter ===
+                                                                cat &&
+                                                                styles.categoryChipLabelActive,
+                                                        ]}
+                                                    >
+                                                        {cat}
+                                                    </Text>
+                                                    <Text
+                                                        style={[
+                                                            styles.categoryChipCount,
+                                                            categoryFilter ===
+                                                                cat &&
+                                                                styles.categoryChipCountActive,
+                                                        ]}
+                                                    >
+                                                        {count}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
                             <View style={styles.searchContainer}>
                                 <Search
                                     color="#6B7280"
@@ -559,7 +676,7 @@ export default function InventoryScreen() {
                                     <CategoryDropdown
                                         selectedValue={categoryFilter}
                                         onValueChange={setCategoryFilter}
-                                        categories={summary?.by_category || {}}
+                                        categories={allCategories}
                                     />
                                 </View>
                                 <View style={styles.filterGroup}>
@@ -831,29 +948,12 @@ function CategoryDropdown({
 }: {
     selectedValue: string;
     onValueChange: (value: string) => void;
-    categories: Record<string, number>;
+    categories: string[];
 }) {
     const [showPicker, setShowPicker] = useState(false);
 
-    const categoryOptions = useMemo(() => {
-        const options = [{ label: "All Categories", value: "all", count: 0 }];
-        Object.entries(categories).forEach(([key, count]) => {
-            options.push({
-                label: key,
-                value: key,
-                count: count,
-            });
-        });
-        return options;
-    }, [categories]);
-
-    const getDisplayText = () => {
-        if (selectedValue === "all") return "All Categories";
-        const option = categoryOptions.find(
-            (opt) => opt.value === selectedValue,
-        );
-        return option ? option.label : "All Categories";
-    };
+    const displayText =
+        selectedValue === "all" ? "All Categories" : selectedValue;
 
     return (
         <>
@@ -861,9 +961,7 @@ function CategoryDropdown({
                 style={styles.categoryDropdownButton}
                 onPress={() => setShowPicker(true)}
             >
-                <Text style={styles.categoryDropdownText}>
-                    {getDisplayText()}
-                </Text>
+                <Text style={styles.categoryDropdownText}>{displayText}</Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
 
@@ -884,28 +982,53 @@ function CategoryDropdown({
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.pickerList}>
-                            {categoryOptions.map((option) => (
+                        <ScrollView
+                            style={styles.pickerList}
+                            showsVerticalScrollIndicator={true}
+                            bounces={true}
+                        >
+                            <TouchableOpacity
+                                style={[
+                                    styles.pickerOption,
+                                    selectedValue === "all" &&
+                                        styles.pickerOptionSelected,
+                                ]}
+                                onPress={() => {
+                                    onValueChange("all");
+                                    setShowPicker(false);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.pickerOptionText,
+                                        selectedValue === "all" &&
+                                            styles.pickerOptionTextSelected,
+                                    ]}
+                                >
+                                    All Categories
+                                </Text>
+                            </TouchableOpacity>
+                            {categories.map((cat) => (
                                 <TouchableOpacity
-                                    key={option.value}
+                                    key={cat}
                                     style={[
                                         styles.pickerOption,
-                                        selectedValue === option.value &&
+                                        selectedValue === cat &&
                                             styles.pickerOptionSelected,
                                     ]}
                                     onPress={() => {
-                                        onValueChange(option.value);
+                                        onValueChange(cat);
                                         setShowPicker(false);
                                     }}
                                 >
                                     <Text
                                         style={[
                                             styles.pickerOptionText,
-                                            selectedValue === option.value &&
+                                            selectedValue === cat &&
                                                 styles.pickerOptionTextSelected,
                                         ]}
                                     >
-                                        {option.label}
+                                        {cat}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
@@ -2018,22 +2141,75 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         color: "#111827",
     },
-    summaryRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 12,
+    summaryGrid: {
+        gap: 10,
         marginBottom: 16,
     },
+    summaryRow: {
+        flexDirection: "row",
+        gap: 10,
+    },
     summaryCard: {
-        flexBasis: "48%",
-        flexGrow: 1,
+        flex: 1,
         backgroundColor: "#fff",
         borderRadius: 12,
         paddingVertical: 14,
         alignItems: "center",
+        borderLeftWidth: 4,
     },
     summaryLabel: { color: "#6B7280", fontSize: 12, textAlign: "center" },
     summaryValue: { fontSize: 22, fontWeight: "700", textAlign: "center" },
+    categorySummarySection: {
+        marginBottom: 16,
+    },
+    categorySummaryTitle: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#6B7280",
+        marginBottom: 8,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    categorySummaryScroll: {
+        gap: 8,
+        paddingRight: 4,
+    },
+    categoryChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 999,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+    },
+    categoryChipActive: {
+        backgroundColor: "#ac3434",
+        borderColor: "#ac3434",
+    },
+    categoryChipLabel: {
+        fontSize: 13,
+        fontWeight: "500",
+        color: "#374151",
+    },
+    categoryChipLabelActive: {
+        color: "#fff",
+    },
+    categoryChipCount: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#6B7280",
+        backgroundColor: "#F3F4F6",
+        borderRadius: 999,
+        paddingHorizontal: 7,
+        paddingVertical: 1,
+    },
+    categoryChipCountActive: {
+        color: "#ac3434",
+        backgroundColor: "#fff",
+    },
     searchContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -2139,10 +2315,19 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "flex-start",
         marginBottom: 6,
     },
-    itemName: { fontSize: 17, fontWeight: "700", color: "#111827" },
+    itemName: {
+        flex: 1,
+        flexShrink: 1,
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        marginRight: 10,
+    },
     statusBadge: {
+        flexShrink: 0,
         borderRadius: 999,
         paddingHorizontal: 10,
         paddingVertical: 4,
