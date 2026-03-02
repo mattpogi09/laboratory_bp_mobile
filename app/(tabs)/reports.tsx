@@ -321,10 +321,21 @@ export default function ReportsScreen() {
         today.setHours(23, 59, 59, 999);
         const from = new Date();
         switch (newPeriod) {
-            case "day": from.setHours(0, 0, 0, 0); break;
-            case "week": from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0); break;
-            case "month": from.setDate(1); from.setHours(0, 0, 0, 0); break;
-            case "year": from.setMonth(0, 1); from.setHours(0, 0, 0, 0); break;
+            case "day":
+                from.setHours(0, 0, 0, 0);
+                break;
+            case "week":
+                from.setDate(from.getDate() - 6);
+                from.setHours(0, 0, 0, 0);
+                break;
+            case "month":
+                from.setDate(1);
+                from.setHours(0, 0, 0, 0);
+                break;
+            case "year":
+                from.setMonth(0, 1);
+                from.setHours(0, 0, 0, 0);
+                break;
         }
         setDateFrom(from);
         setDateTo(today);
@@ -1221,13 +1232,36 @@ function LabTab({
                     </View>
                     {(() => {
                         const STATUS_ENTRIES = [
-                            { key: "pending",    label: "Pending",    color: "#DC2626", value: data.stats.pending },
-                            { key: "processing", label: "Processing", color: "#D97706", value: data.stats.processing },
-                            { key: "completed",  label: "Completed",  color: "#2563EB", value: data.stats.completed },
-                            { key: "released",   label: "Released",   color: "#059669", value: data.stats.released },
+                            {
+                                key: "pending",
+                                label: "Pending",
+                                color: "#DC2626",
+                                value: data.stats.pending,
+                            },
+                            {
+                                key: "processing",
+                                label: "Processing",
+                                color: "#D97706",
+                                value: data.stats.processing,
+                            },
+                            {
+                                key: "completed",
+                                label: "Completed",
+                                color: "#2563EB",
+                                value: data.stats.completed,
+                            },
+                            {
+                                key: "released",
+                                label: "Released",
+                                color: "#059669",
+                                value: data.stats.released,
+                            },
                         ].filter((d) => d.value > 0);
                         if (!STATUS_ENTRIES.length) return null;
-                        const statusTotal = STATUS_ENTRIES.reduce((s, d) => s + d.value, 0);
+                        const statusTotal = STATUS_ENTRIES.reduce(
+                            (s, d) => s + d.value,
+                            0,
+                        );
                         return (
                             <View style={styles.chartCard}>
                                 <Text style={styles.chartTitle}>
@@ -1242,30 +1276,101 @@ function LabTab({
                                 >
                                     Current global state — all time
                                 </Text>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 16,
+                                    }}
+                                >
                                     <GiftedPieChart
                                         donut
-                                        data={STATUS_ENTRIES.map((d) => ({ value: d.value, color: d.color }))}
+                                        data={STATUS_ENTRIES.map((d) => ({
+                                            value: d.value,
+                                            color: d.color,
+                                        }))}
                                         radius={72}
                                         innerRadius={46}
                                         centerLabelComponent={() => (
-                                            <View style={{ alignItems: "center" }}>
-                                                <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
+                                            <View
+                                                style={{ alignItems: "center" }}
+                                            >
+                                                <Text
+                                                    style={{
+                                                        fontSize: 18,
+                                                        fontWeight: "700",
+                                                        color: "#111827",
+                                                    }}
+                                                >
                                                     {statusTotal}
                                                 </Text>
-                                                <Text style={{ fontSize: 11, color: "#6B7280" }}>tests</Text>
+                                                <Text
+                                                    style={{
+                                                        fontSize: 11,
+                                                        color: "#6B7280",
+                                                    }}
+                                                >
+                                                    tests
+                                                </Text>
                                             </View>
                                         )}
                                     />
                                     <View style={{ flex: 1, gap: 8 }}>
                                         {STATUS_ENTRIES.map((s) => {
-                                            const pct = statusTotal > 0 ? Math.round((s.value / statusTotal) * 100) : 0;
+                                            const pct =
+                                                statusTotal > 0
+                                                    ? Math.round(
+                                                          (s.value /
+                                                              statusTotal) *
+                                                              100,
+                                                      )
+                                                    : 0;
                                             return (
-                                                <View key={s.key} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }} />
-                                                    <Text style={{ fontSize: 12, color: "#374151", flex: 1 }}>{s.label}</Text>
-                                                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>{s.value}</Text>
-                                                    <Text style={{ fontSize: 11, color: "#6B7280", width: 36, textAlign: "right" }}>{pct}%</Text>
+                                                <View
+                                                    key={s.key}
+                                                    style={{
+                                                        flexDirection: "row",
+                                                        alignItems: "center",
+                                                        gap: 6,
+                                                    }}
+                                                >
+                                                    <View
+                                                        style={{
+                                                            width: 10,
+                                                            height: 10,
+                                                            borderRadius: 5,
+                                                            backgroundColor:
+                                                                s.color,
+                                                        }}
+                                                    />
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 12,
+                                                            color: "#374151",
+                                                            flex: 1,
+                                                        }}
+                                                    >
+                                                        {s.label}
+                                                    </Text>
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 12,
+                                                            fontWeight: "700",
+                                                            color: "#111827",
+                                                        }}
+                                                    >
+                                                        {s.value}
+                                                    </Text>
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 11,
+                                                            color: "#6B7280",
+                                                            width: 36,
+                                                            textAlign: "right",
+                                                        }}
+                                                    >
+                                                        {pct}%
+                                                    </Text>
                                                 </View>
                                             );
                                         })}
