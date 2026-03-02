@@ -24,6 +24,7 @@ import {
     FlatList,
     Linking,
     Modal,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -31,7 +32,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { BarChart, PieChart } from "react-native-chart-kit";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { BarChart } from "react-native-chart-kit";
+import { PieChart as GiftedPieChart } from "react-native-gifted-charts";
 
 import api, { API_BASE_URL } from "@/app/services/api";
 import type {
@@ -48,7 +51,7 @@ import type {
     ReconciliationRow,
 } from "@/types/reports";
 import { getApiErrorMessage } from "@/utils";
-import { getDateRange, periods } from "@/utils/date";
+import { periods } from "@/utils/date";
 import { formatCurrency } from "@/utils/format";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -119,6 +122,19 @@ export default function ReportsScreen() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [periodDropdownVisible, setPeriodDropdownVisible] = useState(false);
     const [tabDropdownVisible, setTabDropdownVisible] = useState(false);
+    // Date range state — synced with period selector, can also be set manually
+    const [dateFrom, setDateFrom] = useState<Date>(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+    });
+    const [dateTo, setDateTo] = useState<Date>(() => {
+        const d = new Date();
+        d.setHours(23, 59, 59, 999);
+        return d;
+    });
+    const [showFromPicker, setShowFromPicker] = useState(false);
+    const [showToPicker, setShowToPicker] = useState(false);
     const [worksheetDownloading, setWorksheetDownloading] = useState<
         string | null
     >(null);
@@ -137,7 +153,8 @@ export default function ReportsScreen() {
     const loadFinancial = useCallback(async () => {
         try {
             setLoading(true);
-            const { from, to } = getDateRange(period);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/financial", {
                 params: { from, to },
             });
@@ -151,12 +168,13 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [period]);
+    }, [dateFrom, dateTo]);
 
     const loadInventoryLog = useCallback(async () => {
         try {
             setLoading(true);
-            const { from, to } = getDateRange(period);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/inventory-log", {
                 params: { from, to },
             });
@@ -170,12 +188,13 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [period]);
+    }, [dateFrom, dateTo]);
 
     const loadAuditLog = useCallback(async () => {
         try {
             setLoading(true);
-            const { from, to } = getDateRange(period);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/audit-log", {
                 params: { from, to },
             });
@@ -189,12 +208,13 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [period]);
+    }, [dateFrom, dateTo]);
 
     const loadLabReport = useCallback(async () => {
         try {
             setLoading(true);
-            const { from, to } = getDateRange(period);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/lab-report", {
                 params: { from, to },
             });
@@ -208,12 +228,13 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [period]);
+    }, [dateFrom, dateTo]);
 
     const loadReconciliation = useCallback(async () => {
         try {
             setLoading(true);
-            const { from, to } = getDateRange(period);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/reconciliation", {
                 params: { from, to },
             });
@@ -230,10 +251,11 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [period]);
+    }, [dateFrom, dateTo]);
 
     const handleWorksheetDownload = async (category: string) => {
-        const { from, to } = getDateRange(period);
+        const from = dateFrom.toISOString().split("T")[0];
+        const to = dateTo.toISOString().split("T")[0];
         const base = API_BASE_URL.replace(/\/api$/, "");
         const url = `${base}/api/lab-worksheets/export?category=${category}&date_from=${from}&date_to=${to}&token=${token}`;
         setWorksheetDownloading(category);
@@ -270,7 +292,6 @@ export default function ReportsScreen() {
         }
     }, [
         activeTab,
-        period,
         loadFinancial,
         loadInventoryLog,
         loadAuditLog,
@@ -296,6 +317,17 @@ export default function ReportsScreen() {
     const handlePeriodChange = (newPeriod: Period) => {
         setPeriod(newPeriod);
         setPeriodDropdownVisible(false);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        const from = new Date();
+        switch (newPeriod) {
+            case "day": from.setHours(0, 0, 0, 0); break;
+            case "week": from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0); break;
+            case "month": from.setDate(1); from.setHours(0, 0, 0, 0); break;
+            case "year": from.setMonth(0, 1); from.setHours(0, 0, 0, 0); break;
+        }
+        setDateFrom(from);
+        setDateTo(today);
     };
 
     const handleTabChange = (tab: Tab) => {
@@ -486,6 +518,68 @@ export default function ReportsScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
+
+            {/* Date Range Pickers */}
+            <View style={styles.filterContainer}>
+                <View style={styles.dateRangeRow}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.dateRangeLabel}>From</Text>
+                        <TouchableOpacity
+                            style={styles.datePill}
+                            onPress={() => setShowFromPicker(true)}
+                        >
+                            <Calendar color="#6B7280" size={14} />
+                            <Text style={styles.datePillText}>
+                                {dateFrom.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "2-digit",
+                                    year: "numeric",
+                                })}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.dateRangeLabel}>To</Text>
+                        <TouchableOpacity
+                            style={styles.datePill}
+                            onPress={() => setShowToPicker(true)}
+                        >
+                            <Calendar color="#6B7280" size={14} />
+                            <Text style={styles.datePillText}>
+                                {dateTo.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "2-digit",
+                                    year: "numeric",
+                                })}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+            {showFromPicker && (
+                <DateTimePicker
+                    value={dateFrom}
+                    mode="date"
+                    display="default"
+                    maximumDate={dateTo}
+                    onChange={(_, date) => {
+                        setShowFromPicker(Platform.OS === "ios");
+                        if (date) setDateFrom(date);
+                    }}
+                />
+            )}
+            {showToPicker && (
+                <DateTimePicker
+                    value={dateTo}
+                    mode="date"
+                    display="default"
+                    minimumDate={dateFrom}
+                    onChange={(_, date) => {
+                        setShowToPicker(Platform.OS === "ios");
+                        if (date) setDateTo(date);
+                    }}
+                />
+            )}
 
             {/* Content */}
             <View style={styles.contentContainer}>
@@ -1126,37 +1220,14 @@ function LabTab({
                         />
                     </View>
                     {(() => {
-                        const STATUS_DATA = [
-                            {
-                                name: "Pending",
-                                population: data.stats.pending,
-                                color: "#DC2626",
-                                legendFontColor: "#374151",
-                                legendFontSize: 12,
-                            },
-                            {
-                                name: "Processing",
-                                population: data.stats.processing,
-                                color: "#D97706",
-                                legendFontColor: "#374151",
-                                legendFontSize: 12,
-                            },
-                            {
-                                name: "Completed",
-                                population: data.stats.completed,
-                                color: "#2563EB",
-                                legendFontColor: "#374151",
-                                legendFontSize: 12,
-                            },
-                            {
-                                name: "Released",
-                                population: data.stats.released,
-                                color: "#059669",
-                                legendFontColor: "#374151",
-                                legendFontSize: 12,
-                            },
-                        ].filter((d) => d.population > 0);
-                        if (!STATUS_DATA.length) return null;
+                        const STATUS_ENTRIES = [
+                            { key: "pending",    label: "Pending",    color: "#DC2626", value: data.stats.pending },
+                            { key: "processing", label: "Processing", color: "#D97706", value: data.stats.processing },
+                            { key: "completed",  label: "Completed",  color: "#2563EB", value: data.stats.completed },
+                            { key: "released",   label: "Released",   color: "#059669", value: data.stats.released },
+                        ].filter((d) => d.value > 0);
+                        if (!STATUS_ENTRIES.length) return null;
+                        const statusTotal = STATUS_ENTRIES.reduce((s, d) => s + d.value, 0);
                         return (
                             <View style={styles.chartCard}>
                                 <Text style={styles.chartTitle}>
@@ -1166,24 +1237,40 @@ function LabTab({
                                     style={{
                                         fontSize: 11,
                                         color: "#6B7280",
-                                        marginBottom: 8,
+                                        marginBottom: 12,
                                     }}
                                 >
                                     Current global state — all time
                                 </Text>
-                                <PieChart
-                                    data={STATUS_DATA}
-                                    width={SCREEN_W - 32}
-                                    height={180}
-                                    chartConfig={{
-                                        color: (o = 1) => `rgba(0,0,0,${o})`,
-                                    }}
-                                    accessor="population"
-                                    backgroundColor="transparent"
-                                    paddingLeft="15"
-                                    hasLegend
-                                    style={{ marginTop: 4 }}
-                                />
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                                    <GiftedPieChart
+                                        donut
+                                        data={STATUS_ENTRIES.map((d) => ({ value: d.value, color: d.color }))}
+                                        radius={72}
+                                        innerRadius={46}
+                                        centerLabelComponent={() => (
+                                            <View style={{ alignItems: "center" }}>
+                                                <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
+                                                    {statusTotal}
+                                                </Text>
+                                                <Text style={{ fontSize: 11, color: "#6B7280" }}>tests</Text>
+                                            </View>
+                                        )}
+                                    />
+                                    <View style={{ flex: 1, gap: 8 }}>
+                                        {STATUS_ENTRIES.map((s) => {
+                                            const pct = statusTotal > 0 ? Math.round((s.value / statusTotal) * 100) : 0;
+                                            return (
+                                                <View key={s.key} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }} />
+                                                    <Text style={{ fontSize: 12, color: "#374151", flex: 1 }}>{s.label}</Text>
+                                                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#111827" }}>{s.value}</Text>
+                                                    <Text style={{ fontSize: 11, color: "#6B7280", width: 36, textAlign: "right" }}>{pct}%</Text>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
                             </View>
                         );
                     })()}
@@ -1712,6 +1799,31 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    dateRangeRow: {
+        flexDirection: "row",
+        gap: 12,
+    },
+    dateRangeLabel: {
+        fontSize: 12,
+        color: "#6B7280",
+        marginBottom: 4,
+    },
+    datePill: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "#F9FAFB",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+    datePillText: {
+        fontSize: 13,
+        color: "#374151",
+        fontWeight: "500",
+    },
     chartCard: {
         backgroundColor: "#fff",
         borderRadius: 10,
