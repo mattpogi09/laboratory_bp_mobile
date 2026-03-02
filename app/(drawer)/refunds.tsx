@@ -3,6 +3,7 @@ import {
     AlertCircle,
     AlertTriangle,
     CheckCircle,
+    ChevronRight,
     FileText,
     X,
     XCircle,
@@ -39,12 +40,12 @@ const STATUS_TABS: { label: string; value: string }[] = [
 
 const STATUS_COLORS: Record<
     RefundStatus | string,
-    { bg: string; text: string }
+    { bg: string; text: string; accent: string }
 > = {
-    pending: { bg: "#FEF9C3", text: "#854D0E" },
-    approved: { bg: "#DCFCE7", text: "#166534" },
-    denied: { bg: "#FEE2E2", text: "#991B1B" },
-    completed: { bg: "#F3F4F6", text: "#374151" },
+    pending:   { bg: "#FFFBEB", text: "#92400E", accent: "#F59E0B" },
+    approved:  { bg: "#ECFDF5", text: "#065F46", accent: "#10B981" },
+    denied:    { bg: "#FFF1F2", text: "#9F1239", accent: "#F43F5E" },
+    completed: { bg: "#F0F9FF", text: "#075985", accent: "#0EA5E9" },
 };
 
 // ---------------------------------------------------------------------------
@@ -268,52 +269,75 @@ export default function RefundsScreen() {
     };
 
     const statusBadge = (status: RefundStatus | string) => {
-        const c = STATUS_COLORS[status] ?? { bg: "#F3F4F6", text: "#374151" };
+        const c = STATUS_COLORS[status] ?? { bg: "#F3F4F6", text: "#374151", accent: "#9CA3AF" };
         return (
             <View style={[styles.badge, { backgroundColor: c.bg }]}>
+                <View style={[styles.badgeDot, { backgroundColor: c.accent }]} />
                 <Text style={[styles.badgeText, { color: c.text }]}>
-                    {status.toUpperCase()}
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Text>
             </View>
         );
     };
 
-    const renderItem = ({ item }: { item: RefundRequest }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => {
-                setSelected(item);
-                setShowDenyInput(false);
-                setDenyNote("");
-                setShowDetail(true);
-            }}
-        >
-            <View style={styles.cardRow}>
-                <FileText size={18} color="#6B7280" />
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.transaction?.patient?.full_name ?? "Unknown Patient"}
-                </Text>
-                {statusBadge(item.status)}
-            </View>
+    const renderItem = ({ item }: { item: RefundRequest }) => {
+        const c = STATUS_COLORS[item.status] ?? { bg: "#F3F4F6", text: "#374151", accent: "#9CA3AF" };
+        return (
+            <TouchableOpacity
+                style={styles.card}
+                onPress={() => {
+                    setSelected(item);
+                    setShowDenyInput(false);
+                    setDenyNote("");
+                    setShowDetail(true);
+                }}
+                activeOpacity={0.72}
+            >
+                {/* Left status accent */}
+                <View style={[styles.cardAccent, { backgroundColor: c.accent }]} />
 
-            <View style={styles.cardMeta}>
-                <Text style={styles.cardMono}>
-                    #{item.transaction?.transaction_number ?? "—"}
-                </Text>
-                <Text style={styles.cardAmount}>
-                    {formatCurrency(item.refund_amount)}
-                </Text>
-            </View>
+                <View style={styles.cardBody}>
+                    {/* Top row: name + badge */}
+                    <View style={styles.cardTopRow}>
+                        <View style={styles.cardNameRow}>
+                            <FileText size={14} color={c.accent} />
+                            <Text style={styles.cardPatient} numberOfLines={1}>
+                                {item.transaction?.patient?.full_name ?? "Unknown Patient"}
+                            </Text>
+                        </View>
+                        {statusBadge(item.status)}
+                    </View>
 
-            <Text style={styles.cardLabel}>
-                {item.refund_type === "full" ? "Full Refund" : "Partial Refund"}{" "}
-                · {formatDate(item.created_at)}
-            </Text>
-            <Text style={styles.cardReason} numberOfLines={2}>
-                {item.reason}
-            </Text>
-        </TouchableOpacity>
-    );
+                    {/* TXN number + amount */}
+                    <View style={styles.cardMeta}>
+                        <Text style={styles.cardMono}>
+                            #{item.transaction?.transaction_number ?? "—"}
+                        </Text>
+                        <Text style={[styles.cardAmount, { color: c.accent }]}>
+                            {formatCurrency(item.refund_amount)}
+                        </Text>
+                    </View>
+
+                    {/* Type + date */}
+                    <View style={styles.cardFooter}>
+                        <Text style={styles.cardLabel}>
+                            {item.refund_type === "full" ? "Full Refund" : "Partial Refund"}
+                            {"  ·  "}
+                            {formatDate(item.created_at)}
+                        </Text>
+                        <ChevronRight size={14} color="#D1D5DB" />
+                    </View>
+
+                    {/* Reason snippet */}
+                    {item.reason ? (
+                        <Text style={styles.cardReason} numberOfLines={1}>
+                            {item.reason}
+                        </Text>
+                    ) : null}
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     // -------------------------------------------------------------------------
     // Main render
@@ -324,47 +348,36 @@ export default function RefundsScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Refund Requests</Text>
+                {refunds.length > 0 && !loading && (
+                    <Text style={styles.headerCount}>{refunds.length} request{refunds.length !== 1 ? "s" : ""}</Text>
+                )}
             </View>
 
-            {/* Status filter tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.tabBar}
-                contentContainerStyle={styles.tabBarContent}
-            >
-                {STATUS_TABS.map((tab) => (
-                    <TouchableOpacity
-                        key={tab.value}
-                        style={[
-                            styles.tab,
-                            statusFilter === tab.value && styles.tabActive,
-                        ]}
-                        onPress={() => {
-                            setStatusFilter(tab.value);
-                            setRefunds([]);
-                        }}
-                    >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                statusFilter === tab.value &&
-                                    styles.tabTextActive,
-                            ]}
+            {/* Status filter tabs — underline style, all equal width */}
+            <View style={styles.tabBar}>
+                {STATUS_TABS.map((tab) => {
+                    const active = statusFilter === tab.value;
+                    return (
+                        <TouchableOpacity
+                            key={tab.value}
+                            style={styles.tabItem}
+                            onPress={() => setStatusFilter(tab.value)}
+                            activeOpacity={0.7}
                         >
-                            {tab.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+                            <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                                {tab.label}
+                            </Text>
+                            {active && <View style={styles.tabUnderline} />}
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
 
             {/* List */}
             {loadError && !refunds.length ? (
                 <View style={styles.errorContainer}>
                     <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>
-                        Unable to load refunds
-                    </Text>
+                    <Text style={styles.errorTitle}>Unable to load refunds</Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
@@ -373,12 +386,12 @@ export default function RefundsScreen() {
                             loadRefunds(1, true);
                         }}
                     >
-                        <Text style={styles.retryBtnText}>Retry</Text>
+                        <Text style={styles.retryBtnText}>Try Again</Text>
                     </TouchableOpacity>
                 </View>
             ) : loading && !refreshing ? (
-                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-                    <SkeletonRow count={6} />
+                <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+                    <SkeletonRow count={5} />
                 </View>
             ) : (
                 <FlatList
@@ -386,45 +399,31 @@ export default function RefundsScreen() {
                     keyExtractor={(r) => String(r.id)}
                     renderItem={renderItem}
                     refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                        />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
                     }
                     onEndReached={onEndReached}
                     onEndReachedThreshold={0.3}
                     ListEmptyComponent={
                         <View style={styles.centered}>
-                            <AlertTriangle size={40} color="#D1D5DB" />
-                            <Text style={styles.emptyText}>
-                                No refund requests
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 13,
-                                    color: "#9CA3AF",
-                                    textAlign: "center",
-                                    marginTop: 4,
-                                }}
-                            >
-                                All requests have been processed
+                            <AlertTriangle size={44} color="#E5E7EB" />
+                            <Text style={styles.emptyTitle}>No refund requests</Text>
+                            <Text style={styles.emptySubtitle}>
+                                {statusFilter === ""
+                                    ? "There are no active refund requests."
+                                    : `No ${statusFilter} requests found.`}
                             </Text>
                         </View>
                     }
                     ListFooterComponent={
                         loadingMore ? (
-                            <ActivityIndicator
-                                size="small"
-                                color="#3B82F6"
-                                style={{ marginVertical: 12 }}
-                            />
+                            <ActivityIndicator size="small" color="#2563EB" style={{ marginVertical: 16 }} />
                         ) : null
                     }
-                    contentContainerStyle={{ paddingBottom: 24 }}
+                    contentContainerStyle={styles.listContent}
                 />
             )}
 
-            {/* Detail modal */}
+            {/* ── Detail bottom sheet ── */}
             <Modal
                 visible={showDetail}
                 animationType="slide"
@@ -432,310 +431,143 @@ export default function RefundsScreen() {
                 onRequestClose={() => setShowDetail(false)}
             >
                 <View style={styles.modalOverlay}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setShowDetail(false)}
+                    />
                     <View style={styles.modalContainer}>
-                        <ScrollView>
+                        {/* Drag handle */}
+                        <View style={styles.dragHandle} />
+
+                        <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                             {/* Modal header */}
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>
-                                    Refund Details
-                                </Text>
+                                <View style={styles.modalHeaderLeft}>
+                                    <Text style={styles.modalTitle}>Refund Details</Text>
+                                    {selected && statusBadge(selected.status)}
+                                </View>
                                 <TouchableOpacity
                                     onPress={() => setShowDetail(false)}
+                                    style={styles.closeBtn}
+                                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                                 >
-                                    <X size={22} color="#374151" />
+                                    <X size={18} color="#6B7280" />
                                 </TouchableOpacity>
                             </View>
 
                             {selected && (
                                 <>
-                                    {/* Status */}
-                                    <View style={styles.detailSection}>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Status
-                                            </Text>
-                                            {statusBadge(selected.status)}
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Type
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {selected.refund_type === "full"
-                                                    ? "Full Refund"
-                                                    : "Partial Refund"}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Amount
-                                            </Text>
-                                            <Text
-                                                style={[
-                                                    styles.detailValue,
-                                                    styles.amount,
-                                                ]}
-                                            >
-                                                {formatCurrency(
-                                                    selected.refund_amount,
-                                                )}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Transaction Total
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {formatCurrency(
-                                                    selected.total_transaction_amount,
-                                                )}
-                                            </Text>
-                                        </View>
+                                    {/* Amount hero */}
+                                    <View style={styles.amountHero}>
+                                        <Text style={styles.amountLabel}>Refund Amount</Text>
+                                        <Text style={styles.amountValue}>
+                                            {formatCurrency(selected.refund_amount)}
+                                        </Text>
+                                        <Text style={styles.amountSub}>
+                                            of {formatCurrency(selected.total_transaction_amount)} total
+                                        </Text>
                                     </View>
 
-                                    {/* Transaction info */}
-                                    <View style={styles.detailSection}>
-                                        <Text style={styles.sectionLabel}>
-                                            Transaction
-                                        </Text>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Patient
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {selected.transaction?.patient
-                                                    ?.full_name ?? "—"}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Transaction #
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {selected.transaction
-                                                    ?.transaction_number ?? "—"}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Requested by
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {selected.requested_by?.name ??
-                                                    "—"}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>
-                                                Date
-                                            </Text>
-                                            <Text style={styles.detailValue}>
-                                                {formatDate(
-                                                    selected.created_at,
-                                                )}
-                                            </Text>
-                                        </View>
+                                    {/* Key info rows */}
+                                    <View style={styles.infoBlock}>
+                                        <InfoRow label="Patient" value={selected.transaction?.patient?.full_name ?? "—"} />
+                                        <InfoRow label="Transaction" value={`#${selected.transaction?.transaction_number ?? "—"}`} mono />
+                                        <InfoRow label="Type" value={selected.refund_type === "full" ? "Full Refund" : "Partial Refund"} />
+                                        <InfoRow label="Requested by" value={selected.requested_by?.name ?? "—"} />
+                                        <InfoRow label="Date" value={formatDate(selected.created_at)} last />
                                     </View>
 
                                     {/* Reason */}
-                                    <View style={styles.detailSection}>
-                                        <Text style={styles.sectionLabel}>
-                                            Reason
-                                        </Text>
-                                        <Text style={styles.reasonText}>
-                                            {selected.reason}
-                                        </Text>
+                                    <View style={styles.textBlock}>
+                                        <Text style={styles.blockLabel}>Reason</Text>
+                                        <Text style={styles.blockText}>{selected.reason}</Text>
                                     </View>
 
                                     {/* Tests included */}
-                                    {selected.tests &&
-                                        selected.tests.length > 0 && (
-                                            <View style={styles.detailSection}>
-                                                <Text
-                                                    style={styles.sectionLabel}
+                                    {selected.tests && selected.tests.length > 0 && (
+                                        <View style={styles.testsBlock}>
+                                            <Text style={styles.blockLabel}>
+                                                {selected.refund_type === "full"
+                                                    ? "Tests Included in Refund"
+                                                    : "Tests Selected for Refund"}
+                                            </Text>
+                                            {selected.tests.map((test, idx) => (
+                                                <View
+                                                    key={test.id}
+                                                    style={[
+                                                        styles.testItem,
+                                                        idx === selected.tests.length - 1 && { borderBottomWidth: 0 },
+                                                    ]}
                                                 >
-                                                    {selected.refund_type ===
-                                                    "full"
-                                                        ? "Tests Included in Refund"
-                                                        : "Tests Selected for Refund"}
-                                                </Text>
-                                                {selected.tests.map((test) => (
-                                                    <View
-                                                        key={test.id}
-                                                        style={[
-                                                            styles.detailRow,
-                                                            styles.testRow,
-                                                        ]}
-                                                    >
-                                                        <Text
-                                                            style={[
-                                                                styles.detailLabel,
-                                                                {
-                                                                    color: "#111827",
-                                                                },
-                                                            ]}
-                                                        >
-                                                            {test.test_name}
-                                                        </Text>
-                                                        <Text
-                                                            style={[
-                                                                styles.detailValue,
-                                                                {
-                                                                    color: "#374151",
-                                                                },
-                                                            ]}
-                                                        >
-                                                            ₱
-                                                            {Number(
-                                                                test.price,
-                                                            ).toLocaleString(
-                                                                "en-PH",
-                                                            )}
-                                                        </Text>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        )}
+                                                    <Text style={styles.testName}>{test.test_name}</Text>
+                                                    <Text style={styles.testPrice}>
+                                                        ₱{Number(test.price).toLocaleString("en-PH")}
+                                                    </Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
 
                                     {/* Admin notes if already processed */}
                                     {selected.admin_notes ? (
-                                        <View style={styles.detailSection}>
-                                            <Text style={styles.sectionLabel}>
-                                                Admin Notes
-                                            </Text>
-                                            <Text style={styles.reasonText}>
-                                                {selected.admin_notes}
-                                            </Text>
+                                        <View style={styles.textBlock}>
+                                            <Text style={styles.blockLabel}>Admin Notes</Text>
+                                            <Text style={styles.blockText}>{selected.admin_notes}</Text>
                                         </View>
                                     ) : null}
 
                                     {/* Actions for pending */}
                                     {selected.status === "pending" && (
-                                        <View style={styles.detailSection}>
+                                        <View style={styles.actionsBlock}>
                                             {/* Approve */}
                                             <TouchableOpacity
-                                                style={[
-                                                    styles.actionBtn,
-                                                    styles.approveBtn,
-                                                ]}
-                                                onPress={() =>
-                                                    handleApprove(selected)
-                                                }
+                                                style={[styles.actionBtn, styles.approveBtn]}
+                                                onPress={() => handleApprove(selected)}
                                                 disabled={actionLoading}
+                                                activeOpacity={0.8}
                                             >
-                                                <CheckCircle
-                                                    size={18}
-                                                    color="#fff"
-                                                />
-                                                <Text
-                                                    style={styles.actionBtnText}
-                                                >
-                                                    Approve Refund
-                                                </Text>
+                                                <CheckCircle size={18} color="#fff" />
+                                                <Text style={styles.actionBtnText}>Approve Refund</Text>
                                             </TouchableOpacity>
 
                                             {/* Deny */}
                                             {!showDenyInput ? (
                                                 <TouchableOpacity
-                                                    style={[
-                                                        styles.actionBtn,
-                                                        styles.denyBtn,
-                                                    ]}
-                                                    onPress={() =>
-                                                        setShowDenyInput(true)
-                                                    }
+                                                    style={[styles.actionBtn, styles.denyBtn]}
+                                                    onPress={() => setShowDenyInput(true)}
                                                     disabled={actionLoading}
+                                                    activeOpacity={0.8}
                                                 >
-                                                    <XCircle
-                                                        size={18}
-                                                        color="#fff"
-                                                    />
-                                                    <Text
-                                                        style={
-                                                            styles.actionBtnText
-                                                        }
-                                                    >
-                                                        Deny Refund
-                                                    </Text>
+                                                    <XCircle size={18} color="#fff" />
+                                                    <Text style={styles.actionBtnText}>Deny Refund</Text>
                                                 </TouchableOpacity>
                                             ) : (
-                                                <View
-                                                    style={
-                                                        styles.denyInputWrapper
-                                                    }
-                                                >
-                                                    <Text
-                                                        style={
-                                                            styles.detailLabel
-                                                        }
-                                                    >
-                                                        Reason for Denial *
-                                                    </Text>
+                                                <View style={styles.denyInputWrapper}>
+                                                    <Text style={styles.denyLabel}>Reason for Denial *</Text>
                                                     <TextInput
                                                         style={styles.denyInput}
                                                         value={denyNote}
-                                                        onChangeText={
-                                                            setDenyNote
-                                                        }
+                                                        onChangeText={setDenyNote}
                                                         placeholder="Enter denial reason..."
                                                         placeholderTextColor="#9CA3AF"
                                                         multiline
                                                         numberOfLines={3}
                                                     />
-                                                    <View
-                                                        style={
-                                                            styles.denyActions
-                                                        }
-                                                    >
+                                                    <View style={styles.denyActions}>
                                                         <TouchableOpacity
-                                                            style={[
-                                                                styles.actionBtn,
-                                                                styles.denyBtn,
-                                                                {
-                                                                    flex: 1,
-                                                                    marginRight: 8,
-                                                                },
-                                                            ]}
-                                                            onPress={() =>
-                                                                handleDenyConfirm(
-                                                                    selected,
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                actionLoading
-                                                            }
+                                                            style={[styles.actionBtn, styles.cancelBtn, { flex: 1, marginRight: 8 }]}
+                                                            onPress={() => { setShowDenyInput(false); setDenyNote(""); }}
                                                         >
-                                                            <Text
-                                                                style={
-                                                                    styles.actionBtnText
-                                                                }
-                                                            >
-                                                                Confirm Deny
-                                                            </Text>
+                                                            <Text style={[styles.actionBtnText, { color: "#374151" }]}>Cancel</Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
-                                                            style={[
-                                                                styles.actionBtn,
-                                                                styles.cancelBtn,
-                                                                { flex: 1 },
-                                                            ]}
-                                                            onPress={() => {
-                                                                setShowDenyInput(
-                                                                    false,
-                                                                );
-                                                                setDenyNote("");
-                                                            }}
+                                                            style={[styles.actionBtn, styles.denyBtn, { flex: 1 }]}
+                                                            onPress={() => handleDenyConfirm(selected)}
+                                                            disabled={actionLoading}
+                                                            activeOpacity={0.8}
                                                         >
-                                                            <Text
-                                                                style={[
-                                                                    styles.actionBtnText,
-                                                                    {
-                                                                        color: "#374151",
-                                                                    },
-                                                                ]}
-                                                            >
-                                                                Cancel
-                                                            </Text>
+                                                            <Text style={styles.actionBtnText}>Confirm Deny</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -757,9 +589,7 @@ export default function RefundsScreen() {
                 confirmText={confirmDialog.confirmText}
                 type={confirmDialog.type}
                 onConfirm={confirmDialog.onConfirm}
-                onCancel={() =>
-                    setConfirmDialog((d) => ({ ...d, visible: false }))
-                }
+                onCancel={() => setConfirmDialog((d) => ({ ...d, visible: false }))}
             />
             <SuccessDialog
                 visible={successDialog.visible}
@@ -767,197 +597,279 @@ export default function RefundsScreen() {
                 message={successDialog.message}
                 type={successDialog.type}
                 autoClose={successDialog.type === "success"}
-                onClose={() =>
-                    setSuccessDialog((d) => ({ ...d, visible: false }))
-                }
+                onClose={() => setSuccessDialog((d) => ({ ...d, visible: false }))}
             />
         </View>
     );
 }
 
 // ---------------------------------------------------------------------------
+// Small sub-component for modal info rows
+// ---------------------------------------------------------------------------
+
+function InfoRow({
+    label,
+    value,
+    mono = false,
+    last = false,
+}: {
+    label: string;
+    value: string;
+    mono?: boolean;
+    last?: boolean;
+}) {
+    return (
+        <View style={[infoRowStyles.row, last && infoRowStyles.lastRow]}>
+            <Text style={infoRowStyles.label}>{label}</Text>
+            <Text style={[infoRowStyles.value, mono && infoRowStyles.mono]} numberOfLines={1}>
+                {value}
+            </Text>
+        </View>
+    );
+}
+
+const infoRowStyles = StyleSheet.create({
+    row: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F3F4F6",
+    },
+    lastRow: { borderBottomWidth: 0 },
+    label: { fontSize: 13, color: "#9CA3AF", flex: 1 },
+    value: { fontSize: 13, color: "#111827", fontWeight: "500", flex: 2, textAlign: "right" },
+    mono: { fontFamily: "monospace", fontSize: 12 },
+});
+
+// ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F9FAFB" },
+    container: { flex: 1, backgroundColor: "#F8FAFC" },
 
+    // ── Header ──
     header: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingTop: 18,
+        paddingBottom: 14,
         backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
     },
-    headerTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
+    headerTitle: { fontSize: 22, fontWeight: "700", color: "#0F172A", letterSpacing: -0.4 },
+    headerCount: { fontSize: 13, color: "#94A3B8", fontWeight: "500" },
 
-    // Tab bar
+    // ── Tab bar — equal-width underline style ──
     tabBar: {
+        flexDirection: "row",
         backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#E2E8F0",
+        marginBottom: 4,
     },
-    tabBarContent: { paddingHorizontal: 12, paddingVertical: 6, gap: 6 },
-    tab: {
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: "#F3F4F6",
+    tabItem: {
+        flex: 1,
+        alignItems: "center",
+        paddingVertical: 12,
+        position: "relative",
     },
-    tabActive: { backgroundColor: "#3B82F6" },
-    tabText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
-    tabTextActive: { color: "#fff" },
+    tabText: { fontSize: 13, fontWeight: "500", color: "#94A3B8" },
+    tabTextActive: { color: "#2563EB", fontWeight: "700" },
+    tabUnderline: {
+        position: "absolute",
+        bottom: 0,
+        left: 8,
+        right: 8,
+        height: 2.5,
+        borderRadius: 2,
+        backgroundColor: "#2563EB",
+    },
 
-    // Centered empty / loading
+    // ── List ──
+    listContent: { paddingTop: 8, paddingBottom: 32 },
+
+    // ── Card ──
+    card: {
+        flexDirection: "row",
+        marginHorizontal: 16,
+        marginTop: 10,
+        backgroundColor: "#fff",
+        borderRadius: 14,
+        overflow: "hidden",
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+    },
+    cardAccent: { width: 4 },
+    cardBody: { flex: 1, padding: 14, gap: 5 },
+    cardTopRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
+    cardNameRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+    cardPatient: { fontSize: 15, fontWeight: "600", color: "#0F172A", flex: 1 },
+    cardMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    cardMono: { fontSize: 11, color: "#94A3B8", fontFamily: "monospace", letterSpacing: 0.2 },
+    cardAmount: { fontSize: 15, fontWeight: "700" },
+    cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    cardLabel: { fontSize: 12, color: "#94A3B8" },
+    cardReason: { fontSize: 12, color: "#64748B", fontStyle: "italic" },
+
+    // ── Badge ──
+    badge: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 20,
+        gap: 4,
+    },
+    badgeDot: { width: 6, height: 6, borderRadius: 3 },
+    badgeText: { fontSize: 11, fontWeight: "600" },
+
+    // ── Empty / error ──
     centered: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 60,
-        gap: 12,
+        paddingVertical: 72,
+        gap: 8,
     },
-    emptyText: { fontSize: 15, color: "#9CA3AF" },
+    emptyTitle: { fontSize: 16, fontWeight: "600", color: "#94A3B8" },
+    emptySubtitle: { fontSize: 13, color: "#CBD5E1", textAlign: "center", paddingHorizontal: 32 },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "600", color: "#0F172A", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#64748B", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 28, paddingVertical: 11, backgroundColor: "#2563EB", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 
-    // Card
-    card: {
-        marginHorizontal: 16,
-        marginTop: 12,
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: 14,
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
-        gap: 6,
-    },
-    cardRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: "600", color: "#111827" },
-    cardMeta: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-    },
-    cardMono: { fontSize: 12, color: "#6B7280", fontFamily: "monospace" },
-    cardAmount: { fontSize: 15, fontWeight: "700", color: "#1D4ED8" },
-    cardLabel: { fontSize: 12, color: "#9CA3AF" },
-    cardReason: { fontSize: 13, color: "#374151" },
-
-    // Badge
-    badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-    badgeText: { fontSize: 11, fontWeight: "700" },
-
-    // Modal
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.45)",
-        justifyContent: "flex-end",
-    },
+    // ── Modal ──
+    modalOverlay: { flex: 1, justifyContent: "flex-end" },
+    modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15,23,42,0.5)" },
     modalContainer: {
         backgroundColor: "#fff",
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: "90%",
-        paddingBottom: 24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: "92%",
+        paddingBottom: 34,
+    },
+    dragHandle: {
+        alignSelf: "center",
+        width: 36,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: "#E2E8F0",
+        marginTop: 10,
+        marginBottom: 4,
     },
     modalHeader: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F1F5F9",
     },
-    modalTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+    modalHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+    modalTitle: { fontSize: 17, fontWeight: "700", color: "#0F172A" },
+    closeBtn: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: "#F1F5F9",
+        alignItems: "center",
+        justifyContent: "center",
+    },
 
-    // Detail sections
-    detailSection: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3F4F6",
+    // Amount hero
+    amountHero: {
+        alignItems: "center",
+        paddingVertical: 24,
+        paddingHorizontal: 20,
+        backgroundColor: "#F8FAFC",
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#E2E8F0",
+        gap: 2,
+    },
+    amountLabel: { fontSize: 12, color: "#94A3B8", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8 },
+    amountValue: { fontSize: 34, fontWeight: "800", color: "#0F172A", letterSpacing: -1 },
+    amountSub: { fontSize: 13, color: "#94A3B8" },
+
+    // Info block
+    infoBlock: {
+        paddingHorizontal: 20,
+        paddingVertical: 4,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F1F5F9",
+    },
+
+    // Text block (reason / admin notes)
+    textBlock: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F1F5F9",
+        gap: 6,
+    },
+    blockLabel: { fontSize: 11, fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: 0.8 },
+    blockText: { fontSize: 14, color: "#374151", lineHeight: 20 },
+
+    // Tests block
+    testsBlock: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F1F5F9",
         gap: 8,
     },
-    sectionLabel: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: "#6B7280",
-        marginBottom: 4,
-    },
-    detailRow: {
+    testItem: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        paddingVertical: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F1F5F9",
     },
-    testRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3F4F6",
-    },
-    detailLabel: { fontSize: 13, color: "#6B7280", flex: 1 },
-    detailValue: {
-        fontSize: 13,
-        color: "#111827",
-        fontWeight: "500",
-        flex: 2,
-        textAlign: "right",
-    },
-    amount: { fontWeight: "700", color: "#1D4ED8", fontSize: 16 },
-    reasonText: { fontSize: 14, color: "#374151", lineHeight: 20 },
+    testName: { fontSize: 13, color: "#0F172A", fontWeight: "500", flex: 1 },
+    testPrice: { fontSize: 13, color: "#2563EB", fontWeight: "600" },
 
-    // Action buttons
+    // Actions block
+    actionsBlock: { padding: 20, gap: 10 },
     actionBtn: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        paddingVertical: 12,
-        borderRadius: 10,
-        marginBottom: 8,
+        paddingVertical: 14,
+        borderRadius: 12,
     },
-    approveBtn: { backgroundColor: "#22C55E" },
-    denyBtn: { backgroundColor: "#EF4444" },
-    cancelBtn: { backgroundColor: "#E5E7EB" },
-    actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    approveBtn: { backgroundColor: "#10B981" },
+    denyBtn: { backgroundColor: "#F43F5E" },
+    cancelBtn: { backgroundColor: "#F1F5F9" },
+    actionBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
     // Deny input
     denyInputWrapper: { gap: 8 },
+    denyLabel: { fontSize: 13, fontWeight: "600", color: "#374151" },
     denyInput: {
-        borderWidth: 1,
-        borderColor: "#D1FAE5",
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 14,
-        color: "#111827",
-        textAlignVertical: "top",
-        backgroundColor: "#F9FAFB",
-    },
-    denyActions: { flexDirection: "row" },
-    errorContainer: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 32,
-        gap: 12,
-    },
-    errorTitle: {
-        fontSize: 17,
-        fontWeight: "600",
-        color: "#111827",
-        textAlign: "center",
-    },
-    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: {
-        marginTop: 4,
-        paddingHorizontal: 24,
-        paddingVertical: 10,
-        backgroundColor: "#ac3434",
+        borderWidth: 1.5,
+        borderColor: "#E2E8F0",
         borderRadius: 10,
+        padding: 12,
+        fontSize: 14,
+        color: "#0F172A",
+        textAlignVertical: "top",
+        backgroundColor: "#F8FAFC",
+        minHeight: 80,
     },
-    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    denyActions: { flexDirection: "row", gap: 8 },
 });
