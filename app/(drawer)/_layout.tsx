@@ -237,6 +237,45 @@ function CustomDrawerContent(props: any) {
     );
 }
 
+function NotificationBellButton() {
+    const { unreadCount } = useNotificationBadge();
+    return (
+        <TouchableOpacity
+            onPress={() => router.push("/(drawer)/notifications")}
+            style={{ marginRight: 16, position: "relative" }}
+            activeOpacity={0.7}
+        >
+            <Bell color="#111827" size={24} />
+            {unreadCount > 0 && (
+                <View
+                    style={{
+                        position: "absolute",
+                        top: -5,
+                        right: -5,
+                        backgroundColor: "#ac3434",
+                        borderRadius: 10,
+                        minWidth: 18,
+                        height: 18,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 3,
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: "#fff",
+                            fontSize: 10,
+                            fontWeight: "700",
+                        }}
+                    >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                    </Text>
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+}
+
 export default function DrawerLayout() {
     return (
         <NotificationProvider>
@@ -247,6 +286,7 @@ export default function DrawerLayout() {
                     headerLeft: () => (
                         <DrawerToggleButton tintColor="#111827" />
                     ),
+                    headerRight: () => <NotificationBellButton />,
                     headerTitleAlign: "left",
                     drawerActiveTintColor: "#ffffff",
                     drawerActiveBackgroundColor: "#ac3434",
