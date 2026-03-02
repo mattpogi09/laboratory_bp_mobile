@@ -114,7 +114,9 @@ export default function ServicesScreen() {
                 }
             } catch (error: any) {
                 if (page === 1) {
-                    setLoadError(getApiErrorMessage(error, "Failed to load services."));
+                    setLoadError(
+                        getApiErrorMessage(error, "Failed to load services."),
+                    );
                 } else {
                     setSuccessDialog({
                         visible: true,
@@ -249,11 +251,16 @@ export default function ServicesScreen() {
             <View style={styles.container}>
                 <View style={styles.errorContainer}>
                     <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>Unable to load services</Text>
+                    <Text style={styles.errorTitle}>
+                        Unable to load services
+                    </Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
-                        onPress={() => { setLoadError(null); loadServices(1, true); }}
+                        onPress={() => {
+                            setLoadError(null);
+                            loadServices(1, true);
+                        }}
                     >
                         <Text style={styles.retryBtnText}>Retry</Text>
                     </TouchableOpacity>
@@ -1457,9 +1464,26 @@ const styles = StyleSheet.create({
     inputError: { borderColor: "#EF4444" },
     errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
     pickerButtonError: { borderColor: "#EF4444" },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

@@ -70,7 +70,9 @@ export default function DiscountsPhilhealthScreen() {
             const data: DiscountsResponse = response.data;
             setDiscounts((prev) => data.data);
         } catch (error: any) {
-            setLoadError(getApiErrorMessage(error, "Failed to load discounts."));
+            setLoadError(
+                getApiErrorMessage(error, "Failed to load discounts."),
+            );
         }
     }, []);
 
@@ -80,7 +82,9 @@ export default function DiscountsPhilhealthScreen() {
             const data: PhilHealthPlansResponse = response.data;
             setPhilHealthPlans((prev) => data.data);
         } catch (error: any) {
-            setLoadError(getApiErrorMessage(error, "Failed to load PhilHealth plans."));
+            setLoadError(
+                getApiErrorMessage(error, "Failed to load PhilHealth plans."),
+            );
         }
     }, []);
 
@@ -289,7 +293,10 @@ export default function DiscountsPhilhealthScreen() {
                 <Text style={styles.errorMessage}>{loadError}</Text>
                 <TouchableOpacity
                     style={styles.retryBtn}
-                    onPress={() => { setLoadError(null); loadData(); }}
+                    onPress={() => {
+                        setLoadError(null);
+                        loadData();
+                    }}
                 >
                     <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
@@ -1349,9 +1356,26 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#fff",
     },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

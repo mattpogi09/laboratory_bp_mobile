@@ -102,12 +102,17 @@ export default function UsersScreen() {
                 );
             } catch (error: any) {
                 if (page === 1) {
-                    setLoadError(getApiErrorMessage(error, "Failed to load users."));
+                    setLoadError(
+                        getApiErrorMessage(error, "Failed to load users."),
+                    );
                 } else {
                     setSuccessDialog({
                         visible: true,
                         title: "Error",
-                        message: getApiErrorMessage(error, "Failed to load users."),
+                        message: getApiErrorMessage(
+                            error,
+                            "Failed to load users.",
+                        ),
                         type: "error",
                     });
                 }
@@ -247,7 +252,10 @@ export default function UsersScreen() {
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
-                        onPress={() => { setLoadError(null); loadUsers(1, true); }}
+                        onPress={() => {
+                            setLoadError(null);
+                            loadUsers(1, true);
+                        }}
                     >
                         <Text style={styles.retryBtnText}>Retry</Text>
                     </TouchableOpacity>
@@ -1668,9 +1676,26 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     catChipText: { fontSize: 11, fontWeight: "600", color: "#1D4ED8" },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

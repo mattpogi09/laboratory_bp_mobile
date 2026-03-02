@@ -131,7 +131,12 @@ export default function ReconciliationScreen() {
                 setLastPage(response.data.last_page);
             } catch (error: any) {
                 if (pageNum === 1 && !append) {
-                    setLoadError(getApiErrorMessage(error, "Failed to load reconciliations."));
+                    setLoadError(
+                        getApiErrorMessage(
+                            error,
+                            "Failed to load reconciliations.",
+                        ),
+                    );
                 } else {
                     setSuccessDialog({
                         visible: true,
@@ -474,11 +479,16 @@ export default function ReconciliationScreen() {
             <SafeAreaView style={styles.container}>
                 <View style={styles.errorContainer}>
                     <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>Unable to load reconciliations</Text>
+                    <Text style={styles.errorTitle}>
+                        Unable to load reconciliations
+                    </Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
-                        onPress={() => { setLoadError(null); fetchReconciliations(1); }}
+                        onPress={() => {
+                            setLoadError(null);
+                            fetchReconciliations(1);
+                        }}
                     >
                         <Text style={styles.retryBtnText}>Retry</Text>
                     </TouchableOpacity>
@@ -1248,9 +1258,26 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#059669",
     },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

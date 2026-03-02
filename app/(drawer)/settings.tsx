@@ -1,6 +1,12 @@
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { AlertCircle, CheckCircle2, Settings2, Upload, XCircle } from "lucide-react-native";
+import {
+    AlertCircle,
+    CheckCircle2,
+    Settings2,
+    Upload,
+    XCircle,
+} from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
@@ -214,7 +220,10 @@ export default function SettingsScreen() {
                 <Text style={styles.errorMessage}>{loadError}</Text>
                 <TouchableOpacity
                     style={styles.retryBtn}
-                    onPress={() => { setLoadError(null); loadSettings(); }}
+                    onPress={() => {
+                        setLoadError(null);
+                        loadSettings();
+                    }}
                 >
                     <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
@@ -748,10 +757,27 @@ function SettingsInput({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F9FAFB" },
     centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
     scroll: { padding: 16, paddingBottom: 32 },
     sectionHeader: {
