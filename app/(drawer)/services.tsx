@@ -28,13 +28,13 @@ import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import type { GroupedServices, Service, ServicesResponse } from "@/types";
-import { SERVICE_CATEGORIES } from "@/types";
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 export default function ServicesScreen() {
     const [services, setServices] = useState<Service[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
+    const [formCategories, setFormCategories] = useState<string[]>([]);
     const [meta, setMeta] = useState<{
         current_page: number;
         last_page: number;
@@ -83,6 +83,23 @@ export default function ServicesScreen() {
                 ),
                 type: "error",
             });
+        }
+    }, []);
+
+    const loadFormCategories = useCallback(async () => {
+        try {
+            const response = await api.get("/test-categories");
+            const active: string[] = (response.data.data ?? response.data)
+                .filter((c: any) => c.is_active)
+                .sort(
+                    (a: any, b: any) =>
+                        a.display_order - b.display_order ||
+                        a.name.localeCompare(b.name),
+                )
+                .map((c: any) => c.name);
+            setFormCategories(active);
+        } catch {
+            // fallback: keep whatever was set before
         }
     }, []);
 
@@ -141,8 +158,9 @@ export default function ServicesScreen() {
     useFocusEffect(
         useCallback(() => {
             loadCategories();
+            loadFormCategories();
             loadServices(1, true);
-        }, [loadCategories, loadServices]),
+        }, [loadCategories, loadFormCategories, loadServices]),
     );
 
     const handleRefresh = () => {
@@ -504,7 +522,7 @@ export default function ServicesScreen() {
 
             <CreateServiceModal
                 show={showCreateModal}
-                categories={categories}
+                categories={formCategories}
                 onClose={() => setShowCreateModal(false)}
                 onSubmit={handleCreate}
                 onError={(message) =>
@@ -521,7 +539,7 @@ export default function ServicesScreen() {
                 <EditServiceModal
                     show={showEditModal}
                     service={selectedService}
-                    categories={categories}
+                    categories={formCategories}
                     onClose={() => {
                         setShowEditModal(false);
                         setSelectedService(null);
@@ -760,7 +778,7 @@ function CreateServiceModal({
                                     });
                                     clearError("category");
                                 }}
-                                categories={SERVICE_CATEGORIES}
+                                categories={categories}
                             />
                             {errors.category?.[0] && (
                                 <Text style={styles.errorText}>
@@ -957,7 +975,7 @@ function EditServiceModal({
                                     });
                                     clearError("category");
                                 }}
-                                categories={SERVICE_CATEGORIES}
+                                categories={categories}
                             />
                             {errors.category?.[0] && (
                                 <Text style={styles.errorText}>
