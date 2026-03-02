@@ -33,11 +33,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import type {
-    Appointment,
-    AppointmentStats,
-    AppointmentStatus,
-} from "@/types";
+import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
@@ -339,16 +335,30 @@ export default function AppointmentsScreen() {
 
     function PriorityBadge({ level }: { level?: string | null }) {
         if (!level) return null;
-        const cfg: Record<string, { label: string; color: string; bg: string }> = {
-            HIGH:   { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
-            MEDIUM: { label: "Grace",   color: "#92400E", bg: "#FEF3C7" },
-            NONE:   { label: "Late",    color: "#991B1B", bg: "#FEE2E2" },
+        const cfg: Record<
+            string,
+            { label: string; color: string; bg: string }
+        > = {
+            HIGH: { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
+            MEDIUM: { label: "Grace", color: "#92400E", bg: "#FEF3C7" },
+            NONE: { label: "Late", color: "#991B1B", bg: "#FEE2E2" },
         };
         const c = cfg[level];
         if (!c) return null;
         return (
-            <View style={{ backgroundColor: c.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>{c.label}</Text>
+            <View
+                style={{
+                    backgroundColor: c.bg,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 99,
+                }}
+            >
+                <Text
+                    style={{ fontSize: 11, fontWeight: "700", color: c.color }}
+                >
+                    {c.label}
+                </Text>
             </View>
         );
     }
@@ -359,14 +369,35 @@ export default function AppointmentsScreen() {
             onPress={() => openDetail(item.id)}
             activeOpacity={0.7}
         >
-            <View style={[styles.statusBar, { backgroundColor: STATUS_COLORS[item.status] ?? "#6B7280" }]} />
+            <View
+                style={[
+                    styles.statusBar,
+                    {
+                        backgroundColor:
+                            STATUS_COLORS[item.status] ?? "#6B7280",
+                    },
+                ]}
+            />
             <View style={styles.cardBody}>
                 {/* Patient name + Status badge */}
                 <View style={styles.cardRow}>
                     <User size={14} color="#6B7280" />
                     <Text style={styles.cardName}>{item.patient_name}</Text>
-                    <View style={[styles.badge, { backgroundColor: STATUS_COLORS[item.status] + "22" }]}>
-                        <Text style={[styles.badgeText, { color: STATUS_COLORS[item.status] }]}>
+                    <View
+                        style={[
+                            styles.badge,
+                            {
+                                backgroundColor:
+                                    STATUS_COLORS[item.status] + "22",
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.badgeText,
+                                { color: STATUS_COLORS[item.status] },
+                            ]}
+                        >
                             {item.status.replace("_", " ")}
                         </Text>
                     </View>
@@ -376,23 +407,31 @@ export default function AppointmentsScreen() {
                     <Calendar size={13} color="#9CA3AF" />
                     <Text style={styles.cardSub}>{item.appointment_date}</Text>
                     <Clock size={13} color="#9CA3AF" />
-                    <Text style={styles.cardSub}>{formatTime(String(item.appointment_time))}</Text>
+                    <Text style={styles.cardSub}>
+                        {formatTime(String(item.appointment_time))}
+                    </Text>
                 </View>
                 {/* Priority + Amount */}
                 <View style={styles.cardRow}>
                     <PriorityBadge level={item.priority_level} />
                     <View style={{ flex: 1 }} />
                     <Text style={styles.cardAmount}>
-                        ₱{Number(item.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                        ₱
+                        {Number(item.total_amount).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                        })}
                     </Text>
                 </View>
                 {/* Tests count + Ref */}
                 <View style={styles.cardRow}>
                     <Text style={styles.cardSub}>
-                        {item.tests.length} test{item.tests.length !== 1 ? "s" : ""}
+                        {item.tests.length} test
+                        {item.tests.length !== 1 ? "s" : ""}
                     </Text>
                     <View style={{ flex: 1 }} />
-                    <Text style={styles.refNum}>Ref: {item.reference_number}</Text>
+                    <Text style={styles.refNum}>
+                        Ref: {item.reference_number}
+                    </Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -416,24 +455,44 @@ export default function AppointmentsScreen() {
                         <Text style={styles.statLabel}>Total</Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardPending]}>
-                        <Text style={[styles.statValue, { color: "#92400E" }]}>{stats.pending}</Text>
-                        <Text style={[styles.statLabel, { color: "#78350F" }]}>Pending</Text>
+                        <Text style={[styles.statValue, { color: "#92400E" }]}>
+                            {stats.pending}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#78350F" }]}>
+                            Pending
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardCheckedIn]}>
-                        <Text style={[styles.statValue, { color: "#1E3A8A" }]}>{stats.checked_in}</Text>
-                        <Text style={[styles.statLabel, { color: "#1E40AF" }]}>Checked In</Text>
+                        <Text style={[styles.statValue, { color: "#1E3A8A" }]}>
+                            {stats.checked_in}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#1E40AF" }]}>
+                            Checked In
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardConfirmed]}>
-                        <Text style={[styles.statValue, { color: "#065F46" }]}>{stats.confirmed}</Text>
-                        <Text style={[styles.statLabel, { color: "#047857" }]}>Confirmed</Text>
+                        <Text style={[styles.statValue, { color: "#065F46" }]}>
+                            {stats.confirmed}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#047857" }]}>
+                            Confirmed
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardCancelled]}>
-                        <Text style={[styles.statValue, { color: "#991B1B" }]}>{stats.cancelled}</Text>
-                        <Text style={[styles.statLabel, { color: "#B91C1C" }]}>Cancelled</Text>
+                        <Text style={[styles.statValue, { color: "#991B1B" }]}>
+                            {stats.cancelled}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#B91C1C" }]}>
+                            Cancelled
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardNoShow]}>
-                        <Text style={[styles.statValue, { color: "#374151" }]}>{stats.no_show}</Text>
-                        <Text style={[styles.statLabel, { color: "#4B5563" }]}>No Shows</Text>
+                        <Text style={[styles.statValue, { color: "#374151" }]}>
+                            {stats.no_show}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#4B5563" }]}>
+                            No Shows
+                        </Text>
                     </View>
                 </View>
             )}
@@ -598,32 +657,86 @@ export default function AppointmentsScreen() {
                             </TouchableOpacity>
                         </View>
                         {detailLoading ? (
-                            <ActivityIndicator size="large" color="#ac3434" style={{ marginVertical: 30 }} />
+                            <ActivityIndicator
+                                size="large"
+                                color="#ac3434"
+                                style={{ marginVertical: 30 }}
+                            />
                         ) : selected ? (
-                            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                            <ScrollView
+                                style={{ flex: 1 }}
+                                showsVerticalScrollIndicator={false}
+                            >
                                 {/* Patient header */}
                                 <View style={styles.detailHeaderCard}>
-                                    <Text style={styles.detailPatientName}>{selected.patient_name}</Text>
-                                    <Text style={styles.detailReference}>Ref: {selected.reference_number}</Text>
+                                    <Text style={styles.detailPatientName}>
+                                        {selected.patient_name}
+                                    </Text>
+                                    <Text style={styles.detailReference}>
+                                        Ref: {selected.reference_number}
+                                    </Text>
                                 </View>
 
                                 {/* Schedule card */}
                                 <View style={styles.detailCard}>
-                                    <Text style={styles.detailCardTitle}>Schedule</Text>
+                                    <Text style={styles.detailCardTitle}>
+                                        Schedule
+                                    </Text>
                                     <View style={styles.detailCardRow}>
                                         <Calendar size={14} color="#6B7280" />
-                                        <Text style={styles.detailCardLabel}>Date</Text>
-                                        <Text style={styles.detailCardValue}>{selected.appointment_date as string}</Text>
+                                        <Text style={styles.detailCardLabel}>
+                                            Date
+                                        </Text>
+                                        <Text style={styles.detailCardValue}>
+                                            {
+                                                selected.appointment_date as string
+                                            }
+                                        </Text>
                                     </View>
                                     <View style={styles.detailCardRow}>
                                         <Clock size={14} color="#6B7280" />
-                                        <Text style={styles.detailCardLabel}>Time</Text>
-                                        <Text style={styles.detailCardValue}>{formatTime(String(selected.appointment_time))}</Text>
+                                        <Text style={styles.detailCardLabel}>
+                                            Time
+                                        </Text>
+                                        <Text style={styles.detailCardValue}>
+                                            {formatTime(
+                                                String(
+                                                    selected.appointment_time,
+                                                ),
+                                            )}
+                                        </Text>
                                     </View>
-                                    <View style={[styles.detailCardRow, { marginTop: 2 }]}>
-                                        <View style={[styles.badge, { backgroundColor: STATUS_COLORS[selected.status] + "22" }]}>
-                                            <Text style={[styles.badgeText, { color: STATUS_COLORS[selected.status] }]}>
-                                                {selected.status.replace("_", " ")}
+                                    <View
+                                        style={[
+                                            styles.detailCardRow,
+                                            { marginTop: 2 },
+                                        ]}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.badge,
+                                                {
+                                                    backgroundColor:
+                                                        STATUS_COLORS[
+                                                            selected.status
+                                                        ] + "22",
+                                                },
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.badgeText,
+                                                    {
+                                                        color: STATUS_COLORS[
+                                                            selected.status
+                                                        ],
+                                                    },
+                                                ]}
+                                            >
+                                                {selected.status.replace(
+                                                    "_",
+                                                    " ",
+                                                )}
                                             </Text>
                                         </View>
                                     </View>
@@ -631,26 +744,61 @@ export default function AppointmentsScreen() {
 
                                 {/* Patient info card */}
                                 <View style={styles.detailCard}>
-                                    <Text style={styles.detailCardTitle}>Patient Information</Text>
+                                    <Text style={styles.detailCardTitle}>
+                                        Patient Information
+                                    </Text>
                                     {selected.patient_email ? (
                                         <View style={styles.detailCardRow}>
                                             <Mail size={14} color="#6B7280" />
-                                            <Text style={styles.detailCardLabel}>Email</Text>
-                                            <Text style={[styles.detailCardValue, { flex: 2 }]}>{selected.patient_email}</Text>
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Email
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.detailCardValue,
+                                                    { flex: 2 },
+                                                ]}
+                                            >
+                                                {selected.patient_email}
+                                            </Text>
                                         </View>
                                     ) : null}
                                     {selected.patient_phone ? (
                                         <View style={styles.detailCardRow}>
                                             <Phone size={14} color="#6B7280" />
-                                            <Text style={styles.detailCardLabel}>Phone</Text>
-                                            <Text style={styles.detailCardValue}>{selected.patient_phone}</Text>
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Phone
+                                            </Text>
+                                            <Text
+                                                style={styles.detailCardValue}
+                                            >
+                                                {selected.patient_phone}
+                                            </Text>
                                         </View>
                                     ) : null}
                                     {selected.notes ? (
                                         <View style={styles.detailCardRow}>
-                                            <FileText size={14} color="#6B7280" />
-                                            <Text style={styles.detailCardLabel}>Notes</Text>
-                                            <Text style={[styles.detailCardValue, { flex: 2 }]}>{selected.notes}</Text>
+                                            <FileText
+                                                size={14}
+                                                color="#6B7280"
+                                            />
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Notes
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.detailCardValue,
+                                                    { flex: 2 },
+                                                ]}
+                                            >
+                                                {selected.notes}
+                                            </Text>
                                         </View>
                                     ) : null}
                                 </View>
@@ -658,13 +806,32 @@ export default function AppointmentsScreen() {
                                 {/* Priority card */}
                                 {selected.priority_level ? (
                                     <View style={styles.detailCard}>
-                                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                                            <Text style={styles.detailCardTitle}>Priority</Text>
-                                            <PriorityBadge level={selected.priority_level} />
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                            }}
+                                        >
+                                            <Text
+                                                style={styles.detailCardTitle}
+                                            >
+                                                Priority
+                                            </Text>
+                                            <PriorityBadge
+                                                level={selected.priority_level}
+                                            />
                                         </View>
                                         {(selected.minutes_late ?? 0) > 0 ? (
-                                            <Text style={{ fontSize: 12, color: "#DC2626", marginTop: 4 }}>
-                                                +{selected.minutes_late} min late
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    color: "#DC2626",
+                                                    marginTop: 4,
+                                                }}
+                                            >
+                                                +{selected.minutes_late} min
+                                                late
                                             </Text>
                                         ) : null}
                                     </View>
@@ -672,19 +839,67 @@ export default function AppointmentsScreen() {
 
                                 {/* Tests card */}
                                 <View style={styles.detailCard}>
-                                    <Text style={styles.detailCardTitle}>Tests</Text>
+                                    <Text style={styles.detailCardTitle}>
+                                        Tests
+                                    </Text>
                                     {selected.tests.map((t, i) => (
-                                        <View key={i} style={styles.detailTestRow}>
-                                            <Text style={styles.detailTestName}>{t.name}</Text>
-                                            <Text style={styles.detailTestPrice}>
-                                                ₱{Number(t.price).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                        <View
+                                            key={i}
+                                            style={styles.detailTestRow}
+                                        >
+                                            <Text style={styles.detailTestName}>
+                                                {t.name}
+                                            </Text>
+                                            <Text
+                                                style={styles.detailTestPrice}
+                                            >
+                                                ₱
+                                                {Number(t.price).toLocaleString(
+                                                    "en-PH",
+                                                    {
+                                                        minimumFractionDigits: 2,
+                                                    },
+                                                )}
                                             </Text>
                                         </View>
                                     ))}
-                                    <View style={[styles.detailTestRow, { borderTopWidth: 1, borderTopColor: "#E5E7EB", marginTop: 4, paddingTop: 6 }]}>
-                                        <Text style={[styles.detailTestName, { fontWeight: "700", color: "#111827" }]}>Total</Text>
-                                        <Text style={[styles.detailTestPrice, { fontWeight: "700", color: "#111827" }]}>
-                                            ₱{Number(selected.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                    <View
+                                        style={[
+                                            styles.detailTestRow,
+                                            {
+                                                borderTopWidth: 1,
+                                                borderTopColor: "#E5E7EB",
+                                                marginTop: 4,
+                                                paddingTop: 6,
+                                            },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.detailTestName,
+                                                {
+                                                    fontWeight: "700",
+                                                    color: "#111827",
+                                                },
+                                            ]}
+                                        >
+                                            Total
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.detailTestPrice,
+                                                {
+                                                    fontWeight: "700",
+                                                    color: "#111827",
+                                                },
+                                            ]}
+                                        >
+                                            ₱
+                                            {Number(
+                                                selected.total_amount,
+                                            ).toLocaleString("en-PH", {
+                                                minimumFractionDigits: 2,
+                                            })}
                                         </Text>
                                     </View>
                                 </View>
@@ -692,39 +907,104 @@ export default function AppointmentsScreen() {
                                 {/* Transaction card */}
                                 {selected.transaction ? (
                                     <View style={styles.detailCard}>
-                                        <Text style={styles.detailCardTitle}>Transaction</Text>
+                                        <Text style={styles.detailCardTitle}>
+                                            Transaction
+                                        </Text>
                                         <View style={styles.detailCardRow}>
-                                            <Text style={styles.detailCardLabel}>Tx #</Text>
-                                            <Text style={styles.detailCardValue}>{selected.transaction.transaction_number}</Text>
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Tx #
+                                            </Text>
+                                            <Text
+                                                style={styles.detailCardValue}
+                                            >
+                                                {
+                                                    selected.transaction
+                                                        .transaction_number
+                                                }
+                                            </Text>
                                         </View>
                                         <View style={styles.detailCardRow}>
-                                            <Text style={styles.detailCardLabel}>Payment</Text>
-                                            <Text style={styles.detailCardValue}>{selected.transaction.payment_status}</Text>
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Payment
+                                            </Text>
+                                            <Text
+                                                style={styles.detailCardValue}
+                                            >
+                                                {
+                                                    selected.transaction
+                                                        .payment_status
+                                                }
+                                            </Text>
                                         </View>
                                         <View style={styles.detailCardRow}>
-                                            <Text style={styles.detailCardLabel}>Lab</Text>
-                                            <Text style={styles.detailCardValue}>{selected.transaction.lab_status}</Text>
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Lab
+                                            </Text>
+                                            <Text
+                                                style={styles.detailCardValue}
+                                            >
+                                                {
+                                                    selected.transaction
+                                                        .lab_status
+                                                }
+                                            </Text>
                                         </View>
                                     </View>
                                 ) : null}
 
                                 {/* Actions */}
-                                {!["CANCELLED", "CONFIRMED"].includes(selected.status) && (
+                                {!["CANCELLED", "CONFIRMED"].includes(
+                                    selected.status,
+                                ) && (
                                     <View style={styles.actionRow}>
                                         <TouchableOpacity
-                                            style={[styles.actionBtn, { backgroundColor: "#EF4444" }]}
+                                            style={[
+                                                styles.actionBtn,
+                                                { backgroundColor: "#EF4444" },
+                                            ]}
                                             onPress={openCancel}
                                         >
                                             <Ban size={16} color="#fff" />
-                                            <Text style={[styles.actionBtnText, { color: "#fff" }]}>Cancel</Text>
+                                            <Text
+                                                style={[
+                                                    styles.actionBtnText,
+                                                    { color: "#fff" },
+                                                ]}
+                                            >
+                                                Cancel
+                                            </Text>
                                         </TouchableOpacity>
-                                        {["PENDING", "CHECKED_IN"].includes(selected.status) && (
+                                        {["PENDING", "CHECKED_IN"].includes(
+                                            selected.status,
+                                        ) && (
                                             <TouchableOpacity
-                                                style={[styles.actionBtn, { backgroundColor: "#3B82F6" }]}
+                                                style={[
+                                                    styles.actionBtn,
+                                                    {
+                                                        backgroundColor:
+                                                            "#3B82F6",
+                                                    },
+                                                ]}
                                                 onPress={openReschedule}
                                             >
-                                                <RefreshCw size={16} color="#fff" />
-                                                <Text style={[styles.actionBtnText, { color: "#fff" }]}>Reschedule</Text>
+                                                <RefreshCw
+                                                    size={16}
+                                                    color="#fff"
+                                                />
+                                                <Text
+                                                    style={[
+                                                        styles.actionBtnText,
+                                                        { color: "#fff" },
+                                                    ]}
+                                                >
+                                                    Reschedule
+                                                </Text>
                                             </TouchableOpacity>
                                         )}
                                     </View>
@@ -1059,12 +1339,36 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 1,
     },
-    statCardTotal:     { backgroundColor: "#fff",      borderWidth: 1, borderColor: "#E5E7EB" },
-    statCardPending:   { backgroundColor: "#FFFBEB",   borderWidth: 1, borderColor: "#FDE68A" },
-    statCardCheckedIn: { backgroundColor: "#EFF6FF",   borderWidth: 1, borderColor: "#BFDBFE" },
-    statCardConfirmed: { backgroundColor: "#ECFDF5",   borderWidth: 1, borderColor: "#A7F3D0" },
-    statCardCancelled: { backgroundColor: "#FEF2F2",   borderWidth: 1, borderColor: "#FECACA" },
-    statCardNoShow:    { backgroundColor: "#F9FAFB",   borderWidth: 1, borderColor: "#D1D5DB" },
+    statCardTotal: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    statCardPending: {
+        backgroundColor: "#FFFBEB",
+        borderWidth: 1,
+        borderColor: "#FDE68A",
+    },
+    statCardCheckedIn: {
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+    },
+    statCardConfirmed: {
+        backgroundColor: "#ECFDF5",
+        borderWidth: 1,
+        borderColor: "#A7F3D0",
+    },
+    statCardCancelled: {
+        backgroundColor: "#FEF2F2",
+        borderWidth: 1,
+        borderColor: "#FECACA",
+    },
+    statCardNoShow: {
+        backgroundColor: "#F9FAFB",
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+    },
     statValue: { fontSize: 22, fontWeight: "700", color: "#111827" },
     statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
     searchRow: {
@@ -1174,7 +1478,12 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     detailCardLabel: { fontSize: 12, color: "#6B7280", width: 50 },
-    detailCardValue: { fontSize: 13, color: "#111827", fontWeight: "500", flex: 1 },
+    detailCardValue: {
+        fontSize: 13,
+        color: "#111827",
+        fontWeight: "500",
+        flex: 1,
+    },
     detailTestRow: {
         flexDirection: "row",
         justifyContent: "space-between",
