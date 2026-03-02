@@ -84,12 +84,13 @@ export default function UsersScreen() {
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadUsers = useCallback(
-        async (page = 1, replace = false) => {
+        async (page = 1, replace = false, filterOverride?: string) => {
             try {
                 if (page === 1 && !refreshing) setLoading(true);
                 const params: any = { page, per_page: 20 };
                 if (searchQuery) params.search = searchQuery;
-                if (roleFilter) params.role = roleFilter;
+                const activeFilter = filterOverride !== undefined ? filterOverride : roleFilter;
+                if (activeFilter) params.role = activeFilter;
 
                 const response = await api.get("/users", { params });
                 const data: UsersResponse = response.data;
@@ -134,10 +135,6 @@ export default function UsersScreen() {
         const t = setTimeout(() => loadUsers(1, true), 400);
         return () => clearTimeout(t);
     }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-        loadUsers(1, true);
-    }, [roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -317,7 +314,10 @@ export default function UsersScreen() {
                                 styles.pill,
                                 roleFilter === r.value && styles.pillActive,
                             ]}
-                            onPress={() => setRoleFilter(r.value)}
+                            onPress={() => {
+                                    setRoleFilter(r.value);
+                                    loadUsers(1, true, r.value);
+                                }}
                         >
                             <Text
                                 style={[
@@ -674,7 +674,11 @@ function CreateUserModal({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        style={styles.modalBody}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
@@ -1017,10 +1021,17 @@ const TITLE_PRESETS = [
 ];
 const OTHER_TITLE = "Other (type manually)";
 
-function TitlePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TitlePicker({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+}) {
     const [showPicker, setShowPicker] = useState(false);
     const isPreset = TITLE_PRESETS.includes(value);
-    const displayLabel = value === "" ? "Select title" : isPreset ? value : OTHER_TITLE;
+    const displayLabel =
+        value === "" ? "Select title" : isPreset ? value : OTHER_TITLE;
 
     return (
         <>
@@ -1054,8 +1065,12 @@ function TitlePicker({ value, onChange }: { value: string; onChange: (v: string)
                 >
                     <View style={styles.pickerModal}>
                         <View style={styles.pickerHeader}>
-                            <Text style={styles.pickerTitle}>Professional Title</Text>
-                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                            <Text style={styles.pickerTitle}>
+                                Professional Title
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setShowPicker(false)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
@@ -1065,14 +1080,19 @@ function TitlePicker({ value, onChange }: { value: string; onChange: (v: string)
                                     key={t}
                                     style={[
                                         styles.pickerOption,
-                                        value === t && styles.pickerOptionSelected,
+                                        value === t &&
+                                            styles.pickerOptionSelected,
                                     ]}
-                                    onPress={() => { onChange(t); setShowPicker(false); }}
+                                    onPress={() => {
+                                        onChange(t);
+                                        setShowPicker(false);
+                                    }}
                                 >
                                     <Text
                                         style={[
                                             styles.pickerOptionText,
-                                            value === t && styles.pickerOptionTextSelected,
+                                            value === t &&
+                                                styles.pickerOptionTextSelected,
                                         ]}
                                     >
                                         {t}
@@ -1082,14 +1102,21 @@ function TitlePicker({ value, onChange }: { value: string; onChange: (v: string)
                             <TouchableOpacity
                                 style={[
                                     styles.pickerOption,
-                                    !isPreset && value !== "" && styles.pickerOptionSelected,
+                                    !isPreset &&
+                                        value !== "" &&
+                                        styles.pickerOptionSelected,
                                 ]}
-                                onPress={() => { onChange(""); setShowPicker(false); }}
+                                onPress={() => {
+                                    onChange("");
+                                    setShowPicker(false);
+                                }}
                             >
                                 <Text
                                     style={[
                                         styles.pickerOptionText,
-                                        !isPreset && value !== "" && styles.pickerOptionTextSelected,
+                                        !isPreset &&
+                                            value !== "" &&
+                                            styles.pickerOptionTextSelected,
                                     ]}
                                 >
                                     {OTHER_TITLE}
@@ -1287,7 +1314,11 @@ function EditUserModal({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        style={styles.modalBody}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
@@ -1692,6 +1723,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         padding: 24,
         maxHeight: "90%",
+        flex: 1,
     },
     modalHeader: {
         flexDirection: "row",
