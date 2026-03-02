@@ -133,7 +133,11 @@ export default function UsersScreen() {
     useEffect(() => {
         const t = setTimeout(() => loadUsers(1, true), 400);
         return () => clearTimeout(t);
-    }, [loadUsers]);
+    }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        loadUsers(1, true);
+    }, [roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -670,7 +674,7 @@ function CreateUserModal({
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.modalBody}>
+                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
@@ -812,16 +816,14 @@ function CreateUserModal({
                                     (optional)
                                 </Text>
                             </Text>
-                            <TextInput
-                                style={styles.formInput}
+                            <TitlePicker
                                 value={formData.professional_title}
-                                onChangeText={(text) =>
+                                onChange={(text) =>
                                     setFormData({
                                         ...formData,
                                         professional_title: text,
                                     })
                                 }
-                                placeholder="e.g. Medical Technologist"
                             />
                         </View>
 
@@ -914,7 +916,7 @@ function CreateUserModal({
                                 </View>
                             </View>
                         )}
-                    </View>
+                    </ScrollView>
 
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
@@ -1004,6 +1006,100 @@ function PasswordStrengthChecker({ password }: { password: string }) {
                 );
             })}
         </View>
+    );
+}
+
+const TITLE_PRESETS = [
+    "Chief Medical Technologist",
+    "Medical Technologist",
+    "Senior Medical Technologist",
+    "Laboratory Technician",
+];
+const OTHER_TITLE = "Other (type manually)";
+
+function TitlePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const [showPicker, setShowPicker] = useState(false);
+    const isPreset = TITLE_PRESETS.includes(value);
+    const displayLabel = value === "" ? "Select title" : isPreset ? value : OTHER_TITLE;
+
+    return (
+        <>
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPicker(true)}
+            >
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !value && styles.pickerButtonPlaceholder,
+                    ]}
+                >
+                    {displayLabel}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+            {!isPreset && value !== "" && (
+                <TextInput
+                    style={[styles.formInput, { marginTop: 8 }]}
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="Type title manually..."
+                />
+            )}
+            <Modal visible={showPicker} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowPicker(false)}
+                >
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>Professional Title</Text>
+                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.pickerList}>
+                            {TITLE_PRESETS.map((t) => (
+                                <TouchableOpacity
+                                    key={t}
+                                    style={[
+                                        styles.pickerOption,
+                                        value === t && styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => { onChange(t); setShowPicker(false); }}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            value === t && styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
+                                        {t}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                            <TouchableOpacity
+                                style={[
+                                    styles.pickerOption,
+                                    !isPreset && value !== "" && styles.pickerOptionSelected,
+                                ]}
+                                onPress={() => { onChange(""); setShowPicker(false); }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.pickerOptionText,
+                                        !isPreset && value !== "" && styles.pickerOptionTextSelected,
+                                    ]}
+                                >
+                                    {OTHER_TITLE}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
     );
 }
 
@@ -1191,7 +1287,7 @@ function EditUserModal({
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.modalBody}>
+                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Name</Text>
                             <TextInput
@@ -1291,16 +1387,14 @@ function EditUserModal({
                                     (optional)
                                 </Text>
                             </Text>
-                            <TextInput
-                                style={styles.formInput}
+                            <TitlePicker
                                 value={formData.professional_title}
-                                onChangeText={(text) =>
+                                onChange={(text) =>
                                     setFormData({
                                         ...formData,
                                         professional_title: text,
                                     })
                                 }
-                                placeholder="e.g. Medical Technologist"
                             />
                         </View>
 
@@ -1437,7 +1531,7 @@ function EditUserModal({
                                 password={formData.password}
                             />
                         </View>
-                    </View>
+                    </ScrollView>
 
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
@@ -1606,7 +1700,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     modalTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
-    modalBody: { marginBottom: 24 },
+    modalBody: { flex: 1, marginBottom: 16 },
     formGroup: { marginBottom: 20 },
     formLabel: {
         fontSize: 14,
@@ -1638,6 +1732,9 @@ const styles = StyleSheet.create({
     modalFooter: {
         flexDirection: "row",
         gap: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#F3F4F6",
     },
     modalButtonSecondary: {
         flex: 1,
