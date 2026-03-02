@@ -34,10 +34,10 @@ import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 const STATUS_TABS: { label: string; value: string }[] = [
     { label: "All Active", value: "" },
-    { label: "Pending",    value: "pending" },
-    { label: "Approved",   value: "approved" },
-    { label: "Denied",     value: "denied" },
-    { label: "Completed",  value: "completed" },
+    { label: "Pending", value: "pending" },
+    { label: "Approved", value: "approved" },
+    { label: "Denied", value: "denied" },
+    { label: "Completed", value: "completed" },
 ];
 
 const STATUS_COLORS: Record<
@@ -72,7 +72,10 @@ export default function RefundsScreen() {
     const handleSearchChange = (text: string) => {
         setSearchInput(text);
         if (searchTimer.current) clearTimeout(searchTimer.current);
-        searchTimer.current = setTimeout(() => setSearchQuery(text.trim()), 400);
+        searchTimer.current = setTimeout(
+            () => setSearchQuery(text.trim()),
+            400,
+        );
     };
 
     const clearSearch = () => {
