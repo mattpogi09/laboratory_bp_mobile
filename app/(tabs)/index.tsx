@@ -19,7 +19,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { LineChart, PieChart } from "react-native-chart-kit";
+import { LineChart, PieChart } from "react-native-gifted-charts";
 import {
     SafeAreaView,
     useSafeAreaInsets,
@@ -215,21 +215,27 @@ export default function Dashboard() {
         const entries = testStatusEntries.filter((s) => s.value > 0);
         if (!entries.length) return null;
         return entries.map((s) => ({
-            name: s.label,
-            population: s.value,
+            value: s.value,
             color: s.color,
-            legendFontColor: "#374151",
-            legendFontSize: 12,
         }));
     }, [testStatusEntries]);
 
+    const pieTotal = useMemo(
+        () => testStatusEntries.reduce((sum, s) => sum + s.value, 0),
+        [testStatusEntries],
+    );
+
     const revenueLineData = useMemo(() => {
         if (!data?.revenueChartData?.length) return null;
-        // Cap labels to avoid crowding — show last 7 or fewer
         const items = data.revenueChartData.slice(-7);
+        const hasData = items.some((d) => d.value > 0);
         return {
-            labels: items.map((d) => d.label),
-            datasets: [{ data: items.map((d) => Math.max(0, d.value)) }],
+            hasData,
+            chartData: items.map((d) => ({
+                value: Math.max(0, d.value),
+                label: d.label,
+                labelTextStyle: { color: "#9CA3AF", fontSize: 10 },
+            })),
         };
     }, [data]);
 
@@ -391,126 +397,148 @@ export default function Dashboard() {
                 {revenueLineData && (
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Revenue Trend</Text>
-                        <LineChart
-                            data={revenueLineData}
-                            width={SCREEN_WIDTH - 72}
-                            height={180}
-                            yAxisLabel="₱"
-                            yAxisSuffix=""
-                            chartConfig={{
-                                backgroundColor: "#fff",
-                                backgroundGradientFrom: "#fff",
-                                backgroundGradientTo: "#fff",
-                                decimalPlaces: 0,
-                                color: (opacity = 1) =>
-                                    `rgba(16, 185, 129, ${opacity})`,
-                                labelColor: (opacity = 1) =>
-                                    `rgba(107, 114, 128, ${opacity})`,
-                                propsForDots: {
-                                    r: "4",
-                                    strokeWidth: "2",
-                                    stroke: "#10B981",
-                                },
-                                propsForBackgroundLines: {
-                                    strokeDasharray: "",
-                                    stroke: "#F3F4F6",
-                                },
-                            }}
-                            bezier
-                            style={styles.chart}
-                            withInnerLines
-                            withOuterLines={false}
-                        />
+                        {revenueLineData.hasData ? (
+                            <LineChart
+                                data={revenueLineData.chartData}
+                                width={SCREEN_WIDTH - 64}
+                                height={180}
+                                color="#10B981"
+                                thickness={2.5}
+                                dataPointsColor="#10B981"
+                                dataPointsRadius={4}
+                                spacing={Math.floor(
+                                    (SCREEN_WIDTH - 100) /
+                                        Math.max(
+                                            revenueLineData.chartData.length -
+                                                1,
+                                            1,
+                                        ),
+                                )}
+                                initialSpacing={12}
+                                endSpacing={12}
+                                yAxisTextStyle={{
+                                    color: "#9CA3AF",
+                                    fontSize: 10,
+                                }}
+                                yAxisLabelPrefix="₱"
+                                rulesColor="#F3F4F6"
+                                rulesType="solid"
+                                xAxisColor="#E5E7EB"
+                                yAxisColor="#E5E7EB"
+                                curved
+                                isAnimated
+                                noOfSections={4}
+                                maxValue={Math.ceil(
+                                    Math.max(
+                                        ...revenueLineData.chartData.map(
+                                            (d) => d.value,
+                                        ),
+                                        100,
+                                    ) * 1.2,
+                                )}
+                                adjustToWidth
+                                areaChart
+                                startFillColor="rgba(16,185,129,0.18)"
+                                endFillColor="rgba(16,185,129,0.02)"
+                                startOpacity={0.8}
+                                endOpacity={0.1}
+                            />
+                        ) : (
+                            <View style={styles.chartEmpty}>
+                                <Text style={styles.emptyState}>
+                                    No revenue data for this period.
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 )}
 
-                <View style={styles.row}>
-                    <View style={[styles.card, styles.flexCard]}>
-                        <Text style={styles.cardTitle}>Test Status</Text>
-                        {pieChartData ? (
-                            <>
-                                <PieChart
-                                    data={pieChartData}
-                                    width={SCREEN_WIDTH / 2 - 24}
-                                    height={140}
-                                    chartConfig={{
-                                        color: (opacity = 1) =>
-                                            `rgba(0,0,0,${opacity})`,
-                                    }}
-                                    accessor="population"
-                                    backgroundColor="transparent"
-                                    paddingLeft="0"
-                                    hasLegend={false}
-                                    center={[SCREEN_WIDTH / 4 - 36, 0]}
-                                />
-                                <View style={styles.statusList}>
-                                    {testStatusEntries
-                                        .filter((s) => s.value > 0)
-                                        .map((status) => (
-                                            <View
-                                                key={status.key}
-                                                style={styles.statusRow}
-                                            >
-                                                <View
-                                                    style={[
-                                                        styles.statusDot,
-                                                        {
-                                                            backgroundColor:
-                                                                status.color,
-                                                        },
-                                                    ]}
-                                                />
-                                                <Text
-                                                    style={styles.statusLabel}
-                                                >
-                                                    {status.label}
-                                                </Text>
-                                                <Text
-                                                    style={styles.statusValue}
-                                                >
-                                                    {status.value}
-                                                </Text>
-                                            </View>
-                                        ))}
-                                </View>
-                            </>
-                        ) : (
-                            <Text style={styles.emptyState}>
-                                No lab activity yet.
-                            </Text>
-                        )}
-                    </View>
-
-                    <View style={[styles.card, styles.flexCard]}>
-                        <Text style={styles.cardTitle}>Alerts</Text>
-                        {data?.alerts?.length ? (
-                            data.alerts.map((alertItem, index) => (
-                                <View key={index} style={styles.alertItem}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.alertMessage}>
-                                            {alertItem.message}
+                {/* Test Status Donut Chart */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Test Status</Text>
+                    {pieChartData ? (
+                        <View style={styles.testStatusContainer}>
+                            <PieChart
+                                donut
+                                data={pieChartData}
+                                radius={72}
+                                innerRadius={46}
+                                centerLabelComponent={() => (
+                                    <View style={styles.donutCenter}>
+                                        <Text style={styles.donutTotal}>
+                                            {pieTotal}
                                         </Text>
-                                        {alertItem.action && (
-                                            <TouchableOpacity
-                                                onPress={() =>
-                                                    handleAlertAction(alertItem)
-                                                }
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text
-                                                    style={styles.alertAction}
-                                                >
-                                                    {alertItem.action}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )}
+                                        <Text style={styles.donutLabel}>
+                                            tests
+                                        </Text>
                                     </View>
+                                )}
+                            />
+                            <View style={styles.statusList}>
+                                {testStatusEntries
+                                    .filter((s) => s.value > 0)
+                                    .map((status) => (
+                                        <View
+                                            key={status.key}
+                                            style={styles.statusRow}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.statusDot,
+                                                    {
+                                                        backgroundColor:
+                                                            status.color,
+                                                    },
+                                                ]}
+                                            />
+                                            <Text style={styles.statusLabel}>
+                                                {status.label}
+                                            </Text>
+                                            <Text style={styles.statusValue}>
+                                                {status.value}
+                                            </Text>
+                                            <Text style={styles.statusPercent}>
+                                                {status.percentage}%
+                                            </Text>
+                                        </View>
+                                    ))}
+                            </View>
+                        </View>
+                    ) : (
+                        <Text style={styles.emptyState}>
+                            No lab activity for this period.
+                        </Text>
+                    )}
+                </View>
+
+                {/* Alerts */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Alerts</Text>
+                    {data?.alerts?.length ? (
+                        data.alerts.map((alertItem, index) => (
+                            <View key={index} style={styles.alertItem}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.alertMessage}>
+                                        {alertItem.message}
+                                    </Text>
+                                    {alertItem.action && (
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                handleAlertAction(alertItem)
+                                            }
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.alertAction}>
+                                                {alertItem.action}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
-                            ))
-                        ) : (
-                            <Text style={styles.emptyState}>All clear.</Text>
-                        )}
-                    </View>
+                            </View>
+                        ))
+                    ) : (
+                        <Text style={styles.emptyState}>All clear.</Text>
+                    )}
                 </View>
 
                 {/* Top Performing Tests */}
@@ -880,22 +908,40 @@ const styles = StyleSheet.create({
     topTestName: { fontSize: 14, fontWeight: "600", color: "#111827" },
     topTestCount: { fontSize: 12, color: "#6B7280", marginTop: 1 },
     topTestRevenue: { fontSize: 13, fontWeight: "700", color: "#059669" },
-    statusList: { marginTop: 4 },
+    statusList: { marginTop: 12, flex: 1 },
     statusRow: {
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 6,
+        paddingVertical: 8,
         borderBottomWidth: 1,
         borderBottomColor: "#F3F4F6",
         gap: 10,
     },
     statusDot: { width: 10, height: 10, borderRadius: 5 },
-    statusLabel: { flex: 1, color: "#1F2937", fontWeight: "500" },
+    statusLabel: { flex: 1, color: "#1F2937", fontWeight: "500", fontSize: 13 },
     statusValueWrapper: {
         flexDirection: "row",
         alignItems: "baseline",
         gap: 8,
     },
     statusValue: { fontSize: 16, fontWeight: "700", color: "#111827" },
-    statusPercent: { fontSize: 12, color: "#6B7280" },
+    statusPercent: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        minWidth: 36,
+        textAlign: "right",
+    },
+    testStatusContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 20,
+    },
+    donutCenter: { alignItems: "center" },
+    donutTotal: { fontSize: 22, fontWeight: "700", color: "#111827" },
+    donutLabel: { fontSize: 11, color: "#9CA3AF" },
+    chartEmpty: {
+        height: 80,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });
