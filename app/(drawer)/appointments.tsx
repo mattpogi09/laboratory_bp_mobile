@@ -129,31 +129,16 @@ function FilterPicker({
     );
 }
 
-function getDateParams(pill: string): Record<string, string> {
-    const now = new Date();
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    if (pill === "today") {
-        const d = fmt(now);
-        return { date_from: d, date_to: d };
-    }
-    if (pill === "week") {
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(now);
-        mon.setDate(diff);
-        const sun = new Date(mon);
-        sun.setDate(mon.getDate() + 6);
-        return { date_from: fmt(mon), date_to: fmt(sun) };
-    }
-    if (pill === "month") {
-        const yr = now.getFullYear();
-        const mo = now.getMonth();
-        return {
-            date_from: fmt(new Date(yr, mo, 1)),
-            date_to: fmt(new Date(yr, mo + 1, 0)),
-        };
-    }
-    return {};
+function fmtDate(d: Date): string {
+    return d.toISOString().slice(0, 10);
+}
+
+function fmtDateDisplay(d: Date): string {
+    return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
 }
 
 export default function AppointmentsScreen() {
