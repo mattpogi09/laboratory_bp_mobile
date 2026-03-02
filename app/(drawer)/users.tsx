@@ -882,11 +882,9 @@ function CreateUserModal({
                                             <TouchableOpacity
                                                 key={cat}
                                                 style={[
-                                                    styles.catChip,
-                                                    selected && {
-                                                        backgroundColor:
-                                                            "#ac3434",
-                                                    },
+                                                    styles.catChipPickable,
+                                                    selected &&
+                                                        styles.catChipPickableSelected,
                                                 ]}
                                                 onPress={() =>
                                                     setFormData({
@@ -907,10 +905,9 @@ function CreateUserModal({
                                             >
                                                 <Text
                                                     style={[
-                                                        styles.catChipText,
-                                                        selected && {
-                                                            color: "#fff",
-                                                        },
+                                                        styles.catChipPickableText,
+                                                        selected &&
+                                                            styles.catChipPickableTextSelected,
                                                     ]}
                                                 >
                                                     {cat}
@@ -1499,11 +1496,9 @@ function EditUserModal({
                                             <TouchableOpacity
                                                 key={cat}
                                                 style={[
-                                                    styles.catChip,
-                                                    selected && {
-                                                        backgroundColor:
-                                                            "#ac3434",
-                                                    },
+                                                    styles.catChipPickable,
+                                                    selected &&
+                                                        styles.catChipPickableSelected,
                                                 ]}
                                                 onPress={() =>
                                                     setFormData({
@@ -1524,10 +1519,9 @@ function EditUserModal({
                                             >
                                                 <Text
                                                     style={[
-                                                        styles.catChipText,
-                                                        selected && {
-                                                            color: "#fff",
-                                                        },
+                                                        styles.catChipPickableText,
+                                                        selected &&
+                                                            styles.catChipPickableTextSelected,
                                                     ]}
                                                 >
                                                     {cat}
@@ -1904,6 +1898,20 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     catChipText: { fontSize: 11, fontWeight: "600", color: "#1D4ED8" },
+    catChipPickable: {
+        backgroundColor: "#F3F4F6",
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+    },
+    catChipPickableSelected: {
+        backgroundColor: "#ac3434",
+        borderColor: "#ac3434",
+    },
+    catChipPickableText: { fontSize: 11, fontWeight: "600", color: "#6B7280" },
+    catChipPickableTextSelected: { color: "#fff" },
     strengthContainer: { marginTop: 8, gap: 4 },
     strengthLabel: { fontSize: 12, fontWeight: "700", marginBottom: 2 },
     strengthRow: { flexDirection: "row", alignItems: "center", gap: 6 },
