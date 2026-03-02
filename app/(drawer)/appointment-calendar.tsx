@@ -167,17 +167,6 @@ export default function AppointmentCalendarScreen() {
                         </Text>
                     </View>
                 )}
-                {loadError && (
-                    <View style={styles.errorRow}>
-                        <AlertCircle color="#EF4444" size={16} />
-                        <Text style={styles.errorText}>{loadError}</Text>
-                        <TouchableOpacity
-                            onPress={() => loadMonth(year, month)}
-                        >
-                            <Text style={styles.retryText}>Retry</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
 
                 <View style={styles.weekRow}>
                     {WEEKDAYS.map((d) => (
@@ -325,6 +314,20 @@ export default function AppointmentCalendarScreen() {
                         ))
                     )}
                 </View>
+
+                {loadError && (
+                    <View style={styles.errorContainer}>
+                        <AlertCircle color="#EF4444" size={36} />
+                        <Text style={styles.errorTitle}>Unable to load appointments</Text>
+                        <Text style={styles.errorMessage}>{loadError}</Text>
+                        <TouchableOpacity
+                            style={styles.retryBtn}
+                            onPress={() => loadMonth(year, month)}
+                        >
+                            <Text style={styles.retryBtnText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -360,22 +363,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     loadingText: { fontSize: 13, color: "#6B7280" },
-    errorRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        marginBottom: 8,
-        backgroundColor: "#FEF2F2",
-        borderRadius: 8,
-        padding: 10,
-    },
-    errorText: { flex: 1, fontSize: 13, color: "#EF4444" },
-    retryText: {
-        fontSize: 13,
-        fontWeight: "700",
-        color: "#ac3434",
-        textDecorationLine: "underline",
-    },
+    errorContainer: { alignItems: "center", justifyContent: "center", padding: 24, gap: 12, marginTop: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
     weekRow: { flexDirection: "row", marginBottom: 4 },
     weekCell: { width: DAY_SIZE, alignItems: "center", paddingVertical: 4 },
     weekLabel: { fontSize: 11, fontWeight: "600", color: "#9CA3AF" },
