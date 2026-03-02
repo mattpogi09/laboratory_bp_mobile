@@ -89,7 +89,8 @@ export default function UsersScreen() {
                 if (page === 1 && !refreshing) setLoading(true);
                 const params: any = { page, per_page: 20 };
                 if (searchQuery) params.search = searchQuery;
-                const activeFilter = filterOverride !== undefined ? filterOverride : roleFilter;
+                const activeFilter =
+                    filterOverride !== undefined ? filterOverride : roleFilter;
                 if (activeFilter) params.role = activeFilter;
 
                 const response = await api.get("/users", { params });
@@ -315,9 +316,9 @@ export default function UsersScreen() {
                                 roleFilter === r.value && styles.pillActive,
                             ]}
                             onPress={() => {
-                                    setRoleFilter(r.value);
-                                    loadUsers(1, true, r.value);
-                                }}
+                                setRoleFilter(r.value);
+                                loadUsers(1, true, r.value);
+                            }}
                         >
                             <Text
                                 style={[
@@ -1029,9 +1030,20 @@ function TitlePicker({
     onChange: (v: string) => void;
 }) {
     const [showPicker, setShowPicker] = useState(false);
+    const [otherMode, setOtherMode] = useState(
+        !TITLE_PRESETS.includes(value) && value !== "",
+    );
+
+    useEffect(() => {
+        setOtherMode(!TITLE_PRESETS.includes(value) && value !== "");
+    }, [value]);
+
     const isPreset = TITLE_PRESETS.includes(value);
-    const displayLabel =
-        value === "" ? "Select title" : isPreset ? value : OTHER_TITLE;
+    const displayLabel = otherMode
+        ? OTHER_TITLE
+        : isPreset
+          ? value
+          : "Select title";
 
     return (
         <>
@@ -1042,19 +1054,22 @@ function TitlePicker({
                 <Text
                     style={[
                         styles.pickerButtonText,
-                        !value && styles.pickerButtonPlaceholder,
+                        !isPreset &&
+                            !otherMode &&
+                            styles.pickerButtonPlaceholder,
                     ]}
                 >
                     {displayLabel}
                 </Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
-            {!isPreset && value !== "" && (
+            {otherMode && (
                 <TextInput
                     style={[styles.formInput, { marginTop: 8 }]}
                     value={value}
                     onChangeText={onChange}
                     placeholder="Type title manually..."
+                    autoFocus
                 />
             )}
             <Modal visible={showPicker} transparent animationType="fade">
@@ -1085,6 +1100,7 @@ function TitlePicker({
                                     ]}
                                     onPress={() => {
                                         onChange(t);
+                                        setOtherMode(false);
                                         setShowPicker(false);
                                     }}
                                 >
@@ -1102,20 +1118,19 @@ function TitlePicker({
                             <TouchableOpacity
                                 style={[
                                     styles.pickerOption,
-                                    !isPreset &&
-                                        value !== "" &&
-                                        styles.pickerOptionSelected,
+                                    otherMode && styles.pickerOptionSelected,
                                 ]}
                                 onPress={() => {
-                                    onChange("");
+                                    setOtherMode(true);
+                                    if (TITLE_PRESETS.includes(value))
+                                        onChange("");
                                     setShowPicker(false);
                                 }}
                             >
                                 <Text
                                     style={[
                                         styles.pickerOptionText,
-                                        !isPreset &&
-                                            value !== "" &&
+                                        otherMode &&
                                             styles.pickerOptionTextSelected,
                                     ]}
                                 >
