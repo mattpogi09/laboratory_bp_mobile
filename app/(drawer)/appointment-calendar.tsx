@@ -12,7 +12,7 @@ import {
     PartyPopper,
     User,
 } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -69,6 +69,9 @@ export default function AppointmentCalendarScreen() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
+    // Prevent double-load on initial mount (useEffect fires AND useFocusEffect fires)
+    const focusSkipRef = useRef(true);
+
     const loadHolidays = useCallback(async (y: number) => {
         try {
             const res = await api.get("/appointments/holidays", {
@@ -108,8 +111,20 @@ export default function AppointmentCalendarScreen() {
         }
     }, []);
 
+    // Primary load — runs on mount + every time year/month changes (arrow navigation)
+    useEffect(() => {
+        loadHolidays(year);
+        loadMonth(year, month);
+        focusSkipRef.current = true; // next focus event is redundant
+    }, [year, month]); // loadHolidays and loadMonth are stable (empty useCallback deps)
+
+    // Re-load when returning to this screen from another screen
     useFocusEffect(
         useCallback(() => {
+            if (focusSkipRef.current) {
+                focusSkipRef.current = false;
+                return;
+            }
             loadHolidays(year);
             loadMonth(year, month);
         }, [loadHolidays, loadMonth, year, month]),
@@ -527,7 +542,7 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: "#F3F4F6",
     },
-    dayCellToday: { backgroundColor: "#FEF2F2" },
+    dayCellToday: { borderWidth: 1.5, borderColor: "#ac3434" },
     dayCellClosed: { backgroundColor: "#FEF2F2" },
     dayCellSelected: { backgroundColor: "#ac3434" },
     dayNum: { fontSize: 14, fontWeight: "500", color: "#374151" },
