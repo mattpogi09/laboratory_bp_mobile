@@ -233,9 +233,6 @@ export default function AppointmentCalendarScreen() {
                         );
                         const isToday = cell.date === todayStr;
                         const isSelected = cell.date === selectedDate;
-                        const apptCount = cell.date
-                            ? (apptMap[cell.date]?.length ?? 0)
-                            : 0;
                         const dayOfWeek = cell.day
                             ? new Date(year, month, cell.day).getDay()
                             : -1;
@@ -251,6 +248,9 @@ export default function AppointmentCalendarScreen() {
                                     styles.dayCell,
                                     (isSunday || isHoliday) &&
                                         styles.dayCellClosed,
+                                    hasAppts &&
+                                        !isSelected &&
+                                        styles.dayCellBooked,
                                     isToday && styles.dayCellToday,
                                     isSelected && styles.dayCellSelected,
                                 ]}
@@ -265,29 +265,14 @@ export default function AppointmentCalendarScreen() {
                                         (isSunday || isHoliday) &&
                                             styles.dayNumClosed,
                                         isToday && styles.dayNumToday,
+                                        hasAppts &&
+                                            !isSelected &&
+                                            styles.dayNumBooked,
                                         isSelected && styles.dayNumSelected,
                                     ]}
                                 >
                                     {cell.day}
                                 </Text>
-                                {hasAppts && (
-                                    <View style={styles.dotRow}>
-                                        {[...Array(Math.min(apptCount, 3))].map(
-                                            (_, i) => (
-                                                <View
-                                                    key={i}
-                                                    style={[
-                                                        styles.dot,
-                                                        isSelected && {
-                                                            backgroundColor:
-                                                                "#fff",
-                                                        },
-                                                    ]}
-                                                />
-                                            ),
-                                        )}
-                                    </View>
-                                )}
                             </TouchableOpacity>
                         );
                     })}
@@ -426,11 +411,15 @@ export default function AppointmentCalendarScreen() {
                 {/* Legend */}
                 <View style={styles.legend}>
                     <Text style={styles.legendTitle}>Calendar Legend</Text>
+
+                    <Text style={styles.legendSectionTitle}>
+                        Date Indicators:
+                    </Text>
                     <View style={styles.legendRow}>
                         <View
                             style={[
                                 styles.legendSwatch,
-                                { backgroundColor: "#ac3434" },
+                                { backgroundColor: "#3B82F6" },
                             ]}
                         />
                         <Text style={styles.legendText}>Has Appointments</Text>
@@ -462,6 +451,57 @@ export default function AppointmentCalendarScreen() {
                         <Text style={styles.legendText}>
                             Sunday (Walk-in Only)
                         </Text>
+                    </View>
+
+                    <View style={styles.legendDivider} />
+
+                    <Text style={styles.legendSectionTitle}>
+                        Appointment Status:
+                    </Text>
+                    <View style={styles.legendRow}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#EAB308" },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Pending</Text>
+                    </View>
+                    <View style={styles.legendRow}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#22C55E" },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Confirmed</Text>
+                    </View>
+                    <View style={styles.legendRow}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#3B82F6" },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Checked In</Text>
+                    </View>
+                    <View style={styles.legendRow}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#EF4444" },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>Cancelled</Text>
+                    </View>
+                    <View style={styles.legendRow}>
+                        <View
+                            style={[
+                                styles.legendSwatch,
+                                { backgroundColor: "#6B7280" },
+                            ]}
+                        />
+                        <Text style={styles.legendText}>No Show</Text>
                     </View>
                 </View>
             </ScrollView>
@@ -544,14 +584,14 @@ const styles = StyleSheet.create({
     },
     dayCellToday: { borderWidth: 1.5, borderColor: "#ac3434" },
     dayCellClosed: { backgroundColor: "#FEF2F2" },
+    dayCellBooked: { backgroundColor: "#3B82F6" },
     dayCellSelected: { backgroundColor: "#ac3434" },
     dayNum: { fontSize: 14, fontWeight: "500", color: "#374151" },
     dayNumClosed: { color: "#991B1B", fontWeight: "600" },
     dayNumToday: { color: "#ac3434", fontWeight: "700" },
+    dayNumBooked: { color: "#fff", fontWeight: "700" },
     dayNumSelected: { color: "#fff", fontWeight: "700" },
     weekLabelSunday: { color: "#991B1B" },
-    dotRow: { flexDirection: "row", gap: 2, marginTop: 2 },
-    dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#ac3434" },
     detailSection: {
         backgroundColor: "#fff",
         borderRadius: 12,
@@ -621,6 +661,18 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#374151",
         marginBottom: 8,
+    },
+    legendSectionTitle: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#374151",
+        marginBottom: 4,
+        marginTop: 2,
+    },
+    legendDivider: {
+        height: 1,
+        backgroundColor: "#E5E7EB",
+        marginVertical: 8,
     },
     legendRow: {
         flexDirection: "row",
