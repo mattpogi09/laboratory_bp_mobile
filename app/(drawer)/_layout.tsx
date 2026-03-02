@@ -124,7 +124,10 @@ function CustomDrawerContent(props: any) {
 
     return (
         <View
-            style={[styles.drawerContainer, { paddingBottom: insets.bottom }]}
+            style={[
+                styles.drawerContainer,
+                { paddingTop: insets.top, paddingBottom: insets.bottom },
+            ]}
         >
             <ScrollView style={styles.drawerScroll}>
                 <View style={styles.logoSection}>
