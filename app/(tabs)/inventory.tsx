@@ -9,6 +9,7 @@ import {
     PowerOff,
     Search,
     Settings2,
+    SlidersHorizontal,
     TrendingDown,
     TrendingUp,
     X,
@@ -93,6 +94,8 @@ export default function InventoryScreen() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showStockInModal, setShowStockInModal] = useState(false);
     const [showStockOutModal, setShowStockOutModal] = useState(false);
+    const [showAdjustModal, setShowAdjustModal] = useState(false);
+    const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
 
     // Dialogs
     const [confirmDialog, setConfirmDialog] = useState({
@@ -237,6 +240,23 @@ export default function InventoryScreen() {
         });
     };
 
+    const handleAdjustStock = async (formData: {
+        new_quantity: number;
+        reason: string;
+    }) => {
+        const response = await api.post(
+            `/inventory/${adjustItem!.id}/adjust`,
+            formData,
+        );
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message: response.data.message || "Stock adjusted successfully",
+            type: "success",
+        });
+        loadInventory();
+    };
+
     const handleToggleItem = (item: InventoryItem) => {
         setConfirmDialog({
             visible: true,
@@ -348,24 +368,40 @@ export default function InventoryScreen() {
                 <Text style={styles.stockMeta}>
                     Minimum required: {item.minimum_stock} {item.unit}
                 </Text>
-                <TouchableOpacity
-                    style={styles.toggleBtn}
-                    onPress={() => handleToggleItem(item)}
-                >
-                    {item.is_active ? (
-                        <PowerOff size={16} color="#EF4444" />
-                    ) : (
-                        <Power size={16} color="#10B981" />
-                    )}
-                    <Text
-                        style={[
-                            styles.toggleBtnText,
-                            { color: item.is_active ? "#EF4444" : "#10B981" },
-                        ]}
+                <View style={styles.cardActions}>
+                    <TouchableOpacity
+                        style={styles.adjustBtn}
+                        onPress={() => {
+                            setAdjustItem(item);
+                            setShowAdjustModal(true);
+                        }}
                     >
-                        {item.is_active ? "Deactivate" : "Activate"}
-                    </Text>
-                </TouchableOpacity>
+                        <SlidersHorizontal size={14} color="#2563EB" />
+                        <Text style={styles.adjustBtnText}>Adjust</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.toggleBtn}
+                        onPress={() => handleToggleItem(item)}
+                    >
+                        {item.is_active ? (
+                            <PowerOff size={14} color="#EF4444" />
+                        ) : (
+                            <Power size={14} color="#10B981" />
+                        )}
+                        <Text
+                            style={[
+                                styles.toggleBtnText,
+                                {
+                                    color: item.is_active
+                                        ? "#EF4444"
+                                        : "#10B981",
+                                },
+                            ]}
+                        >
+                            {item.is_active ? "Deactivate" : "Activate"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     };
@@ -828,6 +864,24 @@ export default function InventoryScreen() {
                 items={items}
                 onClose={() => setShowStockOutModal(false)}
                 onSubmit={handleStockOut}
+                onError={(message) =>
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message,
+                        type: "error",
+                    })
+                }
+            />
+
+            <AdjustStockModal
+                show={showAdjustModal}
+                item={adjustItem}
+                onClose={() => {
+                    setShowAdjustModal(false);
+                    setAdjustItem(null);
+                }}
+                onSubmit={handleAdjustStock}
                 onError={(message) =>
                     setSuccessDialog({
                         visible: true,
@@ -1898,6 +1952,236 @@ function ItemPickerSelect({
     );
 }
 
+function AdjustStockModal({
+    show,
+    item,
+    onClose,
+    onSubmit,
+    onError,
+}: {
+    show: boolean;
+    item: InventoryItem | null;
+    onClose: () => void;
+    onSubmit: (data: { new_quantity: number; reason: string }) => Promise<void>;
+    onError: (message: string) => void;
+}) {
+    const [newQuantity, setNewQuantity] = useState("");
+    const [reason, setReason] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const reset = () => {
+        setNewQuantity("");
+        setReason("");
+        setErrors({});
+    };
+
+    const handleClose = () => {
+        reset();
+        onClose();
+    };
+
+    const validate = () => {
+        const errs: Record<string, string> = {};
+        if (!newQuantity.trim())
+            errs.new_quantity = "New quantity is required.";
+        else if (isNaN(parseInt(newQuantity)) || parseInt(newQuantity) < 0)
+            errs.new_quantity = "Enter a valid non-negative number.";
+        if (!reason.trim()) errs.reason = "Reason for adjustment is required.";
+        return errs;
+    };
+
+    const handleSubmit = async () => {
+        const errs = validate();
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
+        setLoading(true);
+        try {
+            await onSubmit({
+                new_quantity: parseInt(newQuantity),
+                reason: reason.trim(),
+            });
+            reset();
+            onClose();
+        } catch (err: any) {
+            onError(
+                err.response?.data?.message ||
+                    getApiErrorMessage(err, "Failed to adjust stock."),
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!item) return null;
+
+    return (
+        <Modal visible={show} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <View>
+                            <Text style={styles.modalTitle}>
+                                Adjust Stock Level
+                            </Text>
+                            <Text style={styles.modalSubtitle}>
+                                Manual adjustment for {item.name}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={handleClose}>
+                            <X color="#6B7280" size={24} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalBody}>
+                        {/* Item Info */}
+                        <View style={styles.adjustInfoBox}>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Item:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {item.name}
+                                </Text>
+                            </View>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Category:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {item.category}
+                                </Text>
+                            </View>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Current Stock:
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.adjustInfoValue,
+                                        { color: "#2563EB", fontWeight: "700" },
+                                    ]}
+                                >
+                                    {item.current_stock} {item.unit}
+                                </Text>
+                            </View>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Minimum Stock:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {item.minimum_stock} {item.unit}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                New Stock Quantity *
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.formInput,
+                                    errors.new_quantity && styles.inputError,
+                                ]}
+                                value={newQuantity}
+                                onChangeText={(t) => {
+                                    setNewQuantity(t);
+                                    if (errors.new_quantity)
+                                        setErrors((e) => ({
+                                            ...e,
+                                            new_quantity: "",
+                                        }));
+                                }}
+                                placeholder="Enter new quantity"
+                                keyboardType="numeric"
+                            />
+                            {!!errors.new_quantity && (
+                                <Text style={styles.errorText}>
+                                    {errors.new_quantity}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Reason for Adjustment *
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    errors.reason && styles.inputError,
+                                ]}
+                                value={reason}
+                                onChangeText={(t) => {
+                                    setReason(t);
+                                    if (errors.reason)
+                                        setErrors((e) => ({
+                                            ...e,
+                                            reason: "",
+                                        }));
+                                }}
+                                placeholder="e.g., Physical inventory count correction, Expired items removed, Found additional stock"
+                                multiline
+                                numberOfLines={3}
+                            />
+                            {!!errors.reason && (
+                                <Text style={styles.errorText}>
+                                    {errors.reason}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.warningNote}>
+                            <AlertCircle size={16} color="#D97706" />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.warningNoteTitle}>
+                                    Manual Adjustment
+                                </Text>
+                                <Text style={styles.warningNoteText}>
+                                    This will directly update the stock level.
+                                    For normal stock movements, use Stock In/Out
+                                    instead.
+                                </Text>
+                            </View>
+                        </View>
+                    </ScrollView>
+
+                    <View style={styles.modalFooter}>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={handleClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>
+                                Cancel
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.modalButtonPrimary,
+                                { backgroundColor: "#2563EB" },
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Adjust Stock
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F3F4F6" },
     loading: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -2353,12 +2637,28 @@ const styles = StyleSheet.create({
     },
     progressFill: { height: "100%", borderRadius: 999 },
     stockMeta: { marginTop: 8, color: "#9CA3AF", fontSize: 12 },
+    cardActions: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 8,
+        marginTop: 10,
+    },
+    adjustBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+    },
+    adjustBtnText: { fontSize: 12, fontWeight: "600", color: "#2563EB" },
     toggleBtn: {
         flexDirection: "row",
         alignItems: "center",
-        alignSelf: "flex-end",
         gap: 4,
-        marginTop: 10,
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: 8,
@@ -2437,4 +2737,33 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    // AdjustStockModal styles
+    adjustInfoBox: {
+        backgroundColor: "#EFF6FF",
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+    },
+    adjustInfoRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingVertical: 4,
+    },
+    adjustInfoLabel: { fontSize: 13, color: "#6B7280" },
+    adjustInfoValue: { fontSize: 13, color: "#111827", fontWeight: "500" },
+    warningNote: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 10,
+        backgroundColor: "#FFFBEB",
+        borderRadius: 10,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#FDE68A",
+        marginBottom: 16,
+    },
+    warningNoteTitle: { fontSize: 13, fontWeight: "700", color: "#D97706" },
+    warningNoteText: { fontSize: 12, color: "#92400E", marginTop: 2 },
 });

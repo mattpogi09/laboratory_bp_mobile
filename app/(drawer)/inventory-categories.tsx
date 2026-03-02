@@ -344,9 +344,26 @@ export default function InventoryCategoriesScreen() {
                                 placeholder="Category name *"
                                 value={form.name}
                                 onChangeText={(t) =>
-                                    setForm((f) => ({ ...f, name: t }))
+                                    setForm((f) => ({
+                                        ...f,
+                                        name: t.slice(0, 50),
+                                    }))
                                 }
+                                maxLength={50}
                             />
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    color:
+                                        form.name.length >= 45
+                                            ? "#EF4444"
+                                            : "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {form.name.length}/50
+                            </Text>
                             <TextInput
                                 style={[styles.input, { height: 80 }]}
                                 placeholder="Description (optional)"
