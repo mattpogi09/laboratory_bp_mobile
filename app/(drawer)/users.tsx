@@ -774,6 +774,7 @@ function CreateUserModal({
                                     {errors.password[0]}
                                 </Text>
                             )}
+                            <PasswordStrengthChecker password={formData.password} />
                         </View>
 
                         <View style={styles.formGroup}>
@@ -936,6 +937,50 @@ function CreateUserModal({
                 </View>
             </View>
         </Modal>
+    );
+}
+
+const PASSWORD_CHECKS = [
+    { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+    { label: "At least 1 number", test: (p: string) => /\d/.test(p) },
+    { label: "At least 1 lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+    { label: "At least 1 uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+];
+
+function PasswordStrengthChecker({ password }: { password: string }) {
+    if (!password) return null;
+    const passed = PASSWORD_CHECKS.filter((c) => c.test(password)).length;
+    const strength =
+        passed <= 1 ? "Weak" : passed === 2 ? "Fair" : passed === 3 ? "Good" : "Strong";
+    const strengthColor =
+        passed <= 1 ? "#EF4444" : passed === 2 ? "#F59E0B" : passed === 3 ? "#3B82F6" : "#10B981";
+    return (
+        <View style={styles.strengthContainer}>
+            <Text style={[styles.strengthLabel, { color: strengthColor }]}>
+                {strength} password. Must contain:
+            </Text>
+            {PASSWORD_CHECKS.map((c) => {
+                const ok = c.test(password);
+                return (
+                    <View key={c.label} style={styles.strengthRow}>
+                        <View
+                            style={[
+                                styles.strengthDot,
+                                { backgroundColor: ok ? "#10B981" : "#D1D5DB" },
+                            ]}
+                        />
+                        <Text
+                            style={[
+                                styles.strengthCheck,
+                                { color: ok ? "#10B981" : "#6B7280" },
+                            ]}
+                        >
+                            {c.label}
+                        </Text>
+                    </View>
+                );
+            })}
+        </View>
     );
 }
 
@@ -1194,47 +1239,6 @@ function EditUserModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                New Password (Leave blank to keep current)
-                            </Text>
-                            <View style={styles.passwordContainer}>
-                                <TextInput
-                                    style={[
-                                        styles.formInput,
-                                        errors.password && styles.inputError,
-                                    ]}
-                                    value={formData.password}
-                                    onChangeText={(text) => {
-                                        setFormData({
-                                            ...formData,
-                                            password: text,
-                                        });
-                                        clearError("password");
-                                    }}
-                                    placeholder="Enter new password"
-                                    secureTextEntry={!showPassword}
-                                />
-                                <TouchableOpacity
-                                    style={styles.passwordToggle}
-                                    onPress={() =>
-                                        setShowPassword(!showPassword)
-                                    }
-                                >
-                                    {showPassword ? (
-                                        <EyeOff color="#6B7280" size={20} />
-                                    ) : (
-                                        <Eye color="#6B7280" size={20} />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                            {errors.password?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.password[0]}
-                                </Text>
-                            )}
-                        </View>
-
-                        <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Role</Text>
                             <RolePicker
                                 selectedValue={formData.role}
@@ -1366,6 +1370,48 @@ function EditUserModal({
                                 </View>
                             </View>
                         )}
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                New Password (Leave blank to keep current)
+                            </Text>
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.password && styles.inputError,
+                                    ]}
+                                    value={formData.password}
+                                    onChangeText={(text) => {
+                                        setFormData({
+                                            ...formData,
+                                            password: text,
+                                        });
+                                        clearError("password");
+                                    }}
+                                    placeholder="Enter new password"
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity
+                                    style={styles.passwordToggle}
+                                    onPress={() =>
+                                        setShowPassword(!showPassword)
+                                    }
+                                >
+                                    {showPassword ? (
+                                        <EyeOff color="#6B7280" size={20} />
+                                    ) : (
+                                        <Eye color="#6B7280" size={20} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                            {errors.password?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.password[0]}
+                                </Text>
+                            )}
+                            <PasswordStrengthChecker password={formData.password} />
+                        </View>
                     </View>
 
                     <View style={styles.modalFooter}>
@@ -1676,6 +1722,11 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     catChipText: { fontSize: 11, fontWeight: "600", color: "#1D4ED8" },
+    strengthContainer: { marginTop: 8, gap: 4 },
+    strengthLabel: { fontSize: 12, fontWeight: "700", marginBottom: 2 },
+    strengthRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    strengthDot: { width: 6, height: 6, borderRadius: 3 },
+    strengthCheck: { fontSize: 12 },
     errorContainer: {
         flex: 1,
         alignItems: "center",
