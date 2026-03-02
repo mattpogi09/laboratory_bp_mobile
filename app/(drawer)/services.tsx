@@ -18,6 +18,7 @@ import {
     FlatList,
     Modal,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -627,7 +628,7 @@ function CategoryDropdown({
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
-                        <View style={styles.pickerList}>
+                        <ScrollView style={styles.pickerList}>
                             {categories.map((category) => (
                                 <TouchableOpacity
                                     key={category}
@@ -654,7 +655,7 @@ function CategoryDropdown({
                                     </Text>
                                 </TouchableOpacity>
                             ))}
-                        </View>
+                        </ScrollView>
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -1105,7 +1106,7 @@ function CategoryPicker({
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
-                        <View style={styles.pickerList}>
+                        <ScrollView style={styles.pickerList}>
                             {categories.map((category) => (
                                 <TouchableOpacity
                                     key={category}
@@ -1130,7 +1131,7 @@ function CategoryPicker({
                                     </Text>
                                 </TouchableOpacity>
                             ))}
-                        </View>
+                        </ScrollView>
                     </View>
                 </TouchableOpacity>
             </Modal>
@@ -1479,8 +1480,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderRadius: 16,
         width: "80%",
-        maxHeight: "60%",
-        overflow: "hidden",
+        maxHeight: "70%",
     },
     pickerHeader: {
         flexDirection: "row",
