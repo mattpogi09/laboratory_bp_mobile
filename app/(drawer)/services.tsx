@@ -1,5 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    AlertCircle,
     ChevronDown,
     Edit,
     Grid,
@@ -64,6 +65,7 @@ export default function ServicesScreen() {
         message: "",
         type: "success" as "success" | "error" | "info" | "warning",
     });
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadCategories = useCallback(async () => {
         try {
@@ -111,15 +113,19 @@ export default function ServicesScreen() {
                     setExpandedCategories(uniqueCategories);
                 }
             } catch (error: any) {
-                setSuccessDialog({
-                    visible: true,
-                    title: "Error",
-                    message: getApiErrorMessage(
-                        error,
-                        "Failed to load services.",
-                    ),
-                    type: "error",
-                });
+                if (page === 1) {
+                    setLoadError(getApiErrorMessage(error, "Failed to load services."));
+                } else {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            error,
+                            "Failed to load services.",
+                        ),
+                        type: "error",
+                    });
+                }
             } finally {
                 setLoading(false);
                 setRefreshing(false);
@@ -233,6 +239,24 @@ export default function ServicesScreen() {
             <View style={styles.container}>
                 <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
                     <SkeletonRow count={6} />
+                </View>
+            </View>
+        );
+    }
+
+    if (loadError && !services.length) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <AlertCircle color="#EF4444" size={36} />
+                    <Text style={styles.errorTitle}>Unable to load services</Text>
+                    <Text style={styles.errorMessage}>{loadError}</Text>
+                    <TouchableOpacity
+                        style={styles.retryBtn}
+                        onPress={() => { setLoadError(null); loadServices(1, true); }}
+                    >
+                        <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         );
@@ -1433,4 +1457,9 @@ const styles = StyleSheet.create({
     inputError: { borderColor: "#EF4444" },
     errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
     pickerButtonError: { borderColor: "#EF4444" },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

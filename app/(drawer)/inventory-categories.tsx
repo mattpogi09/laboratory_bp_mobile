@@ -1,5 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    AlertCircle,
     Edit,
     Layers,
     Plus,
@@ -30,6 +31,7 @@ export default function InventoryCategoriesScreen() {
     const [categories, setCategories] = useState<InventoryCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -58,12 +60,7 @@ export default function InventoryCategoriesScreen() {
             const res = await api.get("/inventory-categories");
             setCategories(res.data.data ?? res.data);
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to load categories."),
-                type: "error",
-            });
+            setLoadError(getApiErrorMessage(err, "Failed to load categories."));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -272,6 +269,18 @@ export default function InventoryCategoriesScreen() {
                     size="large"
                     color="#ac3434"
                 />
+            ) : loadError && !categories.length ? (
+                <View style={styles.errorContainer}>
+                    <AlertCircle color="#EF4444" size={36} />
+                    <Text style={styles.errorTitle}>Unable to load categories</Text>
+                    <Text style={styles.errorMessage}>{loadError}</Text>
+                    <TouchableOpacity
+                        style={styles.retryBtn}
+                        onPress={() => { setLoadError(null); loadCategories(); }}
+                    >
+                        <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
             ) : (
                 <FlatList
                     data={categories}
@@ -448,6 +457,11 @@ const styles = StyleSheet.create({
     iconBtn: { padding: 4 },
     empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
     emptyText: { fontSize: 15, color: "#9CA3AF" },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
     overlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",

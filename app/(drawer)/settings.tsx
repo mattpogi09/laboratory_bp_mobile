@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { CheckCircle2, Settings2, Upload, XCircle } from "lucide-react-native";
+import { AlertCircle, CheckCircle2, Settings2, Upload, XCircle } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
@@ -29,6 +29,7 @@ export default function SettingsScreen() {
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [labStaff, setLabStaff] = useState<LabStaffUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [uploadingSignature, setUploadingSignature] = useState<string | null>(
         null,
@@ -48,12 +49,7 @@ export default function SettingsScreen() {
             setSettings(res.data.settings);
             setLabStaff(res.data.lab_staff ?? []);
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to load settings."),
-                type: "error",
-            });
+            setLoadError(getApiErrorMessage(err, "Failed to load settings."));
         } finally {
             setLoading(false);
         }
@@ -202,10 +198,26 @@ export default function SettingsScreen() {
         );
     };
 
-    if (loading || !settings) {
+    if (loading) {
         return (
             <View style={styles.centered}>
                 <ActivityIndicator size="large" color="#ac3434" />
+            </View>
+        );
+    }
+
+    if (loadError && !settings) {
+        return (
+            <View style={styles.errorContainer}>
+                <AlertCircle color="#EF4444" size={36} />
+                <Text style={styles.errorTitle}>Unable to load settings</Text>
+                <Text style={styles.errorMessage}>{loadError}</Text>
+                <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={() => { setLoadError(null); loadSettings(); }}
+                >
+                    <Text style={styles.retryBtnText}>Retry</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -736,6 +748,11 @@ function SettingsInput({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F9FAFB" },
     centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
     scroll: { padding: 16, paddingBottom: 32 },
     sectionHeader: {
         flexDirection: "row",

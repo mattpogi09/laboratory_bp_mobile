@@ -1,5 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import {
+    AlertCircle,
     Edit,
     Percent,
     Plus,
@@ -61,6 +62,7 @@ export default function DiscountsPhilhealthScreen() {
         message: "",
         type: "success" as "success" | "error" | "info" | "warning",
     });
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadDiscounts = useCallback(async () => {
         try {
@@ -68,12 +70,7 @@ export default function DiscountsPhilhealthScreen() {
             const data: DiscountsResponse = response.data;
             setDiscounts((prev) => data.data);
         } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(error, "Failed to load discounts."),
-                type: "error",
-            });
+            setLoadError(getApiErrorMessage(error, "Failed to load discounts."));
         }
     }, []);
 
@@ -83,15 +80,7 @@ export default function DiscountsPhilhealthScreen() {
             const data: PhilHealthPlansResponse = response.data;
             setPhilHealthPlans((prev) => data.data);
         } catch (error: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(
-                    error,
-                    "Failed to load PhilHealth plans.",
-                ),
-                type: "error",
-            });
+            setLoadError(getApiErrorMessage(error, "Failed to load PhilHealth plans."));
         }
     }, []);
 
@@ -288,6 +277,22 @@ export default function DiscountsPhilhealthScreen() {
         return (
             <View style={styles.loading}>
                 <ActivityIndicator size="large" color="#ac3434" />
+            </View>
+        );
+    }
+
+    if (loadError && !discounts.length && !philHealthPlans.length) {
+        return (
+            <View style={styles.errorContainer}>
+                <AlertCircle color="#EF4444" size={36} />
+                <Text style={styles.errorTitle}>Unable to load data</Text>
+                <Text style={styles.errorMessage}>{loadError}</Text>
+                <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={() => { setLoadError(null); loadData(); }}
+                >
+                    <Text style={styles.retryBtnText}>Retry</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -1344,4 +1349,9 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#fff",
     },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
+    errorTitle: { fontSize: 17, fontWeight: "700", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: "#ac3434", borderRadius: 10 },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });
