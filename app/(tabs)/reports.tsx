@@ -1162,6 +1162,15 @@ function LabTab({
                                 <Text style={styles.chartTitle}>
                                     Test Status Distribution
                                 </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: "#6B7280",
+                                        marginBottom: 8,
+                                    }}
+                                >
+                                    Current global state — all time
+                                </Text>
                                 <PieChart
                                     data={STATUS_DATA}
                                     width={SCREEN_W - 32}
