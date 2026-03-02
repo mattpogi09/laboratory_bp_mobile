@@ -1035,7 +1035,12 @@ function TitlePicker({
     );
 
     useEffect(() => {
-        setOtherMode(!TITLE_PRESETS.includes(value) && value !== "");
+        // Only activate otherMode when a non-empty, non-preset value is loaded
+        // (e.g. editing a user with a custom title). Never deactivate here —
+        // deactivation only happens when a preset is explicitly chosen.
+        if (!TITLE_PRESETS.includes(value) && value !== "") {
+            setOtherMode(true);
+        }
     }, [value]);
 
     const isPreset = TITLE_PRESETS.includes(value);
