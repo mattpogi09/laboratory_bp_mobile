@@ -13,7 +13,9 @@ import {
     Calendar,
     ClipboardList,
     FlaskConical,
+    FolderOpen,
     Home,
+    Layers,
     LogOut,
     Package,
     Percent,
@@ -132,11 +134,10 @@ function CustomDrawerContent(props: any) {
             <ScrollView style={styles.drawerScroll}>
                 <View style={styles.logoSection}>
                     <Image
-                        source={require("@/assets/images/logo.png")}
+                        source={require("@/assets/images/logo12.png")}
                         style={styles.logoImage}
                         resizeMode="contain"
                     />
-                    <Text style={styles.logoText}>BP Diagnostic</Text>
                 </View>
 
                 <View style={styles.menuContainer}>
@@ -452,24 +453,17 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     logoSection: {
-        flexDirection: "row",
         alignItems: "center",
-        padding: 20,
-        paddingTop: 16,
-        paddingBottom: 24,
-        gap: 12,
+        justifyContent: "center",
+        paddingVertical: 24,
+        paddingHorizontal: 20,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
         backgroundColor: "#ffffff",
     },
     logoImage: {
-        width: 40,
-        height: 40,
-    },
-    logoText: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#111827",
+        width: 180,
+        height: 100,
     },
     menuContainer: {
         flex: 1,

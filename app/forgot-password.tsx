@@ -125,7 +125,7 @@ export default function ForgotPassword() {
                     {/* Logo Section */}
                     <View style={styles.logoSection}>
                         <Image
-                            source={require("../assets/images/logo.png")}
+                            source={require("../assets/images/logo12.png")}
                             style={styles.logo}
                             resizeMode="contain"
                         />
