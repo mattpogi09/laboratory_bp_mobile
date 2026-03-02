@@ -171,6 +171,7 @@ export type RefundStatus = "pending" | "approved" | "denied" | "completed";
 export interface RefundRequest {
     id: number;
     refund_type: "full" | "partial";
+    selected_test_ids: number[];
     refund_amount: number;
     total_transaction_amount: number;
     reason: string;
@@ -179,6 +180,7 @@ export interface RefundRequest {
     approved_at?: string;
     denied_at?: string;
     created_at: string;
+    tests: { id: number; test_name: string; price: number }[];
     transaction?: {
         id: number;
         transaction_number: string;

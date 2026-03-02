@@ -31,10 +31,10 @@ import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 // ---------------------------------------------------------------------------
 
 const STATUS_TABS: { label: string; value: string }[] = [
+    { label: "All Active", value: "" },
     { label: "Pending", value: "pending" },
     { label: "Approved", value: "approved" },
     { label: "Denied", value: "denied" },
-    { label: "All Active", value: "" },
 ];
 
 const STATUS_COLORS: Record<
@@ -59,7 +59,7 @@ export default function RefundsScreen() {
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
 
-    const [statusFilter, setStatusFilter] = useState("pending");
+    const [statusFilter, setStatusFilter] = useState("");
 
     // Detail modal
     const [selected, setSelected] = useState<RefundRequest | null>(null);
@@ -547,6 +547,56 @@ export default function RefundsScreen() {
                                         </Text>
                                     </View>
 
+                                    {/* Tests included */}
+                                    {selected.tests &&
+                                        selected.tests.length > 0 && (
+                                            <View style={styles.detailSection}>
+                                                <Text
+                                                    style={styles.sectionLabel}
+                                                >
+                                                    {selected.refund_type ===
+                                                    "full"
+                                                        ? "Tests Included in Refund"
+                                                        : "Tests Selected for Refund"}
+                                                </Text>
+                                                {selected.tests.map((test) => (
+                                                    <View
+                                                        key={test.id}
+                                                        style={[
+                                                            styles.detailRow,
+                                                            styles.testRow,
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.detailLabel,
+                                                                {
+                                                                    color: "#111827",
+                                                                },
+                                                            ]}
+                                                        >
+                                                            {test.test_name}
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.detailValue,
+                                                                {
+                                                                    color: "#374151",
+                                                                },
+                                                            ]}
+                                                        >
+                                                            ₱
+                                                            {Number(
+                                                                test.price,
+                                                            ).toLocaleString(
+                                                                "en-PH",
+                                                            )}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+
                                     {/* Admin notes if already processed */}
                                     {selected.admin_notes ? (
                                         <View style={styles.detailSection}>
@@ -840,6 +890,14 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+    },
+    testRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 4,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
     },
     detailLabel: { fontSize: 13, color: "#6B7280", flex: 1 },
     detailValue: {
