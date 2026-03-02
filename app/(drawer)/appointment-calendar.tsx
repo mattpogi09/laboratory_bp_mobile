@@ -264,10 +264,12 @@ export default function AppointmentCalendarScreen() {
                                         styles.dayNum,
                                         (isSunday || isHoliday) &&
                                             styles.dayNumClosed,
-                                        isToday && styles.dayNumToday,
                                         hasAppts &&
                                             !isSelected &&
                                             styles.dayNumBooked,
+                                        isToday &&
+                                            !isSelected &&
+                                            styles.dayNumToday,
                                         isSelected && styles.dayNumSelected,
                                     ]}
                                 >
@@ -582,13 +584,13 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: "#F3F4F6",
     },
-    dayCellToday: { borderWidth: 1.5, borderColor: "#ac3434" },
+    dayCellToday: { backgroundColor: "#DBEAFE" },
     dayCellClosed: { backgroundColor: "#FEF2F2" },
     dayCellBooked: { backgroundColor: "#3B82F6" },
-    dayCellSelected: { backgroundColor: "#ac3434" },
+    dayCellSelected: { backgroundColor: "#1e293b", borderRadius: 6 },
     dayNum: { fontSize: 14, fontWeight: "500", color: "#374151" },
     dayNumClosed: { color: "#991B1B", fontWeight: "600" },
-    dayNumToday: { color: "#ac3434", fontWeight: "700" },
+    dayNumToday: { color: "#1D4ED8", fontWeight: "700" },
     dayNumBooked: { color: "#fff", fontWeight: "700" },
     dayNumSelected: { color: "#fff", fontWeight: "700" },
     weekLabelSunday: { color: "#991B1B" },
