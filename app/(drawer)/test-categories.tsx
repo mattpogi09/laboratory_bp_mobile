@@ -91,6 +91,24 @@ export default function TestCategoriesScreen() {
 
     const handleCreate = async () => {
         if (!form.name.trim()) return;
+        if (form.name.length > 50) {
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: "Category name cannot exceed 50 characters.",
+                type: "error",
+            });
+            return;
+        }
+        if (form.description && form.description.length > 500) {
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: "Description cannot exceed 500 characters.",
+                type: "error",
+            });
+            return;
+        }
         try {
             await api.post("/test-categories", form);
             setShowCreateModal(false);
@@ -113,6 +131,24 @@ export default function TestCategoriesScreen() {
 
     const handleUpdate = async () => {
         if (!selected || !form.name.trim()) return;
+        if (form.name.length > 50) {
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: "Category name cannot exceed 50 characters.",
+                type: "error",
+            });
+            return;
+        }
+        if (form.description && form.description.length > 500) {
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: "Description cannot exceed 500 characters.",
+                type: "error",
+            });
+            return;
+        }
         try {
             await api.put(`/test-categories/${selected.id}`, form);
             setShowEditModal(false);
@@ -348,6 +384,7 @@ export default function TestCategoriesScreen() {
                                 onChangeText={(t) =>
                                     setForm((f) => ({ ...f, name: t }))
                                 }
+                                maxLength={50}
                             />
                             <TextInput
                                 style={[styles.input, { height: 80 }]}
@@ -357,6 +394,7 @@ export default function TestCategoriesScreen() {
                                     setForm((f) => ({ ...f, description: t }))
                                 }
                                 multiline
+                                maxLength={500}
                             />
                             <View style={styles.modalActions}>
                                 <TouchableOpacity

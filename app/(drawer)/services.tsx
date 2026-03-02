@@ -698,6 +698,8 @@ function CreateServiceModal({
     const validate = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.name.trim()) errs.name = ["Service name is required."];
+        else if (formData.name.length > 100)
+            errs.name = ["Service name cannot exceed 100 characters."];
         if (!formData.category) errs.category = ["Category is required."];
         if (!formData.price) errs.price = ["Price is required."];
         else if (
@@ -705,6 +707,10 @@ function CreateServiceModal({
             parseFloat(formData.price) < 0
         )
             errs.price = ["Enter a valid non-negative price."];
+        else if (parseFloat(formData.price) > 99999.99)
+            errs.price = ["Price cannot exceed ₱99,999.99."];
+        if (formData.description && formData.description.length > 1000)
+            errs.description = ["Description cannot exceed 1000 characters."];
         return errs;
     };
 
@@ -759,6 +765,7 @@ function CreateServiceModal({
                                     clearError("name");
                                 }}
                                 placeholder="Enter service name"
+                                maxLength={100}
                             />
                             {errors.name?.[0] && (
                                 <Text style={styles.errorText}>
@@ -826,7 +833,13 @@ function CreateServiceModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={1000}
                             />
+                            {errors.description?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.description[0]}
+                                </Text>
+                            )}
                         </View>
                     </View>
 
@@ -896,6 +909,8 @@ function EditServiceModal({
     const validate = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.name.trim()) errs.name = ["Service name is required."];
+        else if (formData.name.length > 100)
+            errs.name = ["Service name cannot exceed 100 characters."];
         if (!formData.category) errs.category = ["Category is required."];
         if (!formData.price) errs.price = ["Price is required."];
         else if (
@@ -903,6 +918,10 @@ function EditServiceModal({
             parseFloat(formData.price) < 0
         )
             errs.price = ["Enter a valid non-negative price."];
+        else if (parseFloat(formData.price) > 99999.99)
+            errs.price = ["Price cannot exceed ₱99,999.99."];
+        if (formData.description && formData.description.length > 1000)
+            errs.description = ["Description cannot exceed 1000 characters."];
         return errs;
     };
 
@@ -956,6 +975,7 @@ function EditServiceModal({
                                     clearError("name");
                                 }}
                                 placeholder="Enter service name"
+                                maxLength={100}
                             />
                             {errors.name?.[0] && (
                                 <Text style={styles.errorText}>
@@ -1023,7 +1043,13 @@ function EditServiceModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={1000}
                             />
+                            {errors.description?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.description[0]}
+                                </Text>
+                            )}
                         </View>
                     </View>
 

@@ -618,16 +618,22 @@ function CreateUserModal({
     const validate = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.name.trim()) errs.name = ["Name is required."];
+        else if (formData.name.length > 100)
+            errs.name = ["Name cannot exceed 100 characters."];
         if (!formData.username.trim())
             errs.username = ["Username is required."];
         else if (/\s/.test(formData.username))
             errs.username = ["Username must not contain spaces."];
+        else if (formData.username.length > 50)
+            errs.username = ["Username cannot exceed 50 characters."];
         if (!formData.email.trim()) errs.email = ["Email is required."];
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
             errs.email = ["Enter a valid email address."];
         if (!formData.password) errs.password = ["Password is required."];
         else if (formData.password.length < 8)
             errs.password = ["Password must be at least 8 characters."];
+        else if (formData.password.length > 100)
+            errs.password = ["Password cannot exceed 100 characters."];
         if (!formData.role) errs.role = ["Role is required."];
         return errs;
     };
@@ -693,6 +699,7 @@ function CreateUserModal({
                                     clearError("name");
                                 }}
                                 placeholder="Enter full name"
+                                maxLength={100}
                             />
                             {errors.name?.[0] && (
                                 <Text style={styles.errorText}>
@@ -718,6 +725,7 @@ function CreateUserModal({
                                 }}
                                 placeholder="Enter username"
                                 autoCapitalize="none"
+                                maxLength={50}
                             />
                             {errors.username?.[0] && (
                                 <Text style={styles.errorText}>
@@ -741,6 +749,7 @@ function CreateUserModal({
                                 placeholder="Enter email address"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
+                                maxLength={150}
                             />
                             {errors.email?.[0] && (
                                 <Text style={styles.errorText}>
@@ -767,6 +776,7 @@ function CreateUserModal({
                                     }}
                                     placeholder="Enter password"
                                     secureTextEntry={!showPassword}
+                                    maxLength={100}
                                 />
                                 <TouchableOpacity
                                     style={styles.passwordToggle}
@@ -1349,6 +1359,7 @@ function EditUserModal({
                                     clearError("name");
                                 }}
                                 placeholder="Enter full name"
+                                maxLength={100}
                             />
                             {errors.name?.[0] && (
                                 <Text style={styles.errorText}>
@@ -1374,6 +1385,7 @@ function EditUserModal({
                                 }}
                                 placeholder="Enter username"
                                 autoCapitalize="none"
+                                maxLength={50}
                             />
                             {errors.username?.[0] && (
                                 <Text style={styles.errorText}>
@@ -1397,6 +1409,7 @@ function EditUserModal({
                                 placeholder="Enter email address"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
+                                maxLength={150}
                             />
                             {errors.email?.[0] && (
                                 <Text style={styles.errorText}>
@@ -1553,6 +1566,7 @@ function EditUserModal({
                                     }}
                                     placeholder="Enter new password"
                                     secureTextEntry={!showPassword}
+                                    maxLength={100}
                                 />
                                 <TouchableOpacity
                                     style={styles.passwordToggle}

@@ -684,6 +684,19 @@ function CreateDiscountModal({
             onError("Please fill in all required fields");
             return;
         }
+        if (formData.name.length > 100) {
+            onError("Discount name cannot exceed 100 characters.");
+            return;
+        }
+        const rateVal = parseFloat(formData.rate);
+        if (isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
+            onError("Rate must be between 0 and 100.");
+            return;
+        }
+        if (formData.description && formData.description.length > 500) {
+            onError("Description cannot exceed 500 characters.");
+            return;
+        }
         setLoading(true);
         try {
             await onSubmit({
@@ -718,6 +731,7 @@ function CreateDiscountModal({
                                     setFormData({ ...formData, name: text })
                                 }
                                 placeholder="Enter discount name"
+                                maxLength={100}
                             />
                         </View>
 
@@ -750,6 +764,7 @@ function CreateDiscountModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={500}
                             />
                         </View>
                     </ScrollView>
@@ -808,6 +823,19 @@ function EditDiscountModal({
             onError("Please fill in all required fields");
             return;
         }
+        if (formData.name.length > 100) {
+            onError("Discount name cannot exceed 100 characters.");
+            return;
+        }
+        const rateVal = parseFloat(formData.rate);
+        if (isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
+            onError("Rate must be between 0 and 100.");
+            return;
+        }
+        if (formData.description && formData.description.length > 500) {
+            onError("Description cannot exceed 500 characters.");
+            return;
+        }
         setLoading(true);
         try {
             await onSubmit(discount.id, {
@@ -841,6 +869,7 @@ function EditDiscountModal({
                                     setFormData({ ...formData, name: text })
                                 }
                                 placeholder="Enter discount name"
+                                maxLength={100}
                             />
                         </View>
 
@@ -873,6 +902,7 @@ function EditDiscountModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={500}
                             />
                         </View>
                     </ScrollView>
@@ -929,6 +959,19 @@ function CreatePhilHealthModal({
             onError("Please fill in all required fields");
             return;
         }
+        if (formData.name.length > 100) {
+            onError("Plan name cannot exceed 100 characters.");
+            return;
+        }
+        const rateVal = parseFloat(formData.coverage_rate);
+        if (isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
+            onError("Coverage rate must be between 0 and 100.");
+            return;
+        }
+        if (formData.description && formData.description.length > 500) {
+            onError("Description cannot exceed 500 characters.");
+            return;
+        }
         setLoading(true);
         try {
             await onSubmit({
@@ -965,6 +1008,7 @@ function CreatePhilHealthModal({
                                     setFormData({ ...formData, name: text })
                                 }
                                 placeholder="Enter plan name"
+                                maxLength={100}
                             />
                         </View>
 
@@ -1002,6 +1046,7 @@ function CreatePhilHealthModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={500}
                             />
                         </View>
                     </ScrollView>
@@ -1060,6 +1105,19 @@ function EditPhilHealthModal({
             onError("Please fill in all required fields");
             return;
         }
+        if (formData.name.length > 100) {
+            onError("Plan name cannot exceed 100 characters.");
+            return;
+        }
+        const rateVal = parseFloat(formData.coverage_rate);
+        if (isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
+            onError("Coverage rate must be between 0 and 100.");
+            return;
+        }
+        if (formData.description && formData.description.length > 500) {
+            onError("Description cannot exceed 500 characters.");
+            return;
+        }
         setLoading(true);
         try {
             await onSubmit(plan.id, {
@@ -1095,6 +1153,7 @@ function EditPhilHealthModal({
                                     setFormData({ ...formData, name: text })
                                 }
                                 placeholder="Enter plan name"
+                                maxLength={100}
                             />
                         </View>
 
@@ -1132,6 +1191,7 @@ function EditPhilHealthModal({
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
+                                maxLength={500}
                             />
                         </View>
                     </ScrollView>
