@@ -8,6 +8,7 @@ import {
     Power,
     PowerOff,
     Search,
+    Settings2,
     TrendingDown,
     TrendingUp,
     X,
@@ -25,6 +26,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+
+import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
@@ -462,6 +465,21 @@ export default function InventoryScreen() {
                     renderItem={renderItem}
                     ListHeaderComponent={
                         <>
+                            {/* Manage Categories */}
+                            <TouchableOpacity
+                                style={styles.manageCategoriesButton}
+                                onPress={() =>
+                                    router.push(
+                                        "/(drawer)/inventory-categories",
+                                    )
+                                }
+                            >
+                                <Settings2 color="#374151" size={16} />
+                                <Text style={styles.manageCategoriesText}>
+                                    Manage Categories
+                                </Text>
+                            </TouchableOpacity>
+
                             {/* Action Buttons */}
                             <View style={styles.actionButtonsRow}>
                                 <TouchableOpacity
@@ -1784,6 +1802,24 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontWeight: "600",
         fontSize: 13,
+    },
+    manageCategoriesButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        gap: 6,
+        marginBottom: 12,
+    },
+    manageCategoriesText: {
+        color: "#374151",
+        fontWeight: "600",
+        fontSize: 14,
     },
 
     // Category Dropdown
