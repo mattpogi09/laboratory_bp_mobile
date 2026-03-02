@@ -2,10 +2,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
     AlertCircle,
-    AlertTriangle,
     Ban,
     Calendar,
     CalendarX,
+    ChevronDown,
     Clock,
     FileText,
     Mail,
@@ -14,8 +14,6 @@ import {
     Search,
     User,
     X,
-    XCircle,
-    Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -61,6 +59,76 @@ const DATE_PILLS = [
     { label: "This Month", value: "month" },
 ];
 
+function FilterPicker({
+    label,
+    value,
+    options,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    options: { label: string; value: string }[];
+    onChange: (v: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const selected = options.find((o) => o.value === value);
+    return (
+        <>
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setOpen(true)}
+            >
+                <Text style={styles.pickerButtonText} numberOfLines={1}>
+                    {selected ? selected.label : label}
+                </Text>
+                <ChevronDown color="#6B7280" size={16} />
+            </TouchableOpacity>
+            <Modal visible={open} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>{label}</Text>
+                            <TouchableOpacity onPress={() => setOpen(false)}>
+                                <X color="#6B7280" size={22} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerList}>
+                            {options.map((opt) => (
+                                <TouchableOpacity
+                                    key={opt.value}
+                                    style={[
+                                        styles.pickerOption,
+                                        value === opt.value &&
+                                            styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        onChange(opt.value);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            value === opt.value &&
+                                                styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
 function getDateParams(pill: string): Record<string, string> {
     const now = new Date();
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -96,7 +164,8 @@ export default function AppointmentsScreen() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [datePill, setDatePill] = useState("");
+    const [filterDate, setFilterDate] = useState<Date | null>(null);
+    const [showFilterDatePicker, setShowFilterDatePicker] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
@@ -147,7 +216,11 @@ export default function AppointmentsScreen() {
                 const params: any = { page, per_page: 20 };
                 if (search) params.search = search;
                 if (statusFilter) params.status = statusFilter;
-                Object.assign(params, getDateParams(datePill));
+                if (filterDate) {
+                    const d = fmtDate(filterDate);
+                    params.date_from = d;
+                    params.date_to = d;
+                }
 
                 const res = await api.get("/appointments", { params });
                 const incoming: Appointment[] = res.data.data;
@@ -180,7 +253,7 @@ export default function AppointmentsScreen() {
                 setLoadingMore(false);
             }
         },
-        [search, statusFilter, datePill],
+        [search, statusFilter, filterDate],
     );
 
     useFocusEffect(
@@ -511,68 +584,75 @@ export default function AppointmentsScreen() {
                 </View>
             </View>
 
-            {/* Date filter pills */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.tabsRow}
-                contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
-            >
-                {DATE_PILLS.map((p) => (
-                    <TouchableOpacity
-                        key={p.value}
-                        style={[
-                            styles.tab,
-                            datePill === p.value && styles.tabActive,
-                        ]}
-                        onPress={() => setDatePill(p.value)}
-                    >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                datePill === p.value && styles.tabTextActive,
-                            ]}
-                        >
-                            {p.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-
-            {/* Status tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.tabsRow}
-                contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
-            >
-                {STATUS_TABS.map((tab) => (
-                    <TouchableOpacity
-                        key={tab.value}
-                        style={[
-                            styles.tab,
-                            statusFilter === tab.value && styles.tabActive,
-                        ]}
-                        onPress={() => {
-                            setStatusFilter(tab.value);
+            {/* Filter row: Status + Date */}
+            <View style={styles.filterRow}>
+                <View style={{ flex: 1 }}>
+                    <FilterPicker
+                        label="All Statuses"
+                        value={statusFilter}
+                        options={STATUS_TABS}
+                        onChange={(v) => {
+                            setStatusFilter(v);
                             loadAppointments(1, true);
                         }}
+                    />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowFilterDatePicker(true)}
                     >
+                        <Calendar
+                            size={14}
+                            color="#6B7280"
+                            style={{ marginRight: 6 }}
+                        />
                         <Text
                             style={[
-                                styles.tabText,
-                                statusFilter === tab.value &&
-                                    styles.tabTextActive,
+                                styles.pickerButtonText,
+                                !filterDate && { color: "#9CA3AF" },
                             ]}
+                            numberOfLines={1}
                         >
-                            {tab.label}
+                            {filterDate
+                                ? fmtDateDisplay(filterDate)
+                                : "Select Date"}
                         </Text>
+                        {filterDate ? (
+                            <TouchableOpacity
+                                hitSlop={{
+                                    top: 8,
+                                    bottom: 8,
+                                    left: 8,
+                                    right: 8,
+                                }}
+                                onPress={() => setFilterDate(null)}
+                            >
+                                <X size={14} color="#9CA3AF" />
+                            </TouchableOpacity>
+                        ) : (
+                            <ChevronDown color="#6B7280" size={16} />
+                        )}
                     </TouchableOpacity>
-                ))}
-            </ScrollView>
+
+                    {showFilterDatePicker && (
+                        <DateTimePicker
+                            value={filterDate ?? new Date()}
+                            mode="date"
+                            display={
+                                Platform.OS === "ios" ? "spinner" : "default"
+                            }
+                            onChange={(_e, date) => {
+                                setShowFilterDatePicker(false);
+                                if (date) setFilterDate(date);
+                            }}
+                        />
+                    )}
+                </View>
+            </View>
 
             {loadError && !appointments.length ? (
-                <View style={styles.errorContainer}>
+                <View style={[styles.errorContainer, { flex: 1 }]}>
                     <AlertCircle color="#EF4444" size={36} />
                     <Text style={styles.errorTitle}>
                         Unable to load appointments
@@ -589,11 +669,12 @@ export default function AppointmentsScreen() {
                     </TouchableOpacity>
                 </View>
             ) : loading ? (
-                <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
                     <SkeletonRow count={6} />
                 </View>
             ) : (
                 <FlatList
+                    style={{ flex: 1 }}
                     data={appointments}
                     keyExtractor={(item) => String(item.id)}
                     renderItem={renderItem}
@@ -1391,21 +1472,58 @@ const styles = StyleSheet.create({
     },
     searchInput: { flex: 1, fontSize: 14, color: "#111827" },
     dateInput: { flex: 0, minWidth: 120 },
-    tabsRow: {
+    filterRow: {
+        flexDirection: "row",
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         backgroundColor: "#fff",
-        paddingVertical: 8,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    tab: {
+    pickerButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        borderRadius: 8,
+        paddingVertical: 9,
         paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 99,
-        backgroundColor: "#F3F4F6",
+        backgroundColor: "#F9FAFB",
     },
-    tabActive: { backgroundColor: "#ac3434" },
-    tabText: { fontSize: 13, fontWeight: "600", color: "#374151" },
-    tabTextActive: { color: "#fff" },
+    pickerButtonText: { fontSize: 14, color: "#111827", flex: 1 },
+    pickerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    pickerModal: {
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        width: "80%",
+        maxHeight: "70%",
+    },
+    pickerHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    pickerTitle: { fontSize: 17, fontWeight: "700", color: "#111827" },
+    pickerList: { maxHeight: 400 },
+    pickerOption: {
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+    },
+    pickerOptionSelected: { backgroundColor: "#EFF6FF" },
+    pickerOptionText: { fontSize: 15, color: "#111827" },
+    pickerOptionTextSelected: { color: "#2563EB", fontWeight: "600" },
     list: { padding: 16, gap: 10 },
     card: {
         flexDirection: "row",
