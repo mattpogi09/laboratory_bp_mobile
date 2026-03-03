@@ -322,63 +322,7 @@ export default function SettingsScreen() {
                     ))}
                 </View>
 
-                {/* Clinic Header Logo */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Clinic Header Logo</Text>
-                </View>
-                <View style={styles.card}>
-                    <View style={styles.logoRow}>
-                        <View style={styles.logoInfo}>
-                            <Text style={styles.logoLabel}>
-                                {settings.clinic_header_logo_exists
-                                    ? "Logo uploaded"
-                                    : "No logo uploaded"}
-                            </Text>
-                            <Text style={styles.logoDesc}>
-                                Appears as header image on PDF reports
-                            </Text>
-                        </View>
-                        <View style={styles.sigActions}>
-                            {settings.clinic_header_logo_exists && (
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        handleRemoveSignature("header_logo")
-                                    }
-                                    style={styles.removeBtnSmall}
-                                >
-                                    <XCircle size={16} color="#EF4444" />
-                                </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                                style={[
-                                    styles.uploadBtn,
-                                    uploadingSignature === "header_logo" &&
-                                        styles.uploadBtnDisabled,
-                                ]}
-                                onPress={() =>
-                                    handleUploadSignature("header_logo")
-                                }
-                                disabled={uploadingSignature === "header_logo"}
-                            >
-                                {uploadingSignature === "header_logo" ? (
-                                    <ActivityIndicator
-                                        size="small"
-                                        color="#fff"
-                                    />
-                                ) : (
-                                    <Upload size={14} color="#fff" />
-                                )}
-                                <Text style={styles.uploadBtnText}>
-                                    {settings.clinic_header_logo_exists
-                                        ? "Replace"
-                                        : "Upload"}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Lab Personnel Signatures — all lab staff by rank */}
+                {/* Lab Personnel Signatures — all lab staff by rank */}}
                 {labStaff.length > 0 && (
                     <>
                         <View style={styles.sectionHeader}>
@@ -697,18 +641,6 @@ const styles = StyleSheet.create({
     },
     uploadBtnText: { fontSize: 13, color: "#fff", fontWeight: "600" },
     uploadBtnDisabled: { opacity: 0.6 },
-    logoRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
-    logoInfo: { flex: 1 },
-    logoLabel: { fontSize: 14, fontWeight: "600", color: "#111827" },
-    logoDesc: { fontSize: 12, color: "#6B7280", marginTop: 2 },
-    removeBtnSmall: {
-        padding: 6,
-    },
     sigBadge: {
         flexDirection: "row",
         alignItems: "center",
