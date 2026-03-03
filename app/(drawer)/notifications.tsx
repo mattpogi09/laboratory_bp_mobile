@@ -217,9 +217,7 @@ function NotificationDetailModal({
                                     { backgroundColor: color + "20" },
                                 ]}
                             >
-                                <Text
-                                    style={[styles.typeBadgeText, { color }]}
-                                >
+                                <Text style={[styles.typeBadgeText, { color }]}>
                                     {label}
                                 </Text>
                             </View>
@@ -264,7 +262,9 @@ function NotificationDetailModal({
                                 <CheckCheck size={16} color="#22C55E" />
                             )}
                             <Text style={styles.modalActionBtnText}>
-                                {notification.read ? "Mark Unread" : "Mark Read"}
+                                {notification.read
+                                    ? "Mark Unread"
+                                    : "Mark Read"}
                             </Text>
                         </TouchableOpacity>
 
@@ -349,13 +349,22 @@ export default function NotificationsScreen() {
     });
 
     const loadNotifications = useCallback(
-        async (page = 1, replace = true, overrideStatus?: string, overrideType?: string) => {
+        async (
+            page = 1,
+            replace = true,
+            overrideStatus?: string,
+            overrideType?: string,
+        ) => {
             try {
                 if (page === 1 && replace) setLoading(true);
                 else if (page > 1) setLoadingMore(true);
 
-                const sFilter = overrideStatus !== undefined ? overrideStatus : statusFilter;
-                const tFilter = overrideType !== undefined ? overrideType : typeFilter;
+                const sFilter =
+                    overrideStatus !== undefined
+                        ? overrideStatus
+                        : statusFilter;
+                const tFilter =
+                    overrideType !== undefined ? overrideType : typeFilter;
 
                 const params: any = { page, per_page: 20 };
                 if (sFilter) params.status = sFilter;
@@ -372,7 +381,10 @@ export default function NotificationsScreen() {
                 if (res.data.stats) setStats(res.data.stats);
                 setLoadError(null);
             } catch (err: any) {
-                const msg = getApiErrorMessage(err, "Failed to load notifications.");
+                const msg = getApiErrorMessage(
+                    err,
+                    "Failed to load notifications.",
+                );
                 if (page === 1 && !refreshing) {
                     setLoadError(msg);
                 } else {
@@ -395,7 +407,12 @@ export default function NotificationsScreen() {
     );
 
     const showError = (message: string) => {
-        setSuccessDialog({ visible: true, title: "Error", message, type: "error" });
+        setSuccessDialog({
+            visible: true,
+            title: "Error",
+            message,
+            type: "error",
+        });
     };
 
     const onRefresh = () => {
@@ -418,11 +435,16 @@ export default function NotificationsScreen() {
             setNotifications((prev) =>
                 prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
             );
-            setStats((s) => (s ? { ...s, unread: Math.max(0, s.unread - 1) } : s));
-            setSelectedNotification((sn) => sn?.id === n.id ? { ...sn, read: true } : sn);
+            setStats((s) =>
+                s ? { ...s, unread: Math.max(0, s.unread - 1) } : s,
+            );
+            setSelectedNotification((sn) =>
+                sn?.id === n.id ? { ...sn, read: true } : sn,
+            );
             refreshCount();
         } catch (err: any) {
-            if (!silent) showError(getApiErrorMessage(err, "Failed to mark as read."));
+            if (!silent)
+                showError(getApiErrorMessage(err, "Failed to mark as read."));
         }
     };
 
@@ -433,7 +455,9 @@ export default function NotificationsScreen() {
                 prev.map((x) => (x.id === n.id ? { ...x, read: false } : x)),
             );
             setStats((s) => (s ? { ...s, unread: s.unread + 1 } : s));
-            setSelectedNotification((sn) => sn?.id === n.id ? { ...sn, read: false } : sn);
+            setSelectedNotification((sn) =>
+                sn?.id === n.id ? { ...sn, read: false } : sn,
+            );
             refreshCount();
         } catch (err: any) {
             showError(getApiErrorMessage(err, "Failed to mark as unread."));
@@ -456,15 +480,28 @@ export default function NotificationsScreen() {
                 setConfirmDialog((d) => ({ ...d, visible: false }));
                 try {
                     await api.delete(`/notifications/${n.id}`);
-                    setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+                    setNotifications((prev) =>
+                        prev.filter((x) => x.id !== n.id),
+                    );
                     if (!n.read && stats) {
                         setStats((s) =>
-                            s ? { ...s, unread: Math.max(0, s.unread - 1), total: s.total - 1 } : s,
+                            s
+                                ? {
+                                      ...s,
+                                      unread: Math.max(0, s.unread - 1),
+                                      total: s.total - 1,
+                                  }
+                                : s,
                         );
                     }
                     refreshCount();
                 } catch (err: any) {
-                    showError(getApiErrorMessage(err, "Failed to delete notification."));
+                    showError(
+                        getApiErrorMessage(
+                            err,
+                            "Failed to delete notification.",
+                        ),
+                    );
                 }
             },
         });
@@ -486,7 +523,9 @@ export default function NotificationsScreen() {
                     loadNotifications(1, true);
                     refreshCount();
                 } catch (err: any) {
-                    showError(getApiErrorMessage(err, "Failed to mark all as read."));
+                    showError(
+                        getApiErrorMessage(err, "Failed to mark all as read."),
+                    );
                 }
             },
         });
@@ -512,7 +551,12 @@ export default function NotificationsScreen() {
                     loadNotifications(1, true);
                     refreshCount();
                 } catch (err: any) {
-                    showError(getApiErrorMessage(err, "Failed to delete read notifications."));
+                    showError(
+                        getApiErrorMessage(
+                            err,
+                            "Failed to delete read notifications.",
+                        ),
+                    );
                 }
             },
         });
@@ -552,14 +596,20 @@ export default function NotificationsScreen() {
                     ]}
                 />
                 <View
-                    style={[styles.iconCircle, { backgroundColor: color + "18" }]}
+                    style={[
+                        styles.iconCircle,
+                        { backgroundColor: color + "18" },
+                    ]}
                 >
                     <Icon size={17} color={color} />
                 </View>
                 <View style={styles.cardContent}>
                     <View style={styles.cardTopRow}>
                         <View
-                            style={[styles.typeBadge, { backgroundColor: color + "18" }]}
+                            style={[
+                                styles.typeBadge,
+                                { backgroundColor: color + "18" },
+                            ]}
                         >
                             <Text style={[styles.typeBadgeText, { color }]}>
                                 {label}
@@ -571,14 +621,20 @@ export default function NotificationsScreen() {
                     </View>
                     {item.title ? (
                         <Text
-                            style={[styles.cardTitle, item.read && { color: "#9CA3AF" }]}
+                            style={[
+                                styles.cardTitle,
+                                item.read && { color: "#9CA3AF" },
+                            ]}
                             numberOfLines={1}
                         >
                             {item.title}
                         </Text>
                     ) : null}
                     <Text
-                        style={[styles.cardMessage, item.read && { color: "#9CA3AF" }]}
+                        style={[
+                            styles.cardMessage,
+                            item.read && { color: "#9CA3AF" },
+                        ]}
                         numberOfLines={2}
                     >
                         {item.message}
@@ -593,9 +649,23 @@ export default function NotificationsScreen() {
         ? [
               { label: "Total", value: stats.total, color: "#374151" },
               { label: "Unread", value: stats.unread, color: "#ac3434" },
-              stats.refunds != null ? { label: "Refunds", value: stats.refunds, color: "#EAB308" } : null,
-              stats.lab_issues != null ? { label: "Lab Issues", value: stats.lab_issues, color: "#EF4444" } : null,
-              stats.system_alerts != null ? { label: "System", value: stats.system_alerts, color: "#6B7280" } : null,
+              stats.refunds != null
+                  ? { label: "Refunds", value: stats.refunds, color: "#EAB308" }
+                  : null,
+              stats.lab_issues != null
+                  ? {
+                        label: "Lab Issues",
+                        value: stats.lab_issues,
+                        color: "#EF4444",
+                    }
+                  : null,
+              stats.system_alerts != null
+                  ? {
+                        label: "System",
+                        value: stats.system_alerts,
+                        color: "#6B7280",
+                    }
+                  : null,
           ].filter(Boolean)
         : [];
 
@@ -631,7 +701,12 @@ export default function NotificationsScreen() {
                         activeOpacity={0.7}
                     >
                         <Trash2 size={15} color="#EF4444" />
-                        <Text style={[styles.headerBtnLabel, { color: "#EF4444" }]}>
+                        <Text
+                            style={[
+                                styles.headerBtnLabel,
+                                { color: "#EF4444" },
+                            ]}
+                        >
                             Clear Read
                         </Text>
                     </TouchableOpacity>
@@ -648,7 +723,9 @@ export default function NotificationsScreen() {
                 >
                     {(statItems as any[]).map((s: any) => (
                         <View key={s.label} style={styles.statPill}>
-                            <Text style={[styles.statValue, { color: s.color }]}>
+                            <Text
+                                style={[styles.statValue, { color: s.color }]}
+                            >
                                 {s.value}
                             </Text>
                             <Text style={styles.statLabel}>{s.label}</Text>
@@ -672,7 +749,8 @@ export default function NotificationsScreen() {
                         <Text
                             style={[
                                 styles.tabText,
-                                statusFilter === tab.value && styles.tabTextActive,
+                                statusFilter === tab.value &&
+                                    styles.tabTextActive,
                             ]}
                         >
                             {tab.label}
@@ -701,7 +779,8 @@ export default function NotificationsScreen() {
                         <Text
                             style={[
                                 styles.chipText,
-                                typeFilter === opt.value && styles.chipTextActive,
+                                typeFilter === opt.value &&
+                                    styles.chipTextActive,
                             ]}
                         >
                             {opt.label}
@@ -718,7 +797,9 @@ export default function NotificationsScreen() {
             ) : loadError ? (
                 <View style={styles.errorContainer}>
                     <TrendingDown size={40} color="#EF4444" />
-                    <Text style={styles.errorTitle}>Unable to load notifications</Text>
+                    <Text style={styles.errorTitle}>
+                        Unable to load notifications
+                    </Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
@@ -761,7 +842,9 @@ export default function NotificationsScreen() {
                             <View style={styles.emptyIconWrap}>
                                 <BellOff size={36} color="#D1D5DB" />
                             </View>
-                            <Text style={styles.emptyTitle}>All caught up!</Text>
+                            <Text style={styles.emptyTitle}>
+                                All caught up!
+                            </Text>
                             <Text style={styles.emptySubtitle}>
                                 No notifications to show
                             </Text>
@@ -787,7 +870,9 @@ export default function NotificationsScreen() {
                 confirmText={confirmDialog.confirmText}
                 type={confirmDialog.type}
                 onConfirm={confirmDialog.onConfirm}
-                onCancel={() => setConfirmDialog((d) => ({ ...d, visible: false }))}
+                onCancel={() =>
+                    setConfirmDialog((d) => ({ ...d, visible: false }))
+                }
             />
             <SuccessDialog
                 visible={successDialog.visible}
@@ -795,7 +880,9 @@ export default function NotificationsScreen() {
                 message={successDialog.message}
                 type={successDialog.type}
                 autoClose={successDialog.type === "success"}
-                onClose={() => setSuccessDialog((d) => ({ ...d, visible: false }))}
+                onClose={() =>
+                    setSuccessDialog((d) => ({ ...d, visible: false }))
+                }
             />
         </View>
     );
@@ -822,12 +909,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 3,
     },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+    headerLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        flex: 1,
+        minWidth: 0,
+    },
     headerTitle: {
         fontSize: 19,
         fontWeight: "700",
         color: "#111827",
         letterSpacing: -0.3,
+        flexShrink: 1,
     },
     unreadBadge: {
         backgroundColor: "#ac3434",
@@ -837,9 +931,15 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: 6,
+        flexShrink: 0,
     },
     unreadBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
-    headerActions: { flexDirection: "row", gap: 6 },
+    headerActions: {
+        flexDirection: "row",
+        gap: 6,
+        flexShrink: 0,
+        marginLeft: 8,
+    },
     headerBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -848,9 +948,15 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         backgroundColor: "#F3F4F6",
         borderRadius: 8,
+        flexShrink: 0,
     },
     headerBtnDanger: { backgroundColor: "#FEF2F2" },
-    headerBtnLabel: { fontSize: 12, fontWeight: "600", color: "#374151" },
+    headerBtnLabel: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#374151",
+        flexShrink: 0,
+    },
 
     statsRow: {
         backgroundColor: "#fff",
@@ -870,7 +976,12 @@ const styles = StyleSheet.create({
         borderColor: "#F0F0F0",
     },
     statValue: { fontSize: 18, fontWeight: "700" },
-    statLabel: { fontSize: 11, color: "#9CA3AF", marginTop: 1, fontWeight: "500" },
+    statLabel: {
+        fontSize: 11,
+        color: "#9CA3AF",
+        marginTop: 1,
+        fontWeight: "500",
+    },
 
     tabsWrap: {
         flexDirection: "row",
@@ -974,7 +1085,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    emptyTitle: { fontSize: 16, fontWeight: "700", color: "#374151", marginTop: 4 },
+    emptyTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#374151",
+        marginTop: 4,
+    },
     emptySubtitle: { fontSize: 13, color: "#9CA3AF" },
 
     errorContainer: {
