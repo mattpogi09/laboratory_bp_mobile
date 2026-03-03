@@ -137,18 +137,6 @@ export interface ClinicSettings {
     email_notification_enabled: boolean;
     notification_enabled: boolean;
     pdf_password_format: "birthdate" | "last_name" | "none";
-    pathologist_name: string;
-    pathologist_license: string;
-    pathologist_title: string;
-    pathologist_signature_exists: boolean;
-    chief_med_tech_name: string;
-    chief_med_tech_license: string;
-    chief_med_tech_title: string;
-    chief_med_tech_signature_exists: boolean;
-    med_tech_name: string;
-    med_tech_license: string;
-    med_tech_title: string;
-    med_tech_signature_exists: boolean;
     clinic_header_logo_exists: boolean;
 }
 
@@ -157,6 +145,7 @@ export interface LabStaffUser {
     name: string;
     license_number?: string;
     professional_title?: string;
+    lab_role: "pathologist" | "chief_med_tech" | "med_tech" | "staff" | null;
     has_signature: boolean;
 }
 
