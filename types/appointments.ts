@@ -145,7 +145,7 @@ export interface LabStaffUser {
     name: string;
     license_number?: string;
     professional_title?: string;
-    lab_role: "pathologist" | "chief_med_tech" | "med_tech" | "staff" | null;
+    lab_role: "pathologist" | "chief_med_tech" | "staff" | null;
     has_signature: boolean;
 }
 

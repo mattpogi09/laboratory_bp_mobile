@@ -357,12 +357,6 @@ export default function SettingsScreen() {
                                     border: "#BFDBFE",
                                     label: "Chief Medical Technologist · Middle Signature",
                                 },
-                                med_tech: {
-                                    color: "#0D9488",
-                                    bg: "#F0FDFA",
-                                    border: "#99F6E4",
-                                    label: "Medical Technologist",
-                                },
                                 staff: {
                                     color: "#059669",
                                     bg: "#ECFDF5",
