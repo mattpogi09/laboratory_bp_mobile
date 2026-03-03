@@ -433,6 +433,7 @@ export default function PatientDetails() {
                 month: "short",
                 day: "numeric",
             }),
+            payment_status: txn.payment_status,
         })),
     );
 
@@ -626,35 +627,42 @@ export default function PatientDetails() {
                                         </Text>
                                     </View>
                                 </View>
-                                <View
-                                    style={[
-                                        styles.testStatus,
-                                        test.status === "pending"
-                                            ? { backgroundColor: "#FEE2E2" }
-                                            : test.status === "processing"
-                                              ? { backgroundColor: "#FEF3C7" }
-                                              : test.status === "completed"
-                                                ? { backgroundColor: "#DBEAFE" }
-                                                : {
-                                                      backgroundColor:
-                                                          "#D1FAE5",
-                                                  },
-                                    ]}
-                                >
-                                    <Text
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                    {test.payment_status === "refunded" && (
+                                        <View style={{ backgroundColor: "#FED7AA", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
+                                            <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>Refunded</Text>
+                                        </View>
+                                    )}
+                                    <View
                                         style={[
-                                            styles.testStatusText,
+                                            styles.testStatus,
                                             test.status === "pending"
-                                                ? { color: "#991B1B" }
+                                                ? { backgroundColor: "#FEE2E2" }
                                                 : test.status === "processing"
-                                                  ? { color: "#92400E" }
+                                                  ? { backgroundColor: "#FEF3C7" }
                                                   : test.status === "completed"
-                                                    ? { color: "#1E40AF" }
-                                                    : { color: "#065F46" },
+                                                    ? { backgroundColor: "#DBEAFE" }
+                                                    : {
+                                                          backgroundColor:
+                                                              "#D1FAE5",
+                                                      },
                                         ]}
                                     >
-                                        {test.status}
-                                    </Text>
+                                        <Text
+                                            style={[
+                                                styles.testStatusText,
+                                                test.status === "pending"
+                                                    ? { color: "#991B1B" }
+                                                    : test.status === "processing"
+                                                      ? { color: "#92400E" }
+                                                      : test.status === "completed"
+                                                        ? { color: "#1E40AF" }
+                                                        : { color: "#065F46" },
+                                            ]}
+                                        >
+                                            {test.status}
+                                        </Text>
+                                    </View>
                                 </View>
                             </TouchableOpacity>
                         ))
