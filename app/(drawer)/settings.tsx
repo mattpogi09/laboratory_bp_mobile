@@ -322,7 +322,7 @@ export default function SettingsScreen() {
                     ))}
                 </View>
 
-                {/* Lab Personnel Signatures — all lab staff by rank */}}
+                {/* Lab Personnel Signatures — all lab staff by rank */}
                 {labStaff.length > 0 && (
                     <>
                         <View style={styles.sectionHeader}>
