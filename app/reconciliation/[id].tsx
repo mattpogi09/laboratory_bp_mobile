@@ -252,8 +252,8 @@ export default function ReconciliationDetailScreen() {
                         {reconciliation.status === "balanced"
                             ? "Perfectly Balanced"
                             : reconciliation.status === "overage"
-                              ? "Cash Overage"
-                              : "Cash Shortage"}
+                              ? "Cash Excess"
+                              : "Cash Short"}
                     </Text>
                     <Text style={styles.statusSubtitle}>
                         {new Date(

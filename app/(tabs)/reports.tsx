@@ -1495,14 +1495,14 @@ function ReconciliationTab({
                     </View>
                     <View style={styles.cardsRow}>
                         <StatCard
-                            label="Overage"
+                            label="Cash Excess"
                             value={formatCurrency(
                                 data.stats.total_overage_amount,
                             )}
                             accent="#3B82F6"
                         />
                         <StatCard
-                            label="Shortage"
+                            label="Cash Short"
                             value={formatCurrency(
                                 Math.abs(data.stats.total_shortage_amount),
                             )}
@@ -1533,8 +1533,8 @@ function ReconciliationTab({
                                 {item.status === "balanced"
                                     ? "Balanced"
                                     : item.status === "overage"
-                                      ? "Overage"
-                                      : "Shortage"}
+                                      ? "Cash Excess"
+                                      : "Cash Short"}
                             </Text>
                         </View>
                     </View>

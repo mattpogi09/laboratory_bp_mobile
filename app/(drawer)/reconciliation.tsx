@@ -337,8 +337,8 @@ export default function ReconciliationScreen() {
                         {item.status === "balanced"
                             ? "Balanced"
                             : item.status === "overage"
-                              ? "Overage"
-                              : "Shortage"}
+                              ? "Cash Excess"
+                              : "Cash Short"}
                     </Text>
                 </View>
             </View>
@@ -551,7 +551,7 @@ export default function ReconciliationScreen() {
                             ₱{stats.total_overage.toLocaleString()}
                         </Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
-                            Overage
+                            Cash Excess
                         </Text>
                     </View>
                     <View style={styles.statCard}>
@@ -569,7 +569,7 @@ export default function ReconciliationScreen() {
                             ₱{Math.abs(stats.total_shortage).toLocaleString()}
                         </Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
-                            Shortage
+                            Cash Short
                         </Text>
                     </View>
                 </View>
