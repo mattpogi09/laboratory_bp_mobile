@@ -45,9 +45,9 @@ const TYPE_META: Record<
     string,
     { label: string; color: string; bg: string; border: string; Icon: any; navRoute?: string }
 > = {
-    lab_defect:          { label: "Lab Issue",        color: "#991B1B", bg: "#FEF2F2", border: "#FECACA", Icon: AlertTriangle,   navRoute: "/(drawer)/lab-queue" },
-    test_ready:          { label: "Test Ready",        color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0", Icon: CheckCircle,     navRoute: "/(drawer)/lab-queue" },
-    new_transaction:     { label: "New Order",         color: "#1E3A8A", bg: "#EFF6FF", border: "#BFDBFE", Icon: ClipboardList,   navRoute: "/(tabs)/" },
+    lab_defect:          { label: "Lab Issue",        color: "#991B1B", bg: "#FEF2F2", border: "#FECACA", Icon: AlertTriangle },
+    test_ready:          { label: "Test Ready",        color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0", Icon: CheckCircle },
+    new_transaction:     { label: "New Order",         color: "#1E3A8A", bg: "#EFF6FF", border: "#BFDBFE", Icon: ClipboardList,   navRoute: "/(drawer)/" },
     refund_request:      { label: "Refund Request",    color: "#92400E", bg: "#FFFBEB", border: "#FDE68A", Icon: PhilippinePeso,  navRoute: "/(drawer)/refunds" },
     refund_approved:     { label: "Refund Approved",   color: "#065F46", bg: "#ECFDF5", border: "#A7F3D0", Icon: CheckCircle,     navRoute: "/(drawer)/refunds" },
     refund_denied:       { label: "Refund Denied",     color: "#991B1B", bg: "#FEF2F2", border: "#FECACA", Icon: XCircle,         navRoute: "/(drawer)/refunds" },
