@@ -1,18 +1,31 @@
-import { useFocusEffect } from "@react-navigation/native";
+﻿import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import {
-    AlertCircle,
+    AlertTriangle,
+    ArrowRight,
     Bell,
     BellOff,
     CheckCheck,
+    CheckCircle,
+    ClipboardList,
+    Info,
+    Package,
+    PhilippinePeso,
     Trash2,
+    TrendingDown,
+    Wallet,
     X,
+    XCircle,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Modal,
+    Pressable,
     RefreshControl,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -20,40 +33,90 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import type { AppNotification, NotificationStats } from "@/types";
-import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 import { useNotificationBadge } from "@/contexts/NotificationContext";
+import type { AppNotification, NotificationStats } from "@/types";
+import { getApiErrorMessage } from "@/utils";
 
-const TYPE_LABELS: Record<string, string> = {
-    lab_defect: "Lab Issue",
-    test_ready: "Test Ready",
-    new_transaction: "New Order",
-    refund_request: "Refund Request",
-    refund_approved: "Refund Approved",
-    refund_denied: "Refund Denied",
-    transaction_cancelled: "Cancelled",
-    transaction_refunded: "Refunded",
-    stock_critical: "Critical Stock",
-    stock_low: "Low Stock",
-    system_info: "System",
-    cash_discrepancy: "Cash Discrepancy",
+// --- Type metadata ---
+
+const TYPE_META: Record<
+    string,
+    { label: string; color: string; Icon: any; navRoute?: string }
+> = {
+    lab_defect: {
+        label: "Lab Issue",
+        color: "#EF4444",
+        Icon: AlertTriangle,
+        navRoute: "/(drawer)/lab-queue",
+    },
+    test_ready: {
+        label: "Test Ready",
+        color: "#22C55E",
+        Icon: CheckCircle,
+        navRoute: "/(drawer)/lab-queue",
+    },
+    new_transaction: {
+        label: "New Order",
+        color: "#3B82F6",
+        Icon: ClipboardList,
+        navRoute: "/(tabs)/",
+    },
+    refund_request: {
+        label: "Refund Request",
+        color: "#EAB308",
+        Icon: PhilippinePeso,
+        navRoute: "/(drawer)/refunds",
+    },
+    refund_approved: {
+        label: "Refund Approved",
+        color: "#22C55E",
+        Icon: CheckCircle,
+        navRoute: "/(drawer)/refunds",
+    },
+    refund_denied: {
+        label: "Refund Denied",
+        color: "#EF4444",
+        Icon: XCircle,
+        navRoute: "/(drawer)/refunds",
+    },
+    transaction_cancelled: {
+        label: "Cancelled",
+        color: "#6B7280",
+        Icon: XCircle,
+    },
+    transaction_refunded: {
+        label: "Refunded",
+        color: "#8B5CF6",
+        Icon: PhilippinePeso,
+        navRoute: "/(drawer)/refunds",
+    },
+    stock_critical: {
+        label: "Critical Stock",
+        color: "#EF4444",
+        Icon: Package,
+        navRoute: "/(drawer)/inventory",
+    },
+    stock_low: {
+        label: "Low Stock",
+        color: "#EAB308",
+        Icon: Package,
+        navRoute: "/(drawer)/inventory",
+    },
+    system_info: {
+        label: "System",
+        color: "#6B7280",
+        Icon: Info,
+    },
+    cash_discrepancy: {
+        label: "Cash Discrepancy",
+        color: "#F97316",
+        Icon: Wallet,
+        navRoute: "/(drawer)/reconciliation",
+    },
 };
 
-const TYPE_COLORS: Record<string, string> = {
-    lab_defect: "#EF4444",
-    test_ready: "#22C55E",
-    new_transaction: "#3B82F6",
-    refund_request: "#EAB308",
-    refund_approved: "#22C55E",
-    refund_denied: "#EF4444",
-    transaction_cancelled: "#6B7280",
-    transaction_refunded: "#8B5CF6",
-    stock_critical: "#EF4444",
-    stock_low: "#EAB308",
-    system_info: "#6B7280",
-    cash_discrepancy: "#F97316",
-};
+const DEFAULT_META = { label: "Notification", color: "#6B7280", Icon: Bell };
 
 const FILTER_TABS = [
     { label: "All", value: "" },
@@ -63,11 +126,200 @@ const FILTER_TABS = [
 
 const TYPE_FILTER_OPTIONS = [
     { label: "All Types", value: "" },
-    ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+    ...Object.entries(TYPE_META).map(([value, m]) => ({
+        value,
+        label: m.label,
+    })),
 ];
 
+// --- Helpers ---
+
+function relativeTime(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return "Just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(dateStr).toLocaleDateString("en-PH", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+function fullDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleString("en-PH", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    });
+}
+
+// --- Detail Modal ---
+
+interface DetailModalProps {
+    notification: AppNotification | null;
+    onClose: () => void;
+    onMarkRead: (n: AppNotification) => void;
+    onMarkUnread: (n: AppNotification) => void;
+    onDelete: (n: AppNotification) => void;
+    onNavigate: (route: string) => void;
+}
+
+function NotificationDetailModal({
+    notification,
+    onClose,
+    onMarkRead,
+    onMarkUnread,
+    onDelete,
+    onNavigate,
+}: DetailModalProps) {
+    if (!notification) return null;
+
+    const meta = TYPE_META[notification.type] ?? DEFAULT_META;
+    const { Icon, color, label, navRoute } = meta;
+
+    return (
+        <Modal
+            visible={!!notification}
+            transparent
+            animationType="slide"
+            onRequestClose={onClose}
+            statusBarTranslucent
+        >
+            <Pressable style={styles.modalOverlay} onPress={onClose}>
+                <Pressable
+                    style={styles.modalSheet}
+                    onPress={(e) => e.stopPropagation()}
+                >
+                    <View style={styles.sheetHandle} />
+
+                    <View style={styles.modalHeader}>
+                        <View
+                            style={[
+                                styles.modalIconWrap,
+                                { backgroundColor: color + "18" },
+                            ]}
+                        >
+                            <Icon size={26} color={color} />
+                        </View>
+                        <View style={styles.modalHeaderText}>
+                            <View
+                                style={[
+                                    styles.typeBadge,
+                                    { backgroundColor: color + "20" },
+                                ]}
+                            >
+                                <Text
+                                    style={[styles.typeBadgeText, { color }]}
+                                >
+                                    {label}
+                                </Text>
+                            </View>
+                            <Text style={styles.modalTimestamp}>
+                                {fullDate(notification.created_at)}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.modalCloseBtn}
+                            onPress={onClose}
+                            hitSlop={12}
+                        >
+                            <X size={20} color="#6B7280" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {notification.title ? (
+                        <Text style={styles.modalTitle}>
+                            {notification.title}
+                        </Text>
+                    ) : null}
+
+                    <Text style={styles.modalMessage}>
+                        {notification.message}
+                    </Text>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.modalActions}>
+                        <TouchableOpacity
+                            style={[styles.modalActionBtn, styles.btnOutline]}
+                            onPress={() => {
+                                notification.read
+                                    ? onMarkUnread(notification)
+                                    : onMarkRead(notification);
+                                onClose();
+                            }}
+                        >
+                            {notification.read ? (
+                                <BellOff size={16} color="#6B7280" />
+                            ) : (
+                                <CheckCheck size={16} color="#22C55E" />
+                            )}
+                            <Text style={styles.modalActionBtnText}>
+                                {notification.read ? "Mark Unread" : "Mark Read"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.modalActionBtn, styles.btnDanger]}
+                            onPress={() => {
+                                onClose();
+                                setTimeout(() => onDelete(notification), 300);
+                            }}
+                        >
+                            <Trash2 size={16} color="#fff" />
+                            <Text
+                                style={[
+                                    styles.modalActionBtnText,
+                                    { color: "#fff" },
+                                ]}
+                            >
+                                Delete
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {navRoute ? (
+                        <TouchableOpacity
+                            style={styles.navBtn}
+                            onPress={() => {
+                                onClose();
+                                setTimeout(() => onNavigate(navRoute), 300);
+                            }}
+                        >
+                            <Text style={styles.navBtnText}>
+                                View Related{" "}
+                                {label
+                                    .replace("Request", "Requests")
+                                    .replace("Issue", "Lab Queue")
+                                    .replace("Ready", "Queue")
+                                    .replace("Discrepancy", "Reconciliation")
+                                    .replace("Approved", "Requests")
+                                    .replace("Denied", "Requests")}
+                            </Text>
+                            <ArrowRight size={16} color="#ac3434" />
+                        </TouchableOpacity>
+                    ) : null}
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+}
+
+// --- Main Screen ---
+
 export default function NotificationsScreen() {
+    const router = useRouter();
     const { refreshCount } = useNotificationBadge();
+
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [stats, setStats] = useState<NotificationStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -78,6 +330,8 @@ export default function NotificationsScreen() {
     const [statusFilter, setStatusFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [selectedNotification, setSelectedNotification] =
+        useState<AppNotification | null>(null);
 
     const [confirmDialog, setConfirmDialog] = useState({
         visible: false,
@@ -95,14 +349,17 @@ export default function NotificationsScreen() {
     });
 
     const loadNotifications = useCallback(
-        async (page = 1, replace = true) => {
+        async (page = 1, replace = true, overrideStatus?: string, overrideType?: string) => {
             try {
-                if (page === 1) setLoading(true);
-                else setLoadingMore(true);
+                if (page === 1 && replace) setLoading(true);
+                else if (page > 1) setLoadingMore(true);
+
+                const sFilter = overrideStatus !== undefined ? overrideStatus : statusFilter;
+                const tFilter = overrideType !== undefined ? overrideType : typeFilter;
 
                 const params: any = { page, per_page: 20 };
-                if (statusFilter) params.status = statusFilter;
-                if (typeFilter) params.type = typeFilter;
+                if (sFilter) params.status = sFilter;
+                if (tFilter) params.type = tFilter;
 
                 const res = await api.get("/notifications", { params });
                 const incoming: AppNotification[] = res.data.data;
@@ -115,19 +372,11 @@ export default function NotificationsScreen() {
                 if (res.data.stats) setStats(res.data.stats);
                 setLoadError(null);
             } catch (err: any) {
-                const msg = getApiErrorMessage(
-                    err,
-                    "Failed to load notifications.",
-                );
+                const msg = getApiErrorMessage(err, "Failed to load notifications.");
                 if (page === 1 && !refreshing) {
                     setLoadError(msg);
                 } else {
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Error",
-                        message: msg,
-                        type: "error",
-                    });
+                    showError(msg);
                 }
             } finally {
                 setLoading(false);
@@ -145,6 +394,10 @@ export default function NotificationsScreen() {
         }, [loadNotifications, refreshCount]),
     );
 
+    const showError = (message: string) => {
+        setSuccessDialog({ visible: true, title: "Error", message, type: "error" });
+    };
+
     const onRefresh = () => {
         setRefreshing(true);
         loadNotifications(1, true);
@@ -156,23 +409,20 @@ export default function NotificationsScreen() {
         }
     };
 
-    const markRead = async (n: AppNotification) => {
+    // Per-item actions
+
+    const markRead = async (n: AppNotification, silent = false) => {
+        if (n.read) return;
         try {
             await api.post(`/notifications/${n.id}/mark-as-read`);
             setNotifications((prev) =>
                 prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
             );
-            setStats((s) =>
-                s ? { ...s, unread: Math.max(0, s.unread - 1) } : s,
-            );
+            setStats((s) => (s ? { ...s, unread: Math.max(0, s.unread - 1) } : s));
+            setSelectedNotification((sn) => sn?.id === n.id ? { ...sn, read: true } : sn);
             refreshCount();
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to mark as read."),
-                type: "error",
-            });
+            if (!silent) showError(getApiErrorMessage(err, "Failed to mark as read."));
         }
     };
 
@@ -183,21 +433,49 @@ export default function NotificationsScreen() {
                 prev.map((x) => (x.id === n.id ? { ...x, read: false } : x)),
             );
             setStats((s) => (s ? { ...s, unread: s.unread + 1 } : s));
+            setSelectedNotification((sn) => sn?.id === n.id ? { ...sn, read: false } : sn);
             refreshCount();
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to mark as unread."),
-                type: "error",
-            });
+            showError(getApiErrorMessage(err, "Failed to mark as unread."));
         }
     };
+
+    const handleTap = (n: AppNotification) => {
+        setSelectedNotification(n);
+        markRead(n, true);
+    };
+
+    const handleDelete = (n: AppNotification) => {
+        setConfirmDialog({
+            visible: true,
+            title: "Delete Notification",
+            message: "Delete this notification? This cannot be undone.",
+            confirmText: "DELETE",
+            type: "danger",
+            onConfirm: async () => {
+                setConfirmDialog((d) => ({ ...d, visible: false }));
+                try {
+                    await api.delete(`/notifications/${n.id}`);
+                    setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+                    if (!n.read && stats) {
+                        setStats((s) =>
+                            s ? { ...s, unread: Math.max(0, s.unread - 1), total: s.total - 1 } : s,
+                        );
+                    }
+                    refreshCount();
+                } catch (err: any) {
+                    showError(getApiErrorMessage(err, "Failed to delete notification."));
+                }
+            },
+        });
+    };
+
+    // Bulk actions
 
     const handleMarkAllRead = () => {
         setConfirmDialog({
             visible: true,
-            title: "Mark All Read",
+            title: "Mark All as Read",
             message: "Mark all notifications as read?",
             confirmText: "Mark All",
             type: "info",
@@ -205,24 +483,10 @@ export default function NotificationsScreen() {
                 setConfirmDialog((d) => ({ ...d, visible: false }));
                 try {
                     await api.post("/notifications/mark-all-as-read");
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Done",
-                        message: "All notifications marked as read.",
-                        type: "success",
-                    });
                     loadNotifications(1, true);
                     refreshCount();
                 } catch (err: any) {
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Error",
-                        message: getApiErrorMessage(
-                            err,
-                            "Failed to mark all as read.",
-                        ),
-                        type: "error",
-                    });
+                    showError(getApiErrorMessage(err, "Failed to mark all as read."));
                 }
             },
         });
@@ -241,136 +505,113 @@ export default function NotificationsScreen() {
                     await api.delete("/notifications/delete-read");
                     setSuccessDialog({
                         visible: true,
-                        title: "Deleted",
+                        title: "Cleared",
                         message: "Read notifications deleted.",
                         type: "success",
                     });
                     loadNotifications(1, true);
                     refreshCount();
                 } catch (err: any) {
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Error",
-                        message: getApiErrorMessage(
-                            err,
-                            "Failed to delete read notifications.",
-                        ),
-                        type: "error",
-                    });
+                    showError(getApiErrorMessage(err, "Failed to delete read notifications."));
                 }
             },
         });
     };
 
-    const handleDelete = (n: AppNotification) => {
-        setConfirmDialog({
-            visible: true,
-            title: "Delete Notification",
-            message: "Delete this notification?",
-            confirmText: "DELETE",
-            type: "danger",
-            onConfirm: async () => {
-                setConfirmDialog((d) => ({ ...d, visible: false }));
-                try {
-                    await api.delete(`/notifications/${n.id}`);
-                    setNotifications((prev) =>
-                        prev.filter((x) => x.id !== n.id),
-                    );
-                    if (!n.read && stats)
-                        setStats((s) =>
-                            s
-                                ? {
-                                      ...s,
-                                      unread: Math.max(0, s.unread - 1),
-                                      total: s.total - 1,
-                                  }
-                                : s,
-                        );
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Deleted",
-                        message: "Notification deleted.",
-                        type: "success",
-                    });
-                    refreshCount();
-                } catch (err: any) {
-                    setSuccessDialog({
-                        visible: true,
-                        title: "Error",
-                        message: getApiErrorMessage(
-                            err,
-                            "Failed to delete notification.",
-                        ),
-                        type: "error",
-                    });
-                }
-            },
-        });
+    const applyStatusFilter = (val: string) => {
+        setStatusFilter(val);
+        setLoading(true);
+        loadNotifications(1, true, val, typeFilter);
     };
+
+    const applyTypeFilter = (val: string) => {
+        setTypeFilter(val);
+        setLoading(true);
+        loadNotifications(1, true, statusFilter, val);
+    };
+
+    // Render card
 
     const renderItem = ({ item }: { item: AppNotification }) => {
-        const color = TYPE_COLORS[item.type] ?? "#6B7280";
+        const meta = TYPE_META[item.type] ?? DEFAULT_META;
+        const { color, label, Icon } = meta;
+
         return (
-            <View style={[styles.card, !item.read && styles.cardUnread]}>
+            <Pressable
+                style={({ pressed }) => [
+                    styles.card,
+                    !item.read && styles.cardUnread,
+                    pressed && styles.cardPressed,
+                ]}
+                onPress={() => handleTap(item)}
+            >
                 <View
-                    style={[styles.typeIndicator, { backgroundColor: color }]}
+                    style={[
+                        styles.accentBar,
+                        { backgroundColor: item.read ? "#E5E7EB" : color },
+                    ]}
                 />
+                <View
+                    style={[styles.iconCircle, { backgroundColor: color + "18" }]}
+                >
+                    <Icon size={17} color={color} />
+                </View>
                 <View style={styles.cardContent}>
                     <View style={styles.cardTopRow}>
                         <View
-                            style={[
-                                styles.typeBadge,
-                                { backgroundColor: color + "22" },
-                            ]}
+                            style={[styles.typeBadge, { backgroundColor: color + "18" }]}
                         >
                             <Text style={[styles.typeBadgeText, { color }]}>
-                                {TYPE_LABELS[item.type] ?? item.type}
+                                {label}
                             </Text>
                         </View>
                         <Text style={styles.cardTime}>
-                            {new Date(item.created_at).toLocaleDateString()}
+                            {relativeTime(item.created_at)}
                         </Text>
                     </View>
-                    <Text style={styles.cardMessage}>{item.message}</Text>
-                </View>
-                <View style={styles.cardActions}>
-                    {item.read ? (
-                        <TouchableOpacity
-                            style={styles.actionIconBtn}
-                            onPress={() => markUnread(item)}
+                    {item.title ? (
+                        <Text
+                            style={[styles.cardTitle, item.read && { color: "#9CA3AF" }]}
+                            numberOfLines={1}
                         >
-                            <BellOff size={15} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.actionIconBtn}
-                            onPress={() => markRead(item)}
-                        >
-                            <CheckCheck size={15} color="#22C55E" />
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                        style={styles.actionIconBtn}
-                        onPress={() => handleDelete(item)}
+                            {item.title}
+                        </Text>
+                    ) : null}
+                    <Text
+                        style={[styles.cardMessage, item.read && { color: "#9CA3AF" }]}
+                        numberOfLines={2}
                     >
-                        <X size={15} color="#EF4444" />
-                    </TouchableOpacity>
+                        {item.message}
+                    </Text>
                 </View>
-            </View>
+                {!item.read && <View style={styles.unreadDot} />}
+            </Pressable>
         );
     };
 
+    const statItems = stats
+        ? [
+              { label: "Total", value: stats.total, color: "#374151" },
+              { label: "Unread", value: stats.unread, color: "#ac3434" },
+              stats.refunds != null ? { label: "Refunds", value: stats.refunds, color: "#EAB308" } : null,
+              stats.lab_issues != null ? { label: "Lab Issues", value: stats.lab_issues, color: "#EF4444" } : null,
+              stats.system_alerts != null ? { label: "System", value: stats.system_alerts, color: "#6B7280" } : null,
+          ].filter(Boolean)
+        : [];
+
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <Bell size={22} color="#ac3434" />
+                    <Bell size={20} color="#ac3434" />
                     <Text style={styles.headerTitle}>Notifications</Text>
                     {stats && stats.unread > 0 ? (
                         <View style={styles.unreadBadge}>
                             <Text style={styles.unreadBadgeText}>
-                                {stats.unread}
+                                {stats.unread > 99 ? "99+" : stats.unread}
                             </Text>
                         </View>
                     ) : null}
@@ -379,81 +620,45 @@ export default function NotificationsScreen() {
                     <TouchableOpacity
                         style={styles.headerBtn}
                         onPress={handleMarkAllRead}
+                        activeOpacity={0.7}
                     >
-                        <CheckCheck size={16} color="#374151" />
+                        <CheckCheck size={15} color="#374151" />
+                        <Text style={styles.headerBtnLabel}>Mark All</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={styles.headerBtn}
+                        style={[styles.headerBtn, styles.headerBtnDanger]}
                         onPress={handleDeleteRead}
+                        activeOpacity={0.7}
                     >
-                        <Trash2 size={16} color="#EF4444" />
+                        <Trash2 size={15} color="#EF4444" />
+                        <Text style={[styles.headerBtnLabel, { color: "#EF4444" }]}>
+                            Clear Read
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Stats row */}
-            {stats && (
+            {/* Stats */}
+            {statItems.length > 0 && (
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     style={styles.statsRow}
-                    contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+                    contentContainerStyle={styles.statsContent}
                 >
-                    {(
-                        [
-                            { label: "Total", value: stats.total },
-                            {
-                                label: "Unread",
-                                value: stats.unread,
-                                color: "#ac3434",
-                            },
-                            stats.refunds != null
-                                ? {
-                                      label: "Refunds",
-                                      value: stats.refunds,
-                                      color: "#EAB308",
-                                  }
-                                : null,
-                            stats.lab_issues != null
-                                ? {
-                                      label: "Lab Issues",
-                                      value: stats.lab_issues,
-                                      color: "#EF4444",
-                                  }
-                                : null,
-                            stats.system_alerts != null
-                                ? {
-                                      label: "System",
-                                      value: stats.system_alerts,
-                                      color: "#6B7280",
-                                  }
-                                : null,
-                        ] as any[]
-                    )
-                        .filter(Boolean)
-                        .map((s: any) => (
-                            <View key={s.label} style={styles.statCard}>
-                                <Text
-                                    style={[
-                                        styles.statValue,
-                                        s.color ? { color: s.color } : {},
-                                    ]}
-                                >
-                                    {s.value}
-                                </Text>
-                                <Text style={styles.statLabel}>{s.label}</Text>
-                            </View>
-                        ))}
+                    {(statItems as any[]).map((s: any) => (
+                        <View key={s.label} style={styles.statPill}>
+                            <Text style={[styles.statValue, { color: s.color }]}>
+                                {s.value}
+                            </Text>
+                            <Text style={styles.statLabel}>{s.label}</Text>
+                        </View>
+                    ))}
                 </ScrollView>
             )}
 
-            {/* Status filter tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.tabsRow}
-                contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
-            >
+            {/* Status tabs */}
+            <View style={styles.tabsWrap}>
                 {FILTER_TABS.map((tab) => (
                     <TouchableOpacity
                         key={tab.value}
@@ -461,48 +666,42 @@ export default function NotificationsScreen() {
                             styles.tab,
                             statusFilter === tab.value && styles.tabActive,
                         ]}
-                        onPress={() => {
-                            setStatusFilter(tab.value);
-                            loadNotifications(1, true);
-                        }}
+                        onPress={() => applyStatusFilter(tab.value)}
+                        activeOpacity={0.75}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                statusFilter === tab.value &&
-                                    styles.tabTextActive,
+                                statusFilter === tab.value && styles.tabTextActive,
                             ]}
                         >
                             {tab.label}
                         </Text>
                     </TouchableOpacity>
                 ))}
-            </ScrollView>
+            </View>
 
-            {/* Type filter chips */}
+            {/* Type chips */}
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.typeRow}
-                contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}
+                style={styles.chipsRow}
+                contentContainerStyle={styles.chipsContent}
             >
                 {TYPE_FILTER_OPTIONS.map((opt) => (
                     <TouchableOpacity
                         key={opt.value || "__all__"}
                         style={[
-                            styles.typeChip,
-                            typeFilter === opt.value && styles.typeChipActive,
+                            styles.chip,
+                            typeFilter === opt.value && styles.chipActive,
                         ]}
-                        onPress={() => {
-                            setTypeFilter(opt.value);
-                            loadNotifications(1, true);
-                        }}
+                        onPress={() => applyTypeFilter(opt.value)}
+                        activeOpacity={0.75}
                     >
                         <Text
                             style={[
-                                styles.typeChipText,
-                                typeFilter === opt.value &&
-                                    styles.typeChipTextActive,
+                                styles.chipText,
+                                typeFilter === opt.value && styles.chipTextActive,
                             ]}
                         >
                             {opt.label}
@@ -511,16 +710,15 @@ export default function NotificationsScreen() {
                 ))}
             </ScrollView>
 
+            {/* List */}
             {loading ? (
-                <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-                    <SkeletonRow count={6} />
+                <View style={styles.skeletonWrap}>
+                    <SkeletonRow count={7} />
                 </View>
-            ) : loadError && !notifications.length ? (
+            ) : loadError ? (
                 <View style={styles.errorContainer}>
-                    <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>
-                        Unable to load notifications
-                    </Text>
+                    <TrendingDown size={40} color="#EF4444" />
+                    <Text style={styles.errorTitle}>Unable to load notifications</Text>
                     <Text style={styles.errorMessage}>{loadError}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
@@ -529,7 +727,7 @@ export default function NotificationsScreen() {
                             loadNotifications(1, true);
                         }}
                     >
-                        <Text style={styles.retryBtnText}>Retry</Text>
+                        <Text style={styles.retryBtnText}>Try Again</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -542,40 +740,45 @@ export default function NotificationsScreen() {
                             refreshing={refreshing}
                             onRefresh={onRefresh}
                             colors={["#ac3434"]}
+                            tintColor="#ac3434"
                         />
                     }
                     onEndReached={loadMore}
                     onEndReachedThreshold={0.4}
                     contentContainerStyle={styles.list}
+                    showsVerticalScrollIndicator={false}
                     ListFooterComponent={
                         loadingMore ? (
                             <ActivityIndicator
                                 size="small"
                                 color="#ac3434"
-                                style={{ marginVertical: 12 }}
+                                style={{ marginVertical: 16 }}
                             />
                         ) : null
                     }
                     ListEmptyComponent={
                         <View style={styles.empty}>
-                            <BellOff size={40} color="#D1D5DB" />
-                            <Text style={styles.emptyText}>
-                                You're all caught up
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 13,
-                                    color: "#9CA3AF",
-                                    textAlign: "center",
-                                    marginTop: 4,
-                                }}
-                            >
+                            <View style={styles.emptyIconWrap}>
+                                <BellOff size={36} color="#D1D5DB" />
+                            </View>
+                            <Text style={styles.emptyTitle}>All caught up!</Text>
+                            <Text style={styles.emptySubtitle}>
                                 No notifications to show
                             </Text>
                         </View>
                     }
                 />
             )}
+
+            {/* Detail bottom sheet */}
+            <NotificationDetailModal
+                notification={selectedNotification}
+                onClose={() => setSelectedNotification(null)}
+                onMarkRead={markRead}
+                onMarkUnread={markUnread}
+                onDelete={handleDelete}
+                onNavigate={(route) => router.push(route as any)}
+            />
 
             <ConfirmDialog
                 visible={confirmDialog.visible}
@@ -584,9 +787,7 @@ export default function NotificationsScreen() {
                 confirmText={confirmDialog.confirmText}
                 type={confirmDialog.type}
                 onConfirm={confirmDialog.onConfirm}
-                onCancel={() =>
-                    setConfirmDialog((d) => ({ ...d, visible: false }))
-                }
+                onCancel={() => setConfirmDialog((d) => ({ ...d, visible: false }))}
             />
             <SuccessDialog
                 visible={successDialog.visible}
@@ -594,146 +795,296 @@ export default function NotificationsScreen() {
                 message={successDialog.message}
                 type={successDialog.type}
                 autoClose={successDialog.type === "success"}
-                onClose={() =>
-                    setSuccessDialog((d) => ({ ...d, visible: false }))
-                }
+                onClose={() => setSuccessDialog((d) => ({ ...d, visible: false }))}
             />
         </View>
     );
 }
 
+// --- Styles ---
+
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F9FAFB" },
+    container: { flex: 1, backgroundColor: "#F3F4F6" },
+
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingTop: 14,
+        paddingBottom: 12,
         backgroundColor: "#fff",
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#F0F0F0",
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+    headerTitle: {
+        fontSize: 19,
+        fontWeight: "700",
+        color: "#111827",
+        letterSpacing: -0.3,
+    },
     unreadBadge: {
         backgroundColor: "#ac3434",
         borderRadius: 99,
-        minWidth: 20,
-        height: 20,
+        minWidth: 22,
+        height: 22,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 5,
+        paddingHorizontal: 6,
     },
-    unreadBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-    headerActions: { flexDirection: "row", gap: 8 },
-    headerBtn: { padding: 8, backgroundColor: "#F3F4F6", borderRadius: 8 },
+    unreadBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+    headerActions: { flexDirection: "row", gap: 6 },
+    headerBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        backgroundColor: "#F3F4F6",
+        borderRadius: 8,
+    },
+    headerBtnDanger: { backgroundColor: "#FEF2F2" },
+    headerBtnLabel: { fontSize: 12, fontWeight: "600", color: "#374151" },
+
     statsRow: {
         backgroundColor: "#fff",
-        paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#F0F0F0",
+        maxHeight: 70,
     },
-    statCard: {
+    statsContent: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+    statPill: {
         backgroundColor: "#F9FAFB",
-        borderRadius: 8,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 7,
         alignItems: "center",
-        minWidth: 70,
+        minWidth: 68,
+        borderWidth: 1,
+        borderColor: "#F0F0F0",
     },
-    statValue: { fontSize: 20, fontWeight: "700", color: "#111827" },
-    statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
-    tabsRow: {
+    statValue: { fontSize: 18, fontWeight: "700" },
+    statLabel: { fontSize: 11, color: "#9CA3AF", marginTop: 1, fontWeight: "500" },
+
+    tabsWrap: {
+        flexDirection: "row",
         backgroundColor: "#fff",
+        paddingHorizontal: 16,
         paddingVertical: 8,
+        gap: 6,
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#F0F0F0",
     },
     tab: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 99,
+        flex: 1,
+        alignItems: "center",
+        paddingVertical: 7,
+        borderRadius: 8,
         backgroundColor: "#F3F4F6",
     },
     tabActive: { backgroundColor: "#ac3434" },
-    tabText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    tabText: { fontSize: 13, fontWeight: "600", color: "#6B7280" },
     tabTextActive: { color: "#fff" },
-    typeRow: {
+
+    chipsRow: {
         backgroundColor: "#fff",
-        paddingVertical: 6,
         borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
+        borderBottomColor: "#F0F0F0",
+        maxHeight: 46,
     },
-    typeChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
+    chipsContent: { gap: 6, paddingHorizontal: 16, paddingVertical: 8 },
+    chip: {
+        paddingHorizontal: 12,
+        paddingVertical: 5,
         borderRadius: 99,
         backgroundColor: "#F3F4F6",
         borderWidth: 1,
         borderColor: "#E5E7EB",
     },
-    typeChipActive: {
-        backgroundColor: "#FEF2F2",
-        borderColor: "#ac3434",
-    },
-    typeChipText: { fontSize: 12, fontWeight: "500", color: "#6B7280" },
-    typeChipTextActive: { color: "#ac3434", fontWeight: "700" },
-    list: { padding: 16, gap: 8 },
+    chipActive: { backgroundColor: "#FEF2F2", borderColor: "#ac3434" },
+    chipText: { fontSize: 12, fontWeight: "500", color: "#6B7280" },
+    chipTextActive: { color: "#ac3434", fontWeight: "700" },
+
+    skeletonWrap: { paddingHorizontal: 16, paddingTop: 12 },
+    list: { padding: 12, gap: 8, paddingBottom: 32 },
+
     card: {
         flexDirection: "row",
+        alignItems: "center",
         backgroundColor: "#fff",
-        borderRadius: 10,
+        borderRadius: 12,
+        overflow: "hidden",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
-        elevation: 2,
-        overflow: "hidden",
+        elevation: 1,
     },
-    cardUnread: { borderLeftWidth: 3, borderLeftColor: "#ac3434" },
-    typeIndicator: { width: 4 },
-    cardContent: { flex: 1, padding: 12 },
+    cardUnread: { shadowOpacity: 0.1, elevation: 2 },
+    cardPressed: { opacity: 0.88 },
+    accentBar: { width: 4, alignSelf: "stretch" },
+    iconCircle: {
+        width: 38,
+        height: 38,
+        borderRadius: 99,
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: 12,
+        flexShrink: 0,
+    },
+    cardContent: { flex: 1, paddingVertical: 11, paddingHorizontal: 10 },
     cardTopRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        marginBottom: 4,
+        gap: 6,
+        marginBottom: 3,
     },
-    typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 },
-    typeBadgeText: { fontSize: 11, fontWeight: "700" },
+    typeBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99 },
+    typeBadgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
     cardTime: { fontSize: 11, color: "#9CA3AF", marginLeft: "auto" },
-    cardMessage: { fontSize: 13, color: "#374151", lineHeight: 18 },
-    cardActions: {
-        flexDirection: "column",
-        justifyContent: "center",
-        gap: 8,
-        paddingRight: 10,
-        paddingVertical: 10,
+    cardTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#111827",
+        marginBottom: 2,
+        lineHeight: 18,
     },
-    actionIconBtn: { padding: 4 },
-    empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
-    emptyText: { fontSize: 15, color: "#9CA3AF" },
+    cardMessage: { fontSize: 12, color: "#6B7280", lineHeight: 17 },
+    unreadDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#ac3434",
+        marginRight: 12,
+        flexShrink: 0,
+    },
+
+    empty: { flex: 1, alignItems: "center", paddingTop: 80, gap: 10 },
+    emptyIconWrap: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: "#F3F4F6",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    emptyTitle: { fontSize: 16, fontWeight: "700", color: "#374151", marginTop: 4 },
+    emptySubtitle: { fontSize: 13, color: "#9CA3AF" },
+
     errorContainer: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
         padding: 32,
-        gap: 12,
+        gap: 10,
     },
     errorTitle: {
-        fontSize: 17,
-        fontWeight: "600",
+        fontSize: 16,
+        fontWeight: "700",
         color: "#111827",
         textAlign: "center",
-    },
-    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
-    retryBtn: {
         marginTop: 4,
-        paddingHorizontal: 24,
-        paddingVertical: 10,
+    },
+    errorMessage: { fontSize: 13, color: "#6B7280", textAlign: "center" },
+    retryBtn: {
+        marginTop: 6,
+        paddingHorizontal: 28,
+        paddingVertical: 11,
         backgroundColor: "#ac3434",
         borderRadius: 10,
     },
-    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        justifyContent: "flex-end",
+    },
+    modalSheet: {
+        backgroundColor: "#fff",
+        borderTopLeftRadius: 22,
+        borderTopRightRadius: 22,
+        paddingHorizontal: 20,
+        paddingBottom: 36,
+        paddingTop: 8,
+    },
+    sheetHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: "#E5E7EB",
+        borderRadius: 2,
+        alignSelf: "center",
+        marginBottom: 16,
+    },
+    modalHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 12,
+        marginBottom: 14,
+    },
+    modalIconWrap: {
+        width: 52,
+        height: 52,
+        borderRadius: 14,
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+    },
+    modalHeaderText: { flex: 1, gap: 4 },
+    modalTimestamp: { fontSize: 12, color: "#9CA3AF" },
+    modalCloseBtn: {
+        padding: 6,
+        backgroundColor: "#F3F4F6",
+        borderRadius: 8,
+        marginTop: 2,
+    },
+    modalTitle: {
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#111827",
+        lineHeight: 24,
+        marginBottom: 8,
+    },
+    modalMessage: {
+        fontSize: 14,
+        color: "#4B5563",
+        lineHeight: 22,
+        marginBottom: 18,
+    },
+    divider: { height: 1, backgroundColor: "#F0F0F0", marginBottom: 16 },
+    modalActions: { flexDirection: "row", gap: 10, marginBottom: 12 },
+    modalActionBtn: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 11,
+        borderRadius: 10,
+    },
+    btnOutline: {
+        borderWidth: 1.5,
+        borderColor: "#E5E7EB",
+        backgroundColor: "#F9FAFB",
+    },
+    btnDanger: { backgroundColor: "#EF4444" },
+    modalActionBtnText: { fontSize: 13, fontWeight: "700", color: "#374151" },
+    navBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 13,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: "#ac3434",
+        backgroundColor: "#FFF5F5",
+    },
+    navBtnText: { fontSize: 14, fontWeight: "700", color: "#ac3434" },
 });
