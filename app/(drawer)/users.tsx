@@ -859,6 +859,7 @@ function CreateUserModal({
                                     })
                                 }
                                 placeholder="e.g. 0083687"
+                                maxLength={7}
                             />
                         </View>
 
@@ -1476,6 +1477,7 @@ function EditUserModal({
                                     })
                                 }
                                 placeholder="e.g. 0083687"
+                                maxLength={7}
                             />
                         </View>
 
