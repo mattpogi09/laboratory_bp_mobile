@@ -16,7 +16,7 @@ import {
     TrendingUp,
     X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -34,7 +34,7 @@ import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import { ConfirmDialog, SkeletonRow, SuccessDialog, TransactionLogTab } from "@/components";
 
 type InventoryItem = {
     id: number;
@@ -82,18 +82,13 @@ export default function InventoryScreen() {
     );
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [summary, setSummary] = useState<Summary | null>(null);
-    const [transactions, setTransactions] = useState<InventoryTransaction[]>(
-        [],
-    );
     const [statusFilter, setStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [transactionsLoading, setTransactionsLoading] = useState(false);
-    const [transactionsError, setTransactionsError] = useState<string | null>(
-        null,
-    );
+    // Key bumped after stock mutations to tell TransactionLogTab to reload
+    const [transactionRefreshKey, setTransactionRefreshKey] = useState(0);
 
     // Modals
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -159,24 +154,6 @@ export default function InventoryScreen() {
         }
     }, [refreshing, search, statusFilter, categoryFilter]);
 
-    const loadTransactions = useCallback(async () => {
-        try {
-            setTransactionsLoading(true);
-            setTransactionsError(null);
-            const response = await api.get("/inventory/transactions");
-            setTransactions(
-                Array.isArray(response.data.data) ? response.data.data : [],
-            );
-        } catch (error: any) {
-            setTransactionsError(
-                getApiErrorMessage(error, "Failed to load transactions."),
-            );
-        } finally {
-            setTransactionsLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
     const handleCreateStock = async (formData: any) => {
         const response = await api.post("/inventory", formData);
         setSuccessDialog({
@@ -201,7 +178,7 @@ export default function InventoryScreen() {
             type: "success",
         });
         loadInventory();
-        loadTransactions();
+        setTransactionRefreshKey((k) => k + 1);
     };
 
     const handleStockOut = async (formData: any) => {
@@ -229,7 +206,7 @@ export default function InventoryScreen() {
                     });
                     setShowStockOutModal(false);
                     loadInventory();
-                    loadTransactions();
+                    setTransactionRefreshKey((k) => k + 1);
                 } catch (error: any) {
                     setSuccessDialog({
                         visible: true,
@@ -304,36 +281,46 @@ export default function InventoryScreen() {
         });
     };
 
+    // Stable refs so effects never hold stale function closures
+    const loadInventoryRef = useRef(loadInventory);
+    loadInventoryRef.current = loadInventory;
+    const activeTabRef = useRef(activeTab);
+    activeTabRef.current = activeTab;
+
     // Load categories once on mount
     useEffect(() => {
         loadAllCategories();
     }, []);
 
-    // Debounce inventory reload on filter/search changes (items tab only)
+    // Load inventory whenever the tab switches to items
     useEffect(() => {
-        if (activeTab !== "items") return;
-        const debounce = setTimeout(() => loadInventory(), 400);
-        return () => clearTimeout(debounce);
-    }, [loadInventory, activeTab]);
+        if (activeTab === "items") {
+            loadInventoryRef.current();
+        }
+    }, [activeTab]);
 
-    // Reload data when screen is focused or tab changes
+    // Reload when the drawer screen regains focus
     useFocusEffect(
         useCallback(() => {
-            if (activeTab === "items") {
-                loadInventory();
-            } else {
-                loadTransactions();
+            if (activeTabRef.current === "items") {
+                loadInventoryRef.current();
             }
-        }, [activeTab]),
+        }, []),
     );
+
+    // Debounce search/filter changes — items tab only
+    useEffect(() => {
+        const debounce = setTimeout(() => {
+            if (activeTabRef.current === "items") {
+                loadInventoryRef.current();
+            }
+        }, 400);
+        return () => clearTimeout(debounce);
+    }, [search, statusFilter, categoryFilter]);
 
     const handleRefresh = () => {
         setRefreshing(true);
-        if (activeTab === "items") {
-            loadInventory();
-        } else {
-            loadTransactions();
-        }
+        loadInventory();
     };
 
     const renderItem = ({ item }: { item: InventoryItem }) => {
@@ -775,114 +762,8 @@ export default function InventoryScreen() {
                         />
                     }
                 />
-            ) : transactionsLoading ? (
-                <View style={styles.centerContent}>
-                    <ActivityIndicator size="large" color="#ac3434" />
-                    <Text style={styles.loadingText}>
-                        Loading transactions...
-                    </Text>
-                </View>
-            ) : transactionsError ? (
-                <View style={styles.errorContainer}>
-                    <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>
-                        Failed to load transactions
-                    </Text>
-                    <Text style={styles.errorMessage}>{transactionsError}</Text>
-                    <TouchableOpacity
-                        style={styles.retryBtn}
-                        onPress={() => {
-                            setTransactionsError(null);
-                            loadTransactions();
-                        }}
-                    >
-                        <Text style={styles.retryBtnText}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
             ) : (
-                <FlatList
-                    data={transactions}
-                    keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
-                    ListHeaderComponent={
-                        <Text style={styles.sectionTitle}>Transaction Log</Text>
-                    }
-                    renderItem={({ item }) => (
-                        <View style={styles.transactionCard}>
-                            <View style={styles.transactionHeader}>
-                                <Text style={styles.transactionDate}>
-                                    {item.date}
-                                </Text>
-                                <View
-                                    style={[
-                                        styles.typeBadge,
-                                        item.type === "IN"
-                                            ? { backgroundColor: "#D1FAE5" }
-                                            : { backgroundColor: "#FEE2E2" },
-                                    ]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.typeBadgeText,
-                                            item.type === "IN"
-                                                ? { color: "#065F46" }
-                                                : { color: "#991B1B" },
-                                        ]}
-                                    >
-                                        {item.type}
-                                    </Text>
-                                </View>
-                            </View>
-                            <Text style={styles.transactionItem}>
-                                {item.item}
-                            </Text>
-                            <Text style={styles.transactionCode}>
-                                Code: {item.transaction_code}
-                            </Text>
-                            <View style={styles.transactionRow}>
-                                <Text style={styles.transactionLabel}>
-                                    Quantity:
-                                </Text>
-                                <Text style={styles.transactionValue}>
-                                    {item.type === "IN" ? "+" : "-"}
-                                    {item.quantity}
-                                </Text>
-                            </View>
-                            <View style={styles.transactionRow}>
-                                <Text style={styles.transactionLabel}>
-                                    Stock:
-                                </Text>
-                                <Text style={styles.transactionValue}>
-                                    {item.previous_stock ?? "—"} →{" "}
-                                    {item.new_stock ?? "—"}
-                                </Text>
-                            </View>
-                            <Text
-                                style={styles.transactionReason}
-                                numberOfLines={3}
-                            >
-                                Reason: {item.reason}
-                            </Text>
-                            <Text style={styles.performedBy}>
-                                Performed by: {item.performed_by}
-                            </Text>
-                        </View>
-                    )}
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <History color="#D1D5DB" size={42} />
-                            <Text style={styles.emptyTitle}>
-                                No transactions found
-                            </Text>
-                        </View>
-                    }
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing || transactionsLoading}
-                            onRefresh={handleRefresh}
-                        />
-                    }
-                />
+                <TransactionLogTab refreshTrigger={transactionRefreshKey} />
             )}
 
             {/* Modals */}

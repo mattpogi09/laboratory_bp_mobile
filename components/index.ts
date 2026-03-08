@@ -6,3 +6,4 @@ export { SkeletonRow } from "./SkeletonRow";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";
 export { default as SuccessDialog } from "./SuccessDialog";
+export { default as TransactionLogTab } from "./TransactionLogTab";
