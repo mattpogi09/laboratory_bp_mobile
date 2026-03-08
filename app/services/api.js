@@ -24,41 +24,27 @@ export const setAuthToken = (token) => {
     }
 };
 
+// Callback invoked when the session is definitively expired (401 with a token).
+// Set by AuthContext so it can update React state and navigate to login.
+let _onUnauthenticated = null;
+export const setUnauthenticatedHandler = (handler) => {
+    _onUnauthenticated = handler;
+};
+
 // Track if we're already handling a 401 to prevent cascade clearing
 let isHandling401 = false;
 let tokenClearedTimestamp = 0;
 const TOKEN_CLEAR_COOLDOWN = 5000; // 5 seconds cooldown before clearing token again
 
-// Endpoints that don't require authentication
-const PUBLIC_ENDPOINTS = ["/login", "/register", "/forgot-password"];
-
+// NOTE: The request interceptor is intentionally synchronous.
+// A previous version used `await SecureStore.getItemAsync()` here, which could
+// hang indefinitely on certain devices/OS states, causing API calls to never
+// resolve and producing an infinite loading spinner.
+// Token injection is handled by setAuthToken(), which keeps
+// api.defaults.headers.common.Authorization in sync. Axios automatically
+// includes that header on every request without needing an interceptor.
 api.interceptors.request.use(
-    async (config) => {
-        // Always ensure Authorization header is set from storage or defaults
-        const storedToken = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
-        if (storedToken) {
-            config.headers.Authorization = `Bearer ${storedToken}`;
-            console.log(
-                `[API] Request to ${config.url}: Token attached (length: ${storedToken.length})`,
-            );
-        } else if (api.defaults.headers.common.Authorization) {
-            // Fallback to defaults if storage is empty but defaults are set
-            config.headers.Authorization =
-                api.defaults.headers.common.Authorization;
-            console.log(`[API] Request to ${config.url}: Using default token`);
-        } else {
-            // Only warn if this is not a public endpoint
-            const isPublicEndpoint = PUBLIC_ENDPOINTS.some((endpoint) =>
-                config.url?.includes(endpoint),
-            );
-            if (!isPublicEndpoint) {
-                console.warn(
-                    `[API] Request to ${config.url}: NO TOKEN AVAILABLE`,
-                );
-            }
-        }
-        return config;
-    },
+    (config) => config,
     (error) => Promise.reject(error),
 );
 
@@ -89,6 +75,8 @@ api.interceptors.response.use(
                 try {
                     await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
                     setAuthToken(null);
+                    // Notify AuthContext so it can clear React state and redirect to login.
+                    if (_onUnauthenticated) _onUnauthenticated();
                 } catch (clearError) {
                     console.error("[API] Failed to clear token:", clearError);
                 } finally {

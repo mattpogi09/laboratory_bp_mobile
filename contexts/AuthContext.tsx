@@ -9,7 +9,8 @@ import {
     useState,
 } from "react";
 
-import api, { TOKEN_STORAGE_KEY, setAuthToken } from "@/app/services/api";
+import { router } from "expo-router";
+import api, { TOKEN_STORAGE_KEY, setAuthToken, setUnauthenticatedHandler } from "@/app/services/api";
 
 const USER_STORAGE_KEY = "bp_mobile_user";
 
@@ -65,8 +66,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
                         USER_STORAGE_KEY,
                         JSON.stringify(profile.data),
                     );
-                } catch {
-                    // Network unavailable – cached user data is still valid.
+                } catch (profileError: any) {
+                    if (profileError.response?.status === 401) {
+                        // Token is expired/revoked — clear everything so the
+                        // user is sent to the login screen.
+                        setUser(null);
+                        setToken(null);
+                        setAuthToken(null);
+                        await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+                        await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
+                    }
+                    // Non-401 (network unavailable, etc.) — cached user is still valid.
                 }
             }
         } catch (error) {
@@ -81,6 +91,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     useEffect(() => {
         hydrate();
     }, [hydrate]);
+
+    // When any authenticated request returns 401 after hydration, clear auth
+    // state and redirect to login.  This handles expired tokens discovered
+    // mid-session rather than at startup.
+    useEffect(() => {
+        setUnauthenticatedHandler(() => {
+            setUser(null);
+            setToken(null);
+            router.replace("/login");
+        });
+    }, []);
 
     const login = useCallback(
         async ({
@@ -106,14 +127,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 setToken(receivedToken);
                 setUser(receivedUser);
                 setAuthToken(receivedToken);
-                await SecureStore.setItemAsync(
-                    TOKEN_STORAGE_KEY,
-                    receivedToken,
-                );
-                await SecureStore.setItemAsync(
-                    USER_STORAGE_KEY,
-                    JSON.stringify(receivedUser),
-                );
+                // Token and user are intentionally NOT persisted to SecureStore.
+                // When the app is closed and reopened, the in-memory state is
+                // lost and the user must log in again.
             } catch (error: any) {
                 console.error("[Auth] Login error:", error.message);
                 console.error("[Auth] Error details:", {
