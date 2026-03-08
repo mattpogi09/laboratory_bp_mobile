@@ -759,7 +759,18 @@ export default function RefundsScreen() {
                                                         placeholderTextColor="#9CA3AF"
                                                         multiline
                                                         numberOfLines={3}
+                                                        maxLength={500}
                                                     />
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 12,
+                                                            color: "#9CA3AF",
+                                                            textAlign: "right",
+                                                            marginTop: 2,
+                                                        }}
+                                                    >
+                                                        {denyNote.length}/500
+                                                    </Text>
                                                     <View
                                                         style={
                                                             styles.denyActions

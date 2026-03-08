@@ -141,6 +141,18 @@ function fmtDateDisplay(d: Date): string {
     });
 }
 
+/** Safely format a YYYY-MM-DD string (or ISO timestamp) for display, e.g. "Apr 01, 2026" */
+function formatAppointmentDate(val: string | undefined | null): string {
+    if (!val) return "—";
+    const s = String(val);
+    // Extract YYYY-MM-DD from either plain date or ISO timestamp
+    const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return s;
+    // Build Date at local noon to avoid any off-by-one from timezone
+    const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+    return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+}
+
 export default function AppointmentsScreen() {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [stats, setStats] = useState<AppointmentStats | null>(null);
@@ -173,8 +185,10 @@ export default function AppointmentsScreen() {
         reason: "",
     });
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+    const [availableSlots, setAvailableSlots] = useState<{ value: string; label: string }[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
+    const [holidays, setHolidays] = useState<string[]>([]); // YYYY-MM-DD strings
+    const [rescheduleDateError, setRescheduleDateError] = useState("");
 
     const [confirmDialog, setConfirmDialog] = useState({
         visible: false,
@@ -202,9 +216,7 @@ export default function AppointmentsScreen() {
                 if (search) params.search = search;
                 if (statusFilter) params.status = statusFilter;
                 if (filterDate) {
-                    const d = fmtDate(filterDate);
-                    params.date_from = d;
-                    params.date_to = d;
+                    params.date = fmtDate(filterDate);
                 }
 
                 const res = await api.get("/appointments", { params });
@@ -333,9 +345,20 @@ export default function AppointmentsScreen() {
                     { params: { date: rescheduleForm.new_date } },
                 );
                 if (!cancelled)
-                    setAvailableSlots(res.data.slots ?? res.data ?? []);
-            } catch {
-                if (!cancelled) setAvailableSlots([]);
+                    setAvailableSlots(res.data.slots ?? []);
+            } catch (err: any) {
+                if (!cancelled) {
+                    setAvailableSlots([]);
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            err,
+                            "Failed to load available time slots.",
+                        ),
+                        type: "error",
+                    });
+                }
             } finally {
                 if (!cancelled) setLoadingSlots(false);
             }
@@ -345,10 +368,25 @@ export default function AppointmentsScreen() {
         };
     }, [rescheduleForm.new_date, selected]);
 
+    // Load holidays for Sunday/holiday date blocking (current + next year)
+    useEffect(() => {
+        const year = new Date().getFullYear();
+        Promise.all([
+            api.get("/appointments/holidays", { params: { year } }),
+            api.get("/appointments/holidays", { params: { year: year + 1 } }),
+        ])
+            .then(([r1, r2]) => {
+                const all = [...(r1.data ?? []), ...(r2.data ?? [])];
+                setHolidays(all.map((h: { date: string }) => h.date));
+            })
+            .catch(() => {}); // silent — blocking is best-effort
+    }, []);
+
     const openReschedule = () => {
         setRescheduleForm({ new_date: "", new_time: "", reason: "" });
         setAvailableSlots([]);
         setShowDatePicker(false);
+        setRescheduleDateError("");
         setShowRescheduleModal(true);
     };
 
@@ -463,7 +501,7 @@ export default function AppointmentsScreen() {
                 {/* Date + Time */}
                 <View style={styles.cardRow}>
                     <Calendar size={13} color="#9CA3AF" />
-                    <Text style={styles.cardSub}>{item.appointment_date}</Text>
+                    <Text style={styles.cardSub}>{formatAppointmentDate(item.appointment_date)}</Text>
                     <Clock size={13} color="#9CA3AF" />
                     <Text style={styles.cardSub}>
                         {formatTime(String(item.appointment_time))}
@@ -711,7 +749,7 @@ export default function AppointmentsScreen() {
                 onRequestClose={() => setShowDetail(false)}
             >
                 <View style={styles.overlay}>
-                    <View style={[styles.modal, { maxHeight: "90%" }]}>
+                    <View style={[styles.modal, { maxHeight: "90%", flex: 1 }]}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>
                                 Appointment Details
@@ -754,9 +792,7 @@ export default function AppointmentsScreen() {
                                             Date
                                         </Text>
                                         <Text style={styles.detailCardValue}>
-                                            {
-                                                selected.appointment_date as string
-                                            }
+                                            {formatAppointmentDate(selected.appointment_date)}
                                         </Text>
                                     </View>
                                     <View style={styles.detailCardRow}>
@@ -1106,7 +1142,18 @@ export default function AppointmentsScreen() {
                             value={cancelReason}
                             onChangeText={setCancelReason}
                             multiline
+                            maxLength={500}
                         />
+                        <Text
+                            style={{
+                                fontSize: 12,
+                                color: "#9CA3AF",
+                                textAlign: "right",
+                                marginTop: 2,
+                            }}
+                        >
+                            {cancelReason.length}/500
+                        </Text>
                         <Text style={styles.hint}>
                             Patient will be notified via email and SMS.
                         </Text>
@@ -1200,9 +1247,21 @@ export default function AppointmentsScreen() {
                                     if (Platform.OS === "android")
                                         setShowDatePicker(false);
                                     if (date && event.type !== "dismissed") {
-                                        const iso = date
-                                            .toISOString()
-                                            .split("T")[0];
+                                        // Use local date to avoid UTC off-by-one
+                                        const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                                        if (date.getDay() === 0) {
+                                            setRescheduleDateError("Sundays are unavailable for appointments.");
+                                            setRescheduleForm((f) => ({ ...f, new_date: "", new_time: "" }));
+                                            setAvailableSlots([]);
+                                            return;
+                                        }
+                                        if (holidays.includes(iso)) {
+                                            setRescheduleDateError("This date is a holiday and unavailable.");
+                                            setRescheduleForm((f) => ({ ...f, new_date: "", new_time: "" }));
+                                            setAvailableSlots([]);
+                                            return;
+                                        }
+                                        setRescheduleDateError("");
                                         setRescheduleForm((f) => ({
                                             ...f,
                                             new_date: iso,
@@ -1222,6 +1281,11 @@ export default function AppointmentsScreen() {
                                 </Text>
                             </TouchableOpacity>
                         )}
+                        {rescheduleDateError ? (
+                            <Text style={{ color: "#DC2626", fontSize: 12, marginTop: 4, marginBottom: 4 }}>
+                                {rescheduleDateError}
+                            </Text>
+                        ) : null}
 
                         <Text style={[styles.inputLabel, { marginTop: 4 }]}>
                             New Time *
@@ -1249,28 +1313,27 @@ export default function AppointmentsScreen() {
                             <View style={styles.slotsGrid}>
                                 {availableSlots.map((slot) => (
                                     <TouchableOpacity
-                                        key={slot}
+                                        key={slot.value}
                                         style={[
                                             styles.slotBtn,
-                                            rescheduleForm.new_time === slot &&
+                                            rescheduleForm.new_time === slot.value &&
                                                 styles.slotBtnActive,
                                         ]}
                                         onPress={() =>
                                             setRescheduleForm((f) => ({
                                                 ...f,
-                                                new_time: slot,
+                                                new_time: slot.value,
                                             }))
                                         }
                                     >
                                         <Text
                                             style={[
                                                 styles.slotBtnText,
-                                                rescheduleForm.new_time ===
-                                                    slot &&
+                                                rescheduleForm.new_time === slot.value &&
                                                     styles.slotBtnTextActive,
                                             ]}
                                         >
-                                            {slot}
+                                            {slot.label}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
@@ -1286,6 +1349,7 @@ export default function AppointmentsScreen() {
                                         new_time: t,
                                     }))
                                 }
+                                maxLength={5}
                             />
                         )}
                         <Text style={styles.inputLabel}>Reason (optional)</Text>
@@ -1297,7 +1361,18 @@ export default function AppointmentsScreen() {
                                 setRescheduleForm((f) => ({ ...f, reason: t }))
                             }
                             multiline
+                            maxLength={500}
                         />
+                        <Text
+                            style={{
+                                fontSize: 12,
+                                color: "#9CA3AF",
+                                textAlign: "right",
+                                marginTop: 2,
+                            }}
+                        >
+                            {rescheduleForm.reason.length}/500
+                        </Text>
                         <Text style={styles.hint}>
                             Patient will be notified via email and SMS.
                         </Text>

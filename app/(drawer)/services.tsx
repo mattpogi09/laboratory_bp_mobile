@@ -767,11 +767,17 @@ function CreateServiceModal({
                                 placeholder="Enter service name"
                                 maxLength={100}
                             />
-                            {errors.name?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.name[0]}
-                                </Text>
-                            )}
+                            <View style={styles.fieldFooter}>
+                                {errors.name?.[0] ? (
+                                    <Text style={styles.errorText}>
+                                        {errors.name[0]}
+                                    </Text>
+                                ) : (
+                                    <Text style={styles.charCount}>
+                                        {formData.name.length}/100
+                                    </Text>
+                                )}
+                            </View>
                         </View>
 
                         <View style={styles.formGroup}>
@@ -804,11 +810,18 @@ function CreateServiceModal({
                                 ]}
                                 value={formData.price}
                                 onChangeText={(text) => {
-                                    setFormData({ ...formData, price: text });
+                                    const filtered = text
+                                        .replace(/[^0-9.]/g, "")
+                                        .replace(/(\..*)\./, "$1");
+                                    setFormData({
+                                        ...formData,
+                                        price: filtered,
+                                    });
                                     clearError("price");
                                 }}
                                 placeholder="Enter price"
                                 keyboardType="decimal-pad"
+                                maxLength={10}
                             />
                             {errors.price?.[0] && (
                                 <Text style={styles.errorText}>
@@ -835,6 +848,16 @@ function CreateServiceModal({
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {formData.description.length}/1000
+                            </Text>
                             {errors.description?.[0] && (
                                 <Text style={styles.errorText}>
                                     {errors.description[0]}
@@ -977,11 +1000,17 @@ function EditServiceModal({
                                 placeholder="Enter service name"
                                 maxLength={100}
                             />
-                            {errors.name?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.name[0]}
-                                </Text>
-                            )}
+                            <View style={styles.fieldFooter}>
+                                {errors.name?.[0] ? (
+                                    <Text style={styles.errorText}>
+                                        {errors.name[0]}
+                                    </Text>
+                                ) : (
+                                    <Text style={styles.charCount}>
+                                        {formData.name.length}/100
+                                    </Text>
+                                )}
+                            </View>
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1014,11 +1043,18 @@ function EditServiceModal({
                                 ]}
                                 value={formData.price}
                                 onChangeText={(text) => {
-                                    setFormData({ ...formData, price: text });
+                                    const filtered = text
+                                        .replace(/[^0-9.]/g, "")
+                                        .replace(/(\..*)\./g, "$1");
+                                    setFormData({
+                                        ...formData,
+                                        price: filtered,
+                                    });
                                     clearError("price");
                                 }}
                                 placeholder="Enter price"
                                 keyboardType="decimal-pad"
+                                maxLength={10}
                             />
                             {errors.price?.[0] && (
                                 <Text style={styles.errorText}>
@@ -1045,6 +1081,16 @@ function EditServiceModal({
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {formData.description.length}/1000
+                            </Text>
                             {errors.description?.[0] && (
                                 <Text style={styles.errorText}>
                                     {errors.description[0]}
@@ -1543,6 +1589,8 @@ const styles = StyleSheet.create({
     },
     inputError: { borderColor: "#EF4444" },
     errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
+    fieldFooter: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
+    charCount: { fontSize: 12, color: "#9CA3AF" },
     pickerButtonError: { borderColor: "#EF4444" },
     errorContainer: {
         flex: 1,

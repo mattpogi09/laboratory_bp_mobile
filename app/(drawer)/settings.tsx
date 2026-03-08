@@ -10,7 +10,6 @@ import {
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Switch,
@@ -22,7 +21,7 @@ import {
 import api from "@/app/services/api";
 import type { ClinicSettings, LabStaffUser } from "@/types";
 import { getApiErrorMessage } from "@/utils";
-import { SuccessDialog } from "@/components";
+import { ConfirmDialog, SuccessDialog } from "@/components";
 
 const PDF_OPTIONS = [
     { label: "Birthdate (DDMMYYYY)", value: "birthdate" },
@@ -45,6 +44,15 @@ export default function SettingsScreen() {
         title: "",
         message: "",
         type: "success" as "success" | "error" | "info" | "warning",
+    });
+
+    const [confirmDialog, setConfirmDialog] = useState({
+        visible: false,
+        title: "",
+        message: "",
+        confirmText: "Confirm",
+        type: "danger" as "danger" | "warning" | "info",
+        onConfirm: async () => {},
     });
 
     const loadSettings = useCallback(async () => {
@@ -156,42 +164,39 @@ export default function SettingsScreen() {
     };
 
     const handleRemoveSignature = (type: string, userId?: number) => {
-        Alert.alert(
-            "Remove Signature",
-            `Remove the ${type.replace("_", " ")} signature?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Remove",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await api.post("/settings/remove-signature", {
-                                type,
-                                user_id: userId,
-                            });
-                            setSuccessDialog({
-                                visible: true,
-                                title: "Removed",
-                                message: "Signature removed.",
-                                type: "success",
-                            });
-                            loadSettings();
-                        } catch (err: any) {
-                            setSuccessDialog({
-                                visible: true,
-                                title: "Error",
-                                message: getApiErrorMessage(
-                                    err,
-                                    "Failed to remove signature.",
-                                ),
-                                type: "error",
-                            });
-                        }
-                    },
-                },
-            ],
-        );
+        setConfirmDialog({
+            visible: true,
+            title: "Remove Signature",
+            message: `Remove the ${type.replace("_", " ")} signature?`,
+            confirmText: "REMOVE",
+            type: "danger",
+            onConfirm: async () => {
+                setConfirmDialog((d) => ({ ...d, visible: false }));
+                try {
+                    await api.post("/settings/remove-signature", {
+                        type,
+                        user_id: userId,
+                    });
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Removed",
+                        message: "Signature removed.",
+                        type: "success",
+                    });
+                    loadSettings();
+                } catch (err: any) {
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            err,
+                            "Failed to remove signature.",
+                        ),
+                        type: "error",
+                    });
+                }
+            },
+        });
     };
 
     if (loading) {
@@ -537,6 +542,17 @@ export default function SettingsScreen() {
                 type={successDialog.type}
                 onClose={() =>
                     setSuccessDialog((d) => ({ ...d, visible: false }))
+                }
+            />
+            <ConfirmDialog
+                visible={confirmDialog.visible}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                confirmText={confirmDialog.confirmText}
+                type={confirmDialog.type}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() =>
+                    setConfirmDialog((d) => ({ ...d, visible: false }))
                 }
             />
         </View>

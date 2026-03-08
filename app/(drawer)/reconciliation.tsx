@@ -191,7 +191,12 @@ export default function ReconciliationScreen() {
     };
 
     const handleCreate = async () => {
-        if (!actualCash || parseFloat(actualCash) < 0) {
+        if (
+            !actualCash ||
+            isNaN(parseFloat(actualCash)) ||
+            parseFloat(actualCash) < 0 ||
+            parseFloat(actualCash) > 9999999.99
+        ) {
             setSuccessDialog({
                 visible: true,
                 title: "Error",
@@ -758,8 +763,14 @@ export default function ReconciliationScreen() {
                             style={styles.input}
                             placeholder="Enter actual cash amount"
                             value={actualCash}
-                            onChangeText={setActualCash}
+                            onChangeText={(text) => {
+                                const filtered = text
+                                    .replace(/[^0-9.]/g, "")
+                                    .replace(/(\..*)\./g, "$1");
+                                setActualCash(filtered);
+                            }}
                             keyboardType="decimal-pad"
+                            maxLength={12}
                         />
 
                         <Text style={styles.inputLabel}>Notes (Optional)</Text>
@@ -771,7 +782,18 @@ export default function ReconciliationScreen() {
                             multiline
                             numberOfLines={4}
                             textAlignVertical="top"
+                            maxLength={500}
                         />
+                        <Text
+                            style={{
+                                fontSize: 12,
+                                color: "#9CA3AF",
+                                textAlign: "right",
+                                marginTop: 2,
+                            }}
+                        >
+                            {notes.length}/500
+                        </Text>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity

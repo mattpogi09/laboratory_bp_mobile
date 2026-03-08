@@ -98,10 +98,25 @@ export default function AppointmentCalendarScreen() {
             const dateFrom = fmt(y, m, 1);
             const lastDay = new Date(y, m + 1, 0).getDate();
             const dateTo = fmt(y, m, lastDay);
-            const res = await api.get("/appointments", {
-                params: { date_from: dateFrom, date_to: dateTo, per_page: 200 },
+            const res = await api.get("/appointments/calendar-events", {
+                params: { start: dateFrom, end: dateTo },
             });
-            setAppointments(res.data.data ?? []);
+            // calendar-events wraps fields inside extendedProps — map to Appointment shape
+            const mapped: Appointment[] = (res.data ?? []).map((event: any) => ({
+                id: event.id,
+                reference_number: event.extendedProps.reference_number,
+                patient_name: event.extendedProps.patient_name,
+                patient_email: event.extendedProps.patient_email,
+                patient_phone: event.extendedProps.patient_phone,
+                appointment_date: event.extendedProps.appointment_date,
+                appointment_time: event.extendedProps.appointment_time,
+                status: event.extendedProps.status,
+                priority_level: event.extendedProps.priority_level,
+                tests: (event.extendedProps.tests ?? []).map((name: string) => ({ name, price: 0 })),
+                total_amount: event.extendedProps.total_amount,
+                created_at: "",
+            }));
+            setAppointments(mapped);
         } catch (err: any) {
             setLoadError(
                 getApiErrorMessage(err, "Failed to load appointments."),

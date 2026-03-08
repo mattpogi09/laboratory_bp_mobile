@@ -91,6 +91,7 @@ export default function InventoryCategoriesScreen() {
 
     const handleCreate = async () => {
         if (!form.name.trim()) return;
+        if (form.description.length > 500) return;
         try {
             await api.post("/inventory-categories", form);
             setShowCreateModal(false);
@@ -113,6 +114,7 @@ export default function InventoryCategoriesScreen() {
 
     const handleUpdate = async () => {
         if (!selected || !form.name.trim()) return;
+        if (form.description.length > 500) return;
         try {
             await api.put(`/inventory-categories/${selected.id}`, form);
             setShowEditModal(false);
@@ -372,7 +374,21 @@ export default function InventoryCategoriesScreen() {
                                     setForm((f) => ({ ...f, description: t }))
                                 }
                                 multiline
+                                maxLength={500}
                             />
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    color:
+                                        form.description.length >= 480
+                                            ? "#EF4444"
+                                            : "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {form.description.length}/500
+                            </Text>
                             <View style={styles.modalActions}>
                                 <TouchableOpacity
                                     style={styles.cancelBtn}

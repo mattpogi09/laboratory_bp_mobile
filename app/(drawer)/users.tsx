@@ -199,9 +199,10 @@ export default function UsersScreen() {
                     setSuccessDialog({
                         visible: true,
                         title: "Error",
-                        message:
-                            error.response?.data?.message ||
+                        message: getApiErrorMessage(
+                            error,
                             "Failed to toggle user status",
+                        ),
                         type: "error",
                     });
                 }
@@ -602,6 +603,8 @@ function CreateUserModal({
         test_categories: [] as string[],
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -634,6 +637,20 @@ function CreateUserModal({
             errs.password = ["Password must be at least 8 characters."];
         else if (formData.password.length > 100)
             errs.password = ["Password cannot exceed 100 characters."];
+        else if (!/[a-z]/.test(formData.password))
+            errs.password = [
+                "Password must contain at least one lowercase letter.",
+            ];
+        else if (!/[A-Z]/.test(formData.password))
+            errs.password = [
+                "Password must contain at least one uppercase letter.",
+            ];
+        else if (!/\d/.test(formData.password))
+            errs.password = ["Password must contain at least one number."];
+        if (!confirmPassword)
+            errs.confirmPassword = ["Please confirm your password."];
+        else if (formData.password && confirmPassword !== formData.password)
+            errs.confirmPassword = ["Passwords do not match."];
         if (!formData.role) errs.role = ["Role is required."];
         return errs;
     };
@@ -657,6 +674,7 @@ function CreateUserModal({
                 professional_title: "",
                 test_categories: [],
             });
+            setConfirmPassword("");
             setErrors({});
             onClose();
         } catch (err: any) {
@@ -802,6 +820,48 @@ function CreateUserModal({
                         </View>
 
                         <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Confirm Password
+                            </Text>
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.confirmPassword &&
+                                            styles.inputError,
+                                    ]}
+                                    value={confirmPassword}
+                                    onChangeText={(text) => {
+                                        setConfirmPassword(text);
+                                        clearError("confirmPassword");
+                                    }}
+                                    placeholder="Re-enter password"
+                                    secureTextEntry={!showConfirmPassword}
+                                    maxLength={100}
+                                />
+                                <TouchableOpacity
+                                    style={styles.passwordToggle}
+                                    onPress={() =>
+                                        setShowConfirmPassword(
+                                            !showConfirmPassword,
+                                        )
+                                    }
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeOff color="#6B7280" size={20} />
+                                    ) : (
+                                        <Eye color="#6B7280" size={20} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                            {errors.confirmPassword?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.confirmPassword[0]}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Role</Text>
                             <RolePicker
                                 selectedValue={formData.role}
@@ -855,10 +915,14 @@ function CreateUserModal({
                                 onChangeText={(text) =>
                                     setFormData({
                                         ...formData,
-                                        license_number: text,
+                                        license_number: text.replace(
+                                            /[^0-9]/g,
+                                            "",
+                                        ),
                                     })
                                 }
                                 placeholder="e.g. 0083687"
+                                keyboardType="number-pad"
                                 maxLength={7}
                             />
                         </View>
@@ -1083,6 +1147,7 @@ function TitlePicker({
                     onChangeText={onChange}
                     placeholder="Type title manually..."
                     autoFocus
+                    maxLength={100}
                 />
             )}
             <Modal visible={showPicker} transparent animationType="fade">
@@ -1277,6 +1342,8 @@ function EditUserModal({
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1291,15 +1358,37 @@ function EditUserModal({
     const validate = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.name.trim()) errs.name = ["Name is required."];
+        else if (formData.name.length > 100)
+            errs.name = ["Name cannot exceed 100 characters."];
         if (!formData.username.trim())
             errs.username = ["Username is required."];
         else if (/\s/.test(formData.username))
             errs.username = ["Username must not contain spaces."];
+        else if (formData.username.length > 50)
+            errs.username = ["Username cannot exceed 50 characters."];
         if (!formData.email.trim()) errs.email = ["Email is required."];
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
             errs.email = ["Enter a valid email address."];
-        if (formData.password && formData.password.length < 8)
-            errs.password = ["Password must be at least 8 characters."];
+        if (formData.password) {
+            if (formData.password.length < 8)
+                errs.password = ["Password must be at least 8 characters."];
+            else if (formData.password.length > 100)
+                errs.password = ["Password cannot exceed 100 characters."];
+            else if (!/[a-z]/.test(formData.password))
+                errs.password = [
+                    "Password must contain at least one lowercase letter.",
+                ];
+            else if (!/[A-Z]/.test(formData.password))
+                errs.password = [
+                    "Password must contain at least one uppercase letter.",
+                ];
+            else if (!/\d/.test(formData.password))
+                errs.password = ["Password must contain at least one number."];
+            if (!confirmPassword)
+                errs.confirmPassword = ["Please confirm your new password."];
+            else if (confirmPassword !== formData.password)
+                errs.confirmPassword = ["Passwords do not match."];
+        }
         if (!formData.role) errs.role = ["Role is required."];
         return errs;
     };
@@ -1318,6 +1407,7 @@ function EditUserModal({
             }
             await onSubmit(user.id, submitData);
             setErrors({});
+            setConfirmPassword("");
             setFormData({ ...formData, password: "" });
             onClose();
         } catch (err: any) {
@@ -1473,10 +1563,14 @@ function EditUserModal({
                                 onChangeText={(text) =>
                                     setFormData({
                                         ...formData,
-                                        license_number: text,
+                                        license_number: text.replace(
+                                            /[^0-9]/g,
+                                            "",
+                                        ),
                                     })
                                 }
                                 placeholder="e.g. 0083687"
+                                keyboardType="number-pad"
                                 maxLength={7}
                             />
                         </View>
@@ -1591,6 +1685,48 @@ function EditUserModal({
                             <PasswordStrengthChecker
                                 password={formData.password}
                             />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Confirm New Password
+                            </Text>
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.confirmPassword &&
+                                            styles.inputError,
+                                    ]}
+                                    value={confirmPassword}
+                                    onChangeText={(text) => {
+                                        setConfirmPassword(text);
+                                        clearError("confirmPassword");
+                                    }}
+                                    placeholder="Re-enter new password"
+                                    secureTextEntry={!showConfirmPassword}
+                                    maxLength={100}
+                                />
+                                <TouchableOpacity
+                                    style={styles.passwordToggle}
+                                    onPress={() =>
+                                        setShowConfirmPassword(
+                                            !showConfirmPassword,
+                                        )
+                                    }
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeOff color="#6B7280" size={20} />
+                                    ) : (
+                                        <Eye color="#6B7280" size={20} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                            {errors.confirmPassword?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.confirmPassword[0]}
+                                </Text>
+                            )}
                         </View>
                     </ScrollView>
 

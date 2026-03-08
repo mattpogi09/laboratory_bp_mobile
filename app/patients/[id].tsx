@@ -789,7 +789,10 @@ export default function PatientDetails() {
                                             onChangeText={(text) =>
                                                 setFormData((prev) => ({
                                                     ...prev,
-                                                    first_name: text,
+                                                    first_name: text.replace(
+                                                        /[^a-zA-ZÀ-ÿ\s'\-]/g,
+                                                        "",
+                                                    ),
                                                 }))
                                             }
                                             placeholder="Juan"
@@ -818,7 +821,10 @@ export default function PatientDetails() {
                                             onChangeText={(text) =>
                                                 setFormData((prev) => ({
                                                     ...prev,
-                                                    last_name: text,
+                                                    last_name: text.replace(
+                                                        /[^a-zA-ZÀ-ÿ\s'\-]/g,
+                                                        "",
+                                                    ),
                                                 }))
                                             }
                                             placeholder="Dela Cruz"
@@ -841,7 +847,10 @@ export default function PatientDetails() {
                                         onChangeText={(text) =>
                                             setFormData((prev) => ({
                                                 ...prev,
-                                                middle_name: text,
+                                                middle_name: text.replace(
+                                                    /[^a-zA-ZÀ-ÿ\s'\-]/g,
+                                                    "",
+                                                ),
                                             }))
                                         }
                                         placeholder="Optional"
@@ -859,19 +868,12 @@ export default function PatientDetails() {
                                         <TextInput
                                             style={[
                                                 styles.input,
+                                                styles.inputReadOnly,
                                                 errors.age && styles.inputError,
                                             ]}
                                             value={formData.age}
-                                            onChangeText={(text) =>
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    age: text.replace(
-                                                        /[^0-9]/g,
-                                                        "",
-                                                    ),
-                                                }))
-                                            }
-                                            placeholder="25"
+                                            editable={false}
+                                            placeholder="Auto-calculated"
                                             keyboardType="numeric"
                                         />
                                         {errors.age && (
@@ -995,11 +997,14 @@ export default function PatientDetails() {
                                 onChangeText={(text) =>
                                     setFormData((prev) => ({
                                         ...prev,
-                                        contact_number: text,
+                                        contact_number: text
+                                            .replace(/[^0-9]/g, "")
+                                            .slice(0, 11),
                                     }))
                                 }
                                 placeholder="09123456789"
                                 keyboardType="phone-pad"
+                                maxLength={11}
                             />
                             {errors.contact_number && (
                                 <Text style={styles.errorText}>
@@ -1962,6 +1967,10 @@ const styles = StyleSheet.create({
     },
     inputError: {
         borderColor: "#DC2626",
+    },
+    inputReadOnly: {
+        backgroundColor: "#F3F4F6",
+        color: "#6B7280",
     },
     errorText: {
         color: "#DC2626",

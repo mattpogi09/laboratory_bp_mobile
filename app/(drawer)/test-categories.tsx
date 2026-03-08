@@ -38,6 +38,17 @@ export default function TestCategoriesScreen() {
     const [selected, setSelected] = useState<TestCategory | null>(null);
 
     const [form, setForm] = useState({ name: "", description: "" });
+    const [formErrors, setFormErrors] = useState<{ name?: string; description?: string }>({});
+
+    const validateForm = () => {
+        const errs: { name?: string; description?: string } = {};
+        if (!form.name.trim()) errs.name = "Category name is required.";
+        else if (form.name.length > 50) errs.name = "Category name cannot exceed 50 characters.";
+        if (form.description && form.description.length > 500)
+            errs.description = "Description cannot exceed 500 characters.";
+        setFormErrors(errs);
+        return Object.keys(errs).length === 0;
+    };
 
     const [confirmDialog, setConfirmDialog] = useState({
         visible: false,
@@ -80,38 +91,23 @@ export default function TestCategoriesScreen() {
 
     const openCreate = () => {
         setForm({ name: "", description: "" });
+        setFormErrors({});
         setShowCreateModal(true);
     };
 
     const openEdit = (cat: TestCategory) => {
         setSelected(cat);
         setForm({ name: cat.name, description: cat.description ?? "" });
+        setFormErrors({});
         setShowEditModal(true);
     };
 
     const handleCreate = async () => {
-        if (!form.name.trim()) return;
-        if (form.name.length > 50) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: "Category name cannot exceed 50 characters.",
-                type: "error",
-            });
-            return;
-        }
-        if (form.description && form.description.length > 500) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: "Description cannot exceed 500 characters.",
-                type: "error",
-            });
-            return;
-        }
+        if (!validateForm()) return;
         try {
             await api.post("/test-categories", form);
             setShowCreateModal(false);
+            setFormErrors({});
             setSuccessDialog({
                 visible: true,
                 title: "Created",
@@ -120,39 +116,26 @@ export default function TestCategoriesScreen() {
             });
             loadCategories();
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to create category."),
-                type: "error",
-            });
+            if (err.response?.data?.errors) {
+                setFormErrors(err.response.data.errors);
+            } else {
+                setSuccessDialog({
+                    visible: true,
+                    title: "Error",
+                    message: getApiErrorMessage(err, "Failed to create category."),
+                    type: "error",
+                });
+            }
         }
     };
 
     const handleUpdate = async () => {
-        if (!selected || !form.name.trim()) return;
-        if (form.name.length > 50) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: "Category name cannot exceed 50 characters.",
-                type: "error",
-            });
-            return;
-        }
-        if (form.description && form.description.length > 500) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: "Description cannot exceed 500 characters.",
-                type: "error",
-            });
-            return;
-        }
+        if (!selected || !validateForm()) return;
         try {
             await api.put(`/test-categories/${selected.id}`, form);
             setShowEditModal(false);
             setSelected(null);
+            setFormErrors({});
             setSuccessDialog({
                 visible: true,
                 title: "Updated",
@@ -161,12 +144,16 @@ export default function TestCategoriesScreen() {
             });
             loadCategories();
         } catch (err: any) {
-            setSuccessDialog({
-                visible: true,
-                title: "Error",
-                message: getApiErrorMessage(err, "Failed to update category."),
-                type: "error",
-            });
+            if (err.response?.data?.errors) {
+                setFormErrors(err.response.data.errors);
+            } else {
+                setSuccessDialog({
+                    visible: true,
+                    title: "Error",
+                    message: getApiErrorMessage(err, "Failed to update category."),
+                    type: "error",
+                });
+            }
         }
     };
 
@@ -378,24 +365,57 @@ export default function TestCategoriesScreen() {
                                 </TouchableOpacity>
                             </View>
                             <TextInput
-                                style={styles.input}
+                                style={[
+                                    styles.input,
+                                    formErrors.name && styles.inputError,
+                                ]}
                                 placeholder="Category name *"
                                 value={form.name}
-                                onChangeText={(t) =>
-                                    setForm((f) => ({ ...f, name: t }))
-                                }
+                                onChangeText={(t) => {
+                                    setForm((f) => ({ ...f, name: t }));
+                                    if (formErrors.name)
+                                        setFormErrors((e) => ({ ...e, name: undefined }));
+                                }}
                                 maxLength={50}
                             />
+                            <View style={styles.fieldFooter}>
+                                {formErrors.name ? (
+                                    <Text style={styles.errorText}>
+                                        {formErrors.name}
+                                    </Text>
+                                ) : (
+                                    <Text style={styles.charCount}>
+                                        {form.name.length}/50
+                                    </Text>
+                                )}
+                            </View>
                             <TextInput
-                                style={[styles.input, { height: 80 }]}
+                                style={[
+                                    styles.input,
+                                    { height: 80 },
+                                    formErrors.description && styles.inputError,
+                                ]}
                                 placeholder="Description (optional)"
                                 value={form.description}
-                                onChangeText={(t) =>
-                                    setForm((f) => ({ ...f, description: t }))
-                                }
+                                onChangeText={(t) => {
+                                    setForm((f) => ({ ...f, description: t }));
+                                    if (formErrors.description)
+                                        setFormErrors((e) => ({ ...e, description: undefined }));
+                                }}
                                 multiline
                                 maxLength={500}
                             />
+                            <View style={styles.fieldFooter}>
+                                {formErrors.description ? (
+                                    <Text style={styles.errorText}>
+                                        {formErrors.description}
+                                    </Text>
+                                ) : (
+                                    <Text style={styles.charCount}>
+                                        {form.description.length}/500
+                                    </Text>
+                                )}
+                            </View>
                             <View style={styles.modalActions}>
                                 <TouchableOpacity
                                     style={styles.cancelBtn}
@@ -549,8 +569,12 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 14,
         color: "#111827",
-        marginBottom: 12,
+        marginBottom: 4,
     },
+    inputError: { borderColor: "#EF4444" },
+    fieldFooter: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 },
+    errorText: { fontSize: 12, color: "#EF4444" },
+    charCount: { fontSize: 12, color: "#9CA3AF" },
     modalActions: { flexDirection: "row", gap: 10, marginTop: 4 },
     cancelBtn: {
         flex: 1,

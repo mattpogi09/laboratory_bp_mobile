@@ -20,10 +20,7 @@ import {
     View,
 } from "react-native";
 import { LineChart, PieChart } from "react-native-gifted-charts";
-import {
-    SafeAreaView,
-    useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
@@ -301,7 +298,7 @@ export default function Dashboard() {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
             <StatusBar style="dark" />
             <ScrollView
                 contentContainerStyle={[
@@ -671,13 +668,23 @@ export default function Dashboard() {
                             key={`${task.patient}-${index}`}
                             style={styles.taskRow}
                         >
-                            <View>
-                                <Text style={styles.taskPatient}>
+                            <View style={styles.taskLeft}>
+                                <Text
+                                    style={styles.taskPatient}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                >
                                     {task.patient}
                                 </Text>
-                                <Text style={styles.taskTest}>{task.test}</Text>
+                                <Text
+                                    style={styles.taskTest}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                >
+                                    {task.test}
+                                </Text>
                             </View>
-                            <View style={{ alignItems: "flex-end" }}>
+                            <View style={styles.taskRight}>
                                 <Text style={styles.taskTime}>{task.time}</Text>
                                 <View
                                     style={[
@@ -716,7 +723,7 @@ export default function Dashboard() {
                     )}
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -863,17 +870,30 @@ const styles = StyleSheet.create({
     taskRow: {
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "flex-start",
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: "#F3F4F6",
+        flexWrap: "wrap",
+        gap: 6,
     },
-    taskPatient: { fontWeight: "600", color: "#111827" },
-    taskTest: { fontSize: 13, color: "#6B7280" },
+    taskLeft: {
+        flexShrink: 1,
+        flexGrow: 1,
+        minWidth: 0,
+    },
+    taskRight: {
+        alignItems: "flex-end",
+        flexShrink: 0,
+    },
+    taskPatient: { fontWeight: "600", color: "#111827", flexShrink: 1 },
+    taskTest: { fontSize: 13, color: "#6B7280", flexShrink: 1 },
     taskTime: { color: "#9CA3AF", fontSize: 12, marginBottom: 4 },
     statusPill: {
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 999,
+        overflow: "hidden",
     },
     statusPending: { backgroundColor: "#FEE2E2" },
     statusProcessing: { backgroundColor: "#FEF3C7" },
