@@ -34,7 +34,12 @@ import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog, TransactionLogTab } from "@/components";
+import {
+    ConfirmDialog,
+    SkeletonRow,
+    SuccessDialog,
+    TransactionLogTab,
+} from "@/components";
 
 type InventoryItem = {
     id: number;
@@ -560,83 +565,99 @@ export default function InventoryScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Status Summary 2x2 Grid */}
+                            {/* Status Summary Grid */}
                             <View style={styles.summaryGrid}>
-                                <View style={styles.summaryRow}>
-                                    <View
+                                <View
+                                    style={[
+                                        styles.summaryCard,
+                                        styles.summaryCardTotal,
+                                    ]}
+                                >
+                                    <Text
                                         style={[
-                                            styles.summaryCard,
-                                            { borderLeftColor: "#1D4ED8" },
+                                            styles.summaryValue,
+                                            { color: "#1E3A8A" },
                                         ]}
                                     >
-                                        <Text style={styles.summaryLabel}>
-                                            Total Items
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.summaryValue,
-                                                { color: "#1D4ED8" },
-                                            ]}
-                                        >
-                                            {summary?.total_items ?? 0}
-                                        </Text>
-                                    </View>
-                                    <View
+                                        {summary?.total_items ?? 0}
+                                    </Text>
+                                    <Text
                                         style={[
-                                            styles.summaryCard,
-                                            { borderLeftColor: "#10B981" },
+                                            styles.summaryLabel,
+                                            { color: "#1E40AF" },
                                         ]}
                                     >
-                                        <Text style={styles.summaryLabel}>
-                                            Good
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.summaryValue,
-                                                { color: "#10B981" },
-                                            ]}
-                                        >
-                                            {summary?.good ?? 0}
-                                        </Text>
-                                    </View>
+                                        Total Items
+                                    </Text>
                                 </View>
-                                <View style={styles.summaryRow}>
-                                    <View
+                                <View
+                                    style={[
+                                        styles.summaryCard,
+                                        styles.summaryCardGood,
+                                    ]}
+                                >
+                                    <Text
                                         style={[
-                                            styles.summaryCard,
-                                            { borderLeftColor: "#F59E0B" },
+                                            styles.summaryValue,
+                                            { color: "#065F46" },
                                         ]}
                                     >
-                                        <Text style={styles.summaryLabel}>
-                                            Low Stock
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.summaryValue,
-                                                { color: "#F59E0B" },
-                                            ]}
-                                        >
-                                            {summary?.low_stock ?? 0}
-                                        </Text>
-                                    </View>
-                                    <View
+                                        {summary?.good ?? 0}
+                                    </Text>
+                                    <Text
                                         style={[
-                                            styles.summaryCard,
-                                            { borderLeftColor: "#DC2626" },
+                                            styles.summaryLabel,
+                                            { color: "#047857" },
                                         ]}
                                     >
-                                        <Text style={styles.summaryLabel}>
-                                            Out of Stock
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.summaryValue,
-                                                { color: "#DC2626" },
-                                            ]}
-                                        >
-                                            {summary?.out_of_stock ?? 0}
-                                        </Text>
-                                    </View>
+                                        Good
+                                    </Text>
+                                </View>
+                                <View
+                                    style={[
+                                        styles.summaryCard,
+                                        styles.summaryCardLowStock,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.summaryValue,
+                                            { color: "#92400E" },
+                                        ]}
+                                    >
+                                        {summary?.low_stock ?? 0}
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.summaryLabel,
+                                            { color: "#78350F" },
+                                        ]}
+                                    >
+                                        Low Stock
+                                    </Text>
+                                </View>
+                                <View
+                                    style={[
+                                        styles.summaryCard,
+                                        styles.summaryCardOutOfStock,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.summaryValue,
+                                            { color: "#991B1B" },
+                                        ]}
+                                    >
+                                        {summary?.out_of_stock ?? 0}
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.summaryLabel,
+                                            { color: "#B91C1C" },
+                                        ]}
+                                    >
+                                        Out of Stock
+                                    </Text>
                                 </View>
                             </View>
 
@@ -3006,23 +3027,44 @@ const styles = StyleSheet.create({
         color: "#111827",
     },
     summaryGrid: {
-        gap: 10,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
         marginBottom: 16,
     },
-    summaryRow: {
-        flexDirection: "row",
-        gap: 10,
-    },
     summaryCard: {
-        flex: 1,
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        paddingVertical: 14,
-        alignItems: "center",
-        borderLeftWidth: 4,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        width: "46%",
+        flexGrow: 1,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
     },
-    summaryLabel: { color: "#6B7280", fontSize: 12, textAlign: "center" },
-    summaryValue: { fontSize: 22, fontWeight: "700", textAlign: "center" },
+    summaryCardTotal: {
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+    },
+    summaryCardGood: {
+        backgroundColor: "#ECFDF5",
+        borderWidth: 1,
+        borderColor: "#A7F3D0",
+    },
+    summaryCardLowStock: {
+        backgroundColor: "#FFFBEB",
+        borderWidth: 1,
+        borderColor: "#FDE68A",
+    },
+    summaryCardOutOfStock: {
+        backgroundColor: "#FEF2F2",
+        borderWidth: 1,
+        borderColor: "#FECACA",
+    },
+    summaryLabel: { color: "#6B7280", fontSize: 11, marginTop: 2 },
+    summaryValue: { fontSize: 22, fontWeight: "700" },
     categorySummarySection: {
         marginBottom: 16,
     },

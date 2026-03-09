@@ -62,6 +62,8 @@ interface Stats {
     shortage_count: number;
     total_overage: number;
     total_shortage: number;
+    total_variance: number;
+    accuracy_rate: number;
 }
 
 export default function ReconciliationScreen() {
@@ -342,8 +344,8 @@ export default function ReconciliationScreen() {
                         {item.status === "balanced"
                             ? "Balanced"
                             : item.status === "overage"
-                              ? "Cash Excess"
-                              : "Cash Short"}
+                              ? "Above Expected"
+                              : "Below Expected"}
                     </Text>
                 </View>
             </View>
@@ -507,6 +509,7 @@ export default function ReconciliationScreen() {
             {/* Stats Cards - Admin Only */}
             {isAdmin && stats && (
                 <View style={styles.statsContainer}>
+                    {/* Total Reconciliations */}
                     <View style={styles.statCard}>
                         <Clipboard
                             color="#6B7280"
@@ -521,60 +524,99 @@ export default function ReconciliationScreen() {
                             {stats.total_reconciliations}
                         </Text>
                         <Text style={styles.statLabel} numberOfLines={1}>
-                            Total
+                            Total Reconciliations
                         </Text>
                     </View>
-                    <View style={styles.statCard}>
+
+                    {/* Balanced */}
+                    <View style={[styles.statCard, styles.statCardGreen]}>
                         <CheckCircle2
                             color="#10B981"
                             size={18}
                             strokeWidth={2.5}
                         />
                         <Text
-                            style={[styles.statValue, { color: "#10B981" }]}
+                            style={[styles.statValue, { color: "#065F46" }]}
                             numberOfLines={1}
                             adjustsFontSizeToFit
                         >
                             {stats.balanced_count}
                         </Text>
-                        <Text style={styles.statLabel} numberOfLines={1}>
+                        <Text
+                            style={[styles.statSubValue, { color: "#059669" }]}
+                            numberOfLines={1}
+                        >
+                            {stats.accuracy_rate}% accuracy
+                        </Text>
+                        <Text
+                            style={[styles.statLabel, { color: "#047857" }]}
+                            numberOfLines={1}
+                        >
                             Balanced
                         </Text>
                     </View>
-                    <View style={styles.statCard}>
+
+                    {/* Total Above Expected */}
+                    <View style={[styles.statCard, styles.statCardBlue]}>
                         <TrendingUp
                             color="#3B82F6"
                             size={18}
                             strokeWidth={2.5}
                         />
                         <Text
-                            style={[styles.statValue, { color: "#3B82F6" }]}
-                            numberOfLines={2}
+                            style={[styles.statValue, { color: "#1E3A8A" }]}
+                            numberOfLines={1}
                             adjustsFontSizeToFit
-                            minimumFontScale={0.5}
                         >
-                            ₱{stats.total_overage.toLocaleString()}
+                            ₱
+                            {stats.total_overage.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                            })}
                         </Text>
-                        <Text style={styles.statLabel} numberOfLines={1}>
-                            Cash Excess
+                        <Text
+                            style={[styles.statSubValue, { color: "#2563EB" }]}
+                            numberOfLines={1}
+                        >
+                            {stats.overage_count} occurrences
+                        </Text>
+                        <Text
+                            style={[styles.statLabel, { color: "#1E40AF" }]}
+                            numberOfLines={1}
+                        >
+                            Total Above Expected
                         </Text>
                     </View>
-                    <View style={styles.statCard}>
+
+                    {/* Total Below Expected */}
+                    <View style={[styles.statCard, styles.statCardRed]}>
                         <TrendingDown
                             color="#EF4444"
                             size={18}
                             strokeWidth={2.5}
                         />
                         <Text
-                            style={[styles.statValue, { color: "#EF4444" }]}
-                            numberOfLines={2}
+                            style={[styles.statValue, { color: "#991B1B" }]}
+                            numberOfLines={1}
                             adjustsFontSizeToFit
-                            minimumFontScale={0.5}
                         >
-                            ₱{Math.abs(stats.total_shortage).toLocaleString()}
+                            ₱
+                            {stats.total_shortage.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                            })}
                         </Text>
-                        <Text style={styles.statLabel} numberOfLines={1}>
-                            Cash Short
+                        <Text
+                            style={[styles.statSubValue, { color: "#DC2626" }]}
+                            numberOfLines={1}
+                        >
+                            {stats.shortage_count} occurrences
+                        </Text>
+                        <Text
+                            style={[styles.statLabel, { color: "#B91C1C" }]}
+                            numberOfLines={1}
+                        >
+                            Total Below Expected
                         </Text>
                     </View>
                 </View>
@@ -603,12 +645,12 @@ export default function ReconciliationScreen() {
                 >
                     <Text style={styles.dropdownText}>
                         {statusFilter === ""
-                            ? "All Reconciliations"
+                            ? "All Status"
                             : statusFilter === "balanced"
                               ? "Balanced"
                               : statusFilter === "overage"
-                                ? "Overage"
-                                : "Shortage"}
+                                ? "Above Expected"
+                                : "Below Expected"}
                     </Text>
                     <ChevronDown color="#6B7280" size={20} />
                 </TouchableOpacity>
@@ -629,7 +671,7 @@ export default function ReconciliationScreen() {
                                         styles.dropdownItemTextActive,
                                 ]}
                             >
-                                All Reconciliations
+                                All Status
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -663,7 +705,7 @@ export default function ReconciliationScreen() {
                                         styles.dropdownItemTextActive,
                                 ]}
                             >
-                                Overage
+                                Above Expected
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -680,7 +722,7 @@ export default function ReconciliationScreen() {
                                         styles.dropdownItemTextActive,
                                 ]}
                             >
-                                Shortage
+                                Below Expected
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -859,27 +901,51 @@ const styles = StyleSheet.create({
     },
     statsContainer: {
         flexDirection: "row",
-        padding: 16,
-        gap: 12,
+        flexWrap: "wrap",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        gap: 8,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
     },
     statCard: {
-        flex: 1,
+        width: "46%",
+        flexGrow: 1,
         backgroundColor: "#fff",
-        borderRadius: 16,
-        padding: 12,
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 10,
         alignItems: "center",
         justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 3,
-        minHeight: 100,
-        maxWidth: "25%",
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
+    },
+    statCardGreen: {
+        backgroundColor: "#ECFDF5",
+        borderColor: "#A7F3D0",
+    },
+    statCardBlue: {
+        backgroundColor: "#EFF6FF",
+        borderColor: "#BFDBFE",
+    },
+    statCardRed: {
+        backgroundColor: "#FEF2F2",
+        borderColor: "#FECACA",
     },
     statIcon: {
         fontSize: 24,
         marginBottom: 8,
+    },
+    statSubValue: {
+        fontSize: 11,
+        color: "#6B7280",
+        textAlign: "center",
+        marginTop: 1,
     },
     amountLabelRow: {
         flexDirection: "row",
@@ -888,15 +954,15 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     statValue: {
-        fontSize: 15,
+        fontSize: 18,
         fontWeight: "700",
         color: "#111827",
-        marginTop: 8,
-        marginBottom: 4,
+        marginTop: 6,
+        marginBottom: 2,
         textAlign: "center",
     },
     statLabel: {
-        fontSize: 11,
+        fontSize: 10,
         color: "#6B7280",
         fontWeight: "500",
         textAlign: "center",
