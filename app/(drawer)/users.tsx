@@ -37,6 +37,7 @@ type User = {
     username: string;
     email: string;
     role: "admin" | "lab_staff" | "cashier";
+    lab_role: "staff" | "chief_med_tech" | "pathologist" | null;
     is_active: boolean;
     license_number: string | null;
     professional_title: string | null;
@@ -417,6 +418,18 @@ export default function UsersScreen() {
                                     </Text>
                                 </View>
                             ) : null}
+                            {item.role === "lab_staff" && item.lab_role ? (
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>PDF Role:</Text>
+                                    <Text style={styles.infoValue}>
+                                        {item.lab_role === "pathologist"
+                                            ? "Pathologist"
+                                            : item.lab_role === "chief_med_tech"
+                                              ? "Chief MedTech"
+                                              : "Lab Staff"}
+                                    </Text>
+                                </View>
+                            ) : null}
                             {item.role === "lab_staff" &&
                             item.test_categories?.length > 0 ? (
                                 <View
@@ -601,6 +614,7 @@ function CreateUserModal({
         license_number: "",
         professional_title: "",
         test_categories: [] as string[],
+        lab_role: "staff" as "staff" | "chief_med_tech" | "pathologist",
     });
     const [showPassword, setShowPassword] = useState(false);
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -673,6 +687,7 @@ function CreateUserModal({
                 license_number: "",
                 professional_title: "",
                 test_categories: [],
+                lab_role: "staff",
             });
             setConfirmPassword("");
             setErrors({});
@@ -991,6 +1006,19 @@ function CreateUserModal({
                                         );
                                     })}
                                 </View>
+                            </View>
+                        )}
+
+                        {formData.role === "lab_staff" && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>PDF Signature Role</Text>
+                                <LabRolePicker
+                                    selectedValue={formData.lab_role}
+                                    onValueChange={(v) => setFormData({ ...formData, lab_role: v as any })}
+                                />
+                                <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+                                    Determines which signature slot this person fills on printed lab results.
+                                </Text>
                             </View>
                         )}
                     </ScrollView>
@@ -1313,6 +1341,59 @@ function RolePicker({
     );
 }
 
+const LAB_ROLES = [
+    { value: "staff", label: "Lab Staff" },
+    { value: "chief_med_tech", label: "Chief Medical Technologist (Middle sig.)" },
+    { value: "pathologist", label: "Pathologist (Left sig.)" },
+];
+
+function LabRolePicker({
+    selectedValue,
+    onValueChange,
+}: {
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+}) {
+    const [showPicker, setShowPicker] = useState(false);
+    const selected = LAB_ROLES.find((r) => r.value === selectedValue);
+
+    return (
+        <>
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
+                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+                    {selected?.label ?? "Select PDF role"}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+            <Modal visible={showPicker} transparent animationType="fade">
+                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>PDF Signature Role</Text>
+                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.pickerList}>
+                            {LAB_ROLES.map((r) => (
+                                <TouchableOpacity
+                                    key={r.value}
+                                    style={[styles.pickerOption, selectedValue === r.value && styles.pickerOptionSelected]}
+                                    onPress={() => { onValueChange(r.value); setShowPicker(false); }}
+                                >
+                                    <Text style={[styles.pickerOptionText, selectedValue === r.value && styles.pickerOptionTextSelected]}>
+                                        {r.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
 function EditUserModal({
     show,
     user,
@@ -1339,11 +1420,29 @@ function EditUserModal({
         license_number: user.license_number ?? "",
         professional_title: user.professional_title ?? "",
         test_categories: user.test_categories ?? [],
+        lab_role: (user.lab_role ?? "staff") as "staff" | "chief_med_tech" | "pathologist",
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // Sync form when a different user is selected
+    useEffect(() => {
+        setFormData({
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            password: "",
+            role: user.role,
+            license_number: user.license_number ?? "",
+            professional_title: user.professional_title ?? "",
+            test_categories: user.test_categories ?? [],
+            lab_role: (user.lab_role ?? "staff") as "staff" | "chief_med_tech" | "pathologist",
+        });
+        setConfirmPassword("");
+        setErrors({});
+    }, [user.id]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1639,6 +1738,19 @@ function EditUserModal({
                                         );
                                     })}
                                 </View>
+                            </View>
+                        )}
+
+                        {formData.role === "lab_staff" && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.formLabel}>PDF Signature Role</Text>
+                                <LabRolePicker
+                                    selectedValue={formData.lab_role}
+                                    onValueChange={(v) => setFormData({ ...formData, lab_role: v as any })}
+                                />
+                                <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+                                    Determines which signature slot this person fills on printed lab results.
+                                </Text>
                             </View>
                         )}
 

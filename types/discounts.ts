@@ -11,8 +11,11 @@ export type PhilHealthPlan = {
   id: number;
   name: string;
   coverage_rate: number;
+  other_tests_discount_rate: number;
   description: string;
   is_active: boolean;
+  free_test_ids: number[];
+  free_tests: { id: number; name: string; category: string }[];
   created_at: string;
 };
 

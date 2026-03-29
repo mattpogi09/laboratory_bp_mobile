@@ -33,6 +33,8 @@ import type {
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
+type LabTest = { id: number; name: string; category: string };
+
 export default function DiscountsPhilhealthScreen() {
     const [activeTab, setActiveTab] = useState<"discounts" | "philhealth">(
         "discounts",
@@ -63,6 +65,7 @@ export default function DiscountsPhilhealthScreen() {
         type: "success" as "success" | "error" | "info" | "warning",
     });
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [labTests, setLabTests] = useState<LabTest[]>([]);
 
     const loadDiscounts = useCallback(async () => {
         try {
@@ -91,7 +94,12 @@ export default function DiscountsPhilhealthScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            await Promise.all([loadDiscounts(), loadPhilHealthPlans()]);
+            const [, , testsRes] = await Promise.all([
+                loadDiscounts(),
+                loadPhilHealthPlans(),
+                api.get("/services?per_page=500"),
+            ]);
+            setLabTests(testsRes.data.data ?? []);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -602,6 +610,7 @@ export default function DiscountsPhilhealthScreen() {
                 <>
                     <CreatePhilHealthModal
                         show={showCreateModal}
+                        labTests={labTests}
                         onClose={() => setShowCreateModal(false)}
                         onSubmit={handleCreatePlan}
                         onError={(message) =>
@@ -617,6 +626,7 @@ export default function DiscountsPhilhealthScreen() {
                         <EditPhilHealthModal
                             show={showEditModal}
                             plan={selectedItem as PhilHealthPlan}
+                            labTests={labTests}
                             onClose={() => {
                                 setShowEditModal(false);
                                 setSelectedItem(null);
@@ -938,11 +948,13 @@ function EditDiscountModal({
 
 function CreatePhilHealthModal({
     show,
+    labTests,
     onClose,
     onSubmit,
     onError,
 }: {
     show: boolean;
+    labTests: LabTest[];
     onClose: () => void;
     onSubmit: (data: any) => void;
     onError: (message: string) => void;
@@ -950,12 +962,19 @@ function CreatePhilHealthModal({
     const [formData, setFormData] = useState({
         name: "",
         coverage_rate: "",
+        other_tests_discount_rate: "",
         description: "",
     });
+    const [freeTestIds, setFreeTestIds] = useState<number[]>([]);
     const [loading, setLoading] = useState(false);
 
+    const toggleTest = (id: number) =>
+        setFreeTestIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+        );
+
     const handleSubmit = async () => {
-        if (!formData.name || !formData.coverage_rate) {
+        if (!formData.name || !formData.coverage_rate || !formData.other_tests_discount_rate) {
             onError("Please fill in all required fields");
             return;
         }
@@ -968,6 +987,11 @@ function CreatePhilHealthModal({
             onError("Coverage rate must be between 0 and 100.");
             return;
         }
+        const otherRate = parseFloat(formData.other_tests_discount_rate);
+        if (isNaN(otherRate) || otherRate < 0 || otherRate > 100) {
+            onError("Other tests discount rate must be between 0 and 100.");
+            return;
+        }
         if (formData.description && formData.description.length > 500) {
             onError("Description cannot exceed 500 characters.");
             return;
@@ -977,8 +1001,11 @@ function CreatePhilHealthModal({
             await onSubmit({
                 ...formData,
                 coverage_rate: parseFloat(formData.coverage_rate),
+                other_tests_discount_rate: otherRate,
+                free_test_ids: freeTestIds,
             });
-            setFormData({ name: "", coverage_rate: "", description: "" });
+            setFormData({ name: "", coverage_rate: "", other_tests_discount_rate: "", description: "" });
+            setFreeTestIds([]);
             onClose();
         } finally {
             setLoading(false);
@@ -1013,17 +1040,12 @@ function CreatePhilHealthModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Coverage Rate (%)
-                            </Text>
+                            <Text style={styles.formLabel}>Coverage Rate (%)</Text>
                             <TextInput
                                 style={styles.formInput}
                                 value={formData.coverage_rate}
                                 onChangeText={(text) =>
-                                    setFormData({
-                                        ...formData,
-                                        coverage_rate: text,
-                                    })
+                                    setFormData({ ...formData, coverage_rate: text })
                                 }
                                 placeholder="Enter coverage rate"
                                 keyboardType="decimal-pad"
@@ -1031,17 +1053,49 @@ function CreatePhilHealthModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Description (Optional)
-                            </Text>
+                            <Text style={styles.formLabel}>Other Tests Discount Rate (%)</Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.other_tests_discount_rate}
+                                onChangeText={(text) =>
+                                    setFormData({ ...formData, other_tests_discount_rate: text })
+                                }
+                                placeholder="Discount for non-covered tests"
+                                keyboardType="decimal-pad"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Covered Tests (Free)</Text>
+                            {labTests.map((t) => (
+                                <TouchableOpacity
+                                    key={t.id}
+                                    style={styles.checkRow}
+                                    onPress={() => toggleTest(t.id)}
+                                >
+                                    <View style={[
+                                        styles.checkbox,
+                                        freeTestIds.includes(t.id) && styles.checkboxChecked,
+                                    ]}>
+                                        {freeTestIds.includes(t.id) && (
+                                            <Text style={styles.checkmark}>✓</Text>
+                                        )}
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.checkLabel}>{t.name}</Text>
+                                        <Text style={styles.checkSub}>{t.category}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Description (Optional)</Text>
                             <TextInput
                                 style={[styles.formInput, styles.textArea]}
                                 value={formData.description}
                                 onChangeText={(text) =>
-                                    setFormData({
-                                        ...formData,
-                                        description: text,
-                                    })
+                                    setFormData({ ...formData, description: text })
                                 }
                                 placeholder="Enter description"
                                 multiline
@@ -1083,12 +1137,14 @@ function CreatePhilHealthModal({
 function EditPhilHealthModal({
     show,
     plan,
+    labTests,
     onClose,
     onSubmit,
     onError,
 }: {
     show: boolean;
     plan: PhilHealthPlan;
+    labTests: LabTest[];
     onClose: () => void;
     onSubmit: (id: number, data: any) => void;
     onError: (message: string) => void;
@@ -1096,12 +1152,19 @@ function EditPhilHealthModal({
     const [formData, setFormData] = useState({
         name: plan.name,
         coverage_rate: plan.coverage_rate.toString(),
+        other_tests_discount_rate: plan.other_tests_discount_rate.toString(),
         description: plan.description || "",
     });
+    const [freeTestIds, setFreeTestIds] = useState<number[]>(plan.free_test_ids ?? []);
     const [loading, setLoading] = useState(false);
 
+    const toggleTest = (id: number) =>
+        setFreeTestIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+        );
+
     const handleSubmit = async () => {
-        if (!formData.name || !formData.coverage_rate) {
+        if (!formData.name || !formData.coverage_rate || !formData.other_tests_discount_rate) {
             onError("Please fill in all required fields");
             return;
         }
@@ -1114,6 +1177,11 @@ function EditPhilHealthModal({
             onError("Coverage rate must be between 0 and 100.");
             return;
         }
+        const otherRate = parseFloat(formData.other_tests_discount_rate);
+        if (isNaN(otherRate) || otherRate < 0 || otherRate > 100) {
+            onError("Other tests discount rate must be between 0 and 100.");
+            return;
+        }
         if (formData.description && formData.description.length > 500) {
             onError("Description cannot exceed 500 characters.");
             return;
@@ -1123,6 +1191,8 @@ function EditPhilHealthModal({
             await onSubmit(plan.id, {
                 ...formData,
                 coverage_rate: parseFloat(formData.coverage_rate),
+                other_tests_discount_rate: otherRate,
+                free_test_ids: freeTestIds,
             });
             onClose();
         } finally {
@@ -1158,17 +1228,12 @@ function EditPhilHealthModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Coverage Rate (%)
-                            </Text>
+                            <Text style={styles.formLabel}>Coverage Rate (%)</Text>
                             <TextInput
                                 style={styles.formInput}
                                 value={formData.coverage_rate}
                                 onChangeText={(text) =>
-                                    setFormData({
-                                        ...formData,
-                                        coverage_rate: text,
-                                    })
+                                    setFormData({ ...formData, coverage_rate: text })
                                 }
                                 placeholder="Enter coverage rate"
                                 keyboardType="decimal-pad"
@@ -1176,17 +1241,49 @@ function EditPhilHealthModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Description (Optional)
-                            </Text>
+                            <Text style={styles.formLabel}>Other Tests Discount Rate (%)</Text>
+                            <TextInput
+                                style={styles.formInput}
+                                value={formData.other_tests_discount_rate}
+                                onChangeText={(text) =>
+                                    setFormData({ ...formData, other_tests_discount_rate: text })
+                                }
+                                placeholder="Discount for non-covered tests"
+                                keyboardType="decimal-pad"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Covered Tests (Free)</Text>
+                            {labTests.map((t) => (
+                                <TouchableOpacity
+                                    key={t.id}
+                                    style={styles.checkRow}
+                                    onPress={() => toggleTest(t.id)}
+                                >
+                                    <View style={[
+                                        styles.checkbox,
+                                        freeTestIds.includes(t.id) && styles.checkboxChecked,
+                                    ]}>
+                                        {freeTestIds.includes(t.id) && (
+                                            <Text style={styles.checkmark}>✓</Text>
+                                        )}
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.checkLabel}>{t.name}</Text>
+                                        <Text style={styles.checkSub}>{t.category}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Description (Optional)</Text>
                             <TextInput
                                 style={[styles.formInput, styles.textArea]}
                                 value={formData.description}
                                 onChangeText={(text) =>
-                                    setFormData({
-                                        ...formData,
-                                        description: text,
-                                    })
+                                    setFormData({ ...formData, description: text })
                                 }
                                 placeholder="Enter description"
                                 multiline
@@ -1438,4 +1535,25 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    checkRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+    },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: "#D1D5DB",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    checkboxChecked: { backgroundColor: "#2563EB", borderColor: "#2563EB" },
+    checkmark: { color: "#fff", fontSize: 13, fontWeight: "700" },
+    checkLabel: { fontSize: 14, color: "#111827", fontWeight: "500" },
+    checkSub: { fontSize: 12, color: "#9CA3AF" },
 });

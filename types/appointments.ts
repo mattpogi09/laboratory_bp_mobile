@@ -139,6 +139,8 @@ export interface ClinicSettings {
     notification_enabled: boolean;
     pdf_password_format: "birthdate" | "last_name" | "none";
     clinic_header_logo_exists: boolean;
+    pathologist_user_id: number | null;
+    chief_med_tech_user_id: number | null;
 }
 
 export interface LabStaffUser {

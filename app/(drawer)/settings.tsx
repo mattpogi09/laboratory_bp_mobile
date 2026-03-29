@@ -3,13 +3,17 @@ import * as ImagePicker from "expo-image-picker";
 import {
     AlertCircle,
     CheckCircle2,
+    ChevronDown,
+    Image as ImageIcon,
     Settings2,
     Upload,
+    X,
     XCircle,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Modal,
     ScrollView,
     StyleSheet,
     Switch,
@@ -79,11 +83,13 @@ export default function SettingsScreen() {
         try {
             setSaving(true);
             await api.post("/settings", {
-                patient_portal_enabled: settings.patient_portal_enabled,
-                email_sending_enabled: settings.email_sending_enabled,
+                patient_portal_enabled:     settings.patient_portal_enabled,
+                email_sending_enabled:      settings.email_sending_enabled,
                 email_notification_enabled: settings.email_notification_enabled,
-                notification_enabled: settings.notification_enabled,
-                pdf_password_format: settings.pdf_password_format,
+                notification_enabled:       settings.notification_enabled,
+                pdf_password_format:        settings.pdf_password_format,
+                pathologist_user_id:        settings.pathologist_user_id ?? null,
+                chief_med_tech_user_id:     settings.chief_med_tech_user_id ?? null,
             });
             setSuccessDialog({
                 visible: true,
@@ -101,6 +107,55 @@ export default function SettingsScreen() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleUploadLogo = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+            setSuccessDialog({ visible: true, title: "Permission Required", message: "Allow access to your photo library to upload a logo.", type: "warning" });
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 1],
+            quality: 0.8,
+        });
+        if (result.canceled) return;
+        const asset = result.assets[0];
+        const formData = new FormData();
+        formData.append("signature", { uri: asset.uri, type: asset.mimeType || "image/jpeg", name: asset.uri.split("/").pop() || "logo.jpg" } as any);
+        formData.append("type", "header_logo");
+        setUploadingSignature("header_logo");
+        try {
+            await api.post("/settings/upload-signature", formData, { headers: { "Content-Type": "multipart/form-data" } });
+            setSuccessDialog({ visible: true, title: "Uploaded", message: "Clinic logo uploaded successfully.", type: "success" });
+            loadSettings();
+        } catch (err: any) {
+            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to upload logo."), type: "error" });
+        } finally {
+            setUploadingSignature(null);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setConfirmDialog({
+            visible: true,
+            title: "Remove Clinic Logo",
+            message: "Remove the clinic header logo?",
+            confirmText: "REMOVE",
+            type: "danger",
+            onConfirm: async () => {
+                setConfirmDialog((d) => ({ ...d, visible: false }));
+                try {
+                    await api.post("/settings/remove-signature", { type: "header_logo" });
+                    setSuccessDialog({ visible: true, title: "Removed", message: "Clinic logo removed.", type: "success" });
+                    loadSettings();
+                } catch (err: any) {
+                    setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to remove logo."), type: "error" });
+                }
+            },
+        });
     };
 
     const handleUploadSignature = async (type: string, userId?: number) => {
@@ -336,6 +391,68 @@ export default function SettingsScreen() {
                 {/* Lab Personnel Signatures — all lab staff by rank */}
                 {labStaff.length > 0 && (
                     <>
+                        {/* Clinic Header Logo */}
+                        <View style={styles.sectionHeader}>
+                            <ImageIcon size={18} color="#ac3434" />
+                            <Text style={styles.sectionTitle}>Clinic Header Logo</Text>
+                        </View>
+                        <View style={styles.card}>
+                            <View style={[styles.toggleRow]}>
+                                <View style={styles.toggleInfo}>
+                                    <Text style={styles.toggleLabel}>Header Logo</Text>
+                                    <Text style={styles.toggleDesc}>
+                                        {settings.clinic_header_logo_exists ? "Logo uploaded" : "No logo uploaded"}
+                                    </Text>
+                                </View>
+                                <View style={{ flexDirection: "row", gap: 8 }}>
+                                    {settings.clinic_header_logo_exists && (
+                                        <TouchableOpacity style={styles.removeBtn} onPress={handleRemoveLogo}>
+                                            <Text style={styles.removeBtnText}>Remove</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity
+                                        style={[styles.uploadBtn, uploadingSignature === "header_logo" && styles.uploadBtnDisabled]}
+                                        onPress={handleUploadLogo}
+                                        disabled={uploadingSignature === "header_logo"}
+                                    >
+                                        {uploadingSignature === "header_logo"
+                                            ? <ActivityIndicator size="small" color="#fff" />
+                                            : <Upload size={13} color="#fff" />}
+                                        <Text style={styles.uploadBtnText}>
+                                            {settings.clinic_header_logo_exists ? "Replace" : "Upload"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Report Signatories */}
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Report Signatories</Text>
+                        </View>
+                        <Text style={styles.uploadHint}>
+                            Override which lab staff fills each signature slot on printed PDFs.
+                            Leave blank to auto-select by role.
+                        </Text>
+                        <View style={styles.card}>
+                            {[
+                                { key: "pathologist_user_id" as const, label: "Pathologist Signatory", desc: "Left signature on PDF" },
+                                { key: "chief_med_tech_user_id" as const, label: "Chief MedTech Signatory", desc: "Middle signature on PDF" },
+                            ].map(({ key, label, desc }, idx, arr) => (
+                                <View key={key} style={[styles.toggleRow, idx < arr.length - 1 && styles.rowBorder]}>
+                                    <View style={styles.toggleInfo}>
+                                        <Text style={styles.toggleLabel}>{label}</Text>
+                                        <Text style={styles.toggleDesc}>{desc}</Text>
+                                    </View>
+                                    <SignatoryPicker
+                                        labStaff={labStaff}
+                                        selectedId={settings[key] ?? null}
+                                        onSelect={(id) => setSettings((s) => s ? { ...s, [key]: id } : s)}
+                                    />
+                                </View>
+                            ))}
+                        </View>
+
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>
                                 Lab Personnel Signatures
@@ -565,6 +682,61 @@ export default function SettingsScreen() {
     );
 }
 
+function SignatoryPicker({
+    labStaff,
+    selectedId,
+    onSelect,
+}: {
+    labStaff: LabStaffUser[];
+    selectedId: number | null;
+    onSelect: (id: number | null) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const selected = labStaff.find((u) => u.id === selectedId);
+
+    return (
+        <>
+            <TouchableOpacity
+                style={styles.pickerBtn}
+                onPress={() => setOpen(true)}
+            >
+                <Text style={styles.pickerBtnText} numberOfLines={1}>
+                    {selected ? selected.name : "Auto (by role)"}
+                </Text>
+                <ChevronDown size={14} color="#6B7280" />
+            </TouchableOpacity>
+
+            <Modal visible={open} transparent animationType="fade">
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={styles.modalSheet}>
+                        <TouchableOpacity
+                            style={styles.pickerOption}
+                            onPress={() => { onSelect(null); setOpen(false); }}
+                        >
+                            <Text style={styles.pickerOptionText}>Auto (by role)</Text>
+                            {selectedId === null && <CheckCircle2 size={16} color="#ac3434" />}
+                        </TouchableOpacity>
+                        {labStaff.map((u) => (
+                            <TouchableOpacity
+                                key={u.id}
+                                style={styles.pickerOption}
+                                onPress={() => { onSelect(u.id); setOpen(false); }}
+                            >
+                                <Text style={styles.pickerOptionText}>{u.name}</Text>
+                                {selectedId === u.id && <CheckCircle2 size={16} color="#ac3434" />}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F9FAFB" },
     centered: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -716,4 +888,36 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+    pickerBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        backgroundColor: "#F3F4F6",
+        borderRadius: 8,
+        maxWidth: 160,
+    },
+    pickerBtnText: { fontSize: 13, color: "#374151", flex: 1 },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "#00000055",
+        justifyContent: "center",
+        padding: 32,
+    },
+    modalSheet: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+    pickerOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+    },
+    pickerOptionText: { fontSize: 14, color: "#111827" },
 });
