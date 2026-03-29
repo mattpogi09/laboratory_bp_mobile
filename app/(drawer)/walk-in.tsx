@@ -23,7 +23,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 
 import api from "@/app/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -435,11 +435,10 @@ export default function WalkInScreen() {
                         {idViewer.url && (
                             <Image
                                 source={{
-                                    uri: idViewer.url,
-                                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                                    uri: idViewer.url + (token ? `?token=${token}` : ""),
                                 }}
                                 style={styles.idViewerImage}
-                                contentFit="contain"
+                                resizeMode="contain"
                             />
                         )}
                     </View>

@@ -291,6 +291,23 @@ export default function ReportsScreen() {
         }
     };
 
+    const [exportingKey, setExportingKey] = useState<string | null>(null);
+
+    const handleExport = async (type: string, format: "csv" | "pdf") => {
+        const from = dateFrom.toISOString().split("T")[0];
+        const to = dateTo.toISOString().split("T")[0];
+        const key = `${type}-${format}`;
+        const url = `${API_BASE_URL}/reports/export?type=${type}&format=${format}&from=${from}&to=${to}&token=${token}`;
+        setExportingKey(key);
+        try {
+            await Linking.openURL(url);
+        } catch {
+            // silently ignore
+        } finally {
+            setTimeout(() => setExportingKey(null), 2500);
+        }
+    };
+
     const loadAppointmentReport = useCallback(async () => {
         try {
             setLoading(true);
@@ -686,6 +703,10 @@ export default function ReportsScreen() {
                                 data={financialData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("financial", "csv")}
+                                onExportPdf={() => handleExport("financial", "pdf")}
+                                exportingCsv={exportingKey === "financial-csv"}
+                                exportingPdf={exportingKey === "financial-pdf"}
                             />
                         </View>
                         <View
@@ -700,6 +721,10 @@ export default function ReportsScreen() {
                                 data={inventoryData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("inventory", "csv")}
+                                onExportPdf={() => handleExport("inventory", "pdf")}
+                                exportingCsv={exportingKey === "inventory-csv"}
+                                exportingPdf={exportingKey === "inventory-pdf"}
                             />
                         </View>
                         <View
@@ -714,6 +739,10 @@ export default function ReportsScreen() {
                                 data={auditData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("audit", "csv")}
+                                onExportPdf={() => handleExport("audit", "pdf")}
+                                exportingCsv={exportingKey === "audit-csv"}
+                                exportingPdf={exportingKey === "audit-pdf"}
                             />
                         </View>
                         <View
@@ -728,6 +757,10 @@ export default function ReportsScreen() {
                                 data={labData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("lab", "csv")}
+                                onExportPdf={() => handleExport("lab", "pdf")}
+                                exportingCsv={exportingKey === "lab-csv"}
+                                exportingPdf={exportingKey === "lab-pdf"}
                             />
                         </View>
                         <View
@@ -742,6 +775,10 @@ export default function ReportsScreen() {
                                 data={reconciliationData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("reconciliation", "csv")}
+                                onExportPdf={() => handleExport("reconciliation", "pdf")}
+                                exportingCsv={exportingKey === "reconciliation-csv"}
+                                exportingPdf={exportingKey === "reconciliation-pdf"}
                             />
                         </View>
                         <View
@@ -756,6 +793,10 @@ export default function ReportsScreen() {
                                 data={appointmentData}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("appointments", "csv")}
+                                onExportPdf={() => handleExport("appointments", "pdf")}
+                                exportingCsv={exportingKey === "appointments-csv"}
+                                exportingPdf={exportingKey === "appointments-pdf"}
                             />
                         </View>
                         <View
@@ -894,10 +935,18 @@ function FinancialTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: { rows: FinancialRow[]; totals: any; analytics?: any } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -922,6 +971,7 @@ function FinancialTab({
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
                     <View style={styles.cardsRow}>
                         <StatCard label="Total Revenue" value={formatCurrency(data.totals.revenue)} accent="#10B981" />
                         <StatCard label="Total Discounts" value={formatCurrency(data.totals.discounts)} accent="#F59E0B" />
@@ -1045,10 +1095,18 @@ function InventoryTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: { data: InventoryLogRow[]; analytics?: any } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -1075,6 +1133,7 @@ function InventoryTab({
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
                     {analytics?.summary && (
                         <>
                             <View style={styles.cardsRow}>
@@ -1110,7 +1169,7 @@ function InventoryTab({
                                 <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={{ fontSize: 13, color: "#374151" }}>{item.item_name}</Text>
-                                        <Text style={{ fontSize: 11, color: "#6B7280" }}>Batch: {item.batch_number} • {item.days_left}d left</Text>
+                                        <Text style={{ fontSize: 11, color: "#6B7280" }}>Batch: {item.batch_number} • {Math.floor(item.days_left)}d left</Text>
                                     </View>
                                     <Text style={{ fontSize: 13, fontWeight: "700", color: item.days_left <= 7 ? "#DC2626" : "#D97706" }}>{item.expiry_date}</Text>
                                 </View>
@@ -1172,10 +1231,18 @@ function AuditTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: { data: AuditLogRow[] } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -1199,7 +1266,10 @@ function AuditTab({
             nestedScrollEnabled={false}
             removeClippedSubviews={true}
             ListHeaderComponent={
-                <Text style={styles.sectionTitle}>Audit Log</Text>
+                <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
+                    <Text style={styles.sectionTitle}>Audit Log</Text>
+                </>
             }
             renderItem={({ item }) => (
                 <View style={styles.reportCard}>
@@ -1251,10 +1321,18 @@ function LabTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: { stats: any; rows: LabReportRow[] } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -1279,6 +1357,7 @@ function LabTab({
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
                     <View style={styles.cardsRow}>
                         <StatCard
                             label="Total Tests"
@@ -1523,6 +1602,10 @@ function ReconciliationTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: {
         stats: {
@@ -1537,6 +1620,10 @@ function ReconciliationTab({
     } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -1561,6 +1648,7 @@ function ReconciliationTab({
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
                     <View style={styles.cardsRow}>
                         <StatCard
                             label="Total"
@@ -1662,6 +1750,10 @@ function AppointmentTab({
     data,
     refreshing,
     onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
 }: {
     data: {
         stats: {
@@ -1690,6 +1782,10 @@ function AppointmentTab({
     } | null;
     refreshing: boolean;
     onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
 }) {
     if (!data) {
         return (
@@ -1724,6 +1820,7 @@ function AppointmentTab({
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
+                    <ExportButtons onExportCsv={onExportCsv} onExportPdf={onExportPdf} exportingCsv={exportingCsv} exportingPdf={exportingPdf} />
                     <View style={styles.cardsRow}>
                         <StatCard label="Total" value={stats.total.toString()} accent="#6B7280" />
                         <StatCard label="Confirmed" value={stats.confirmed.toString()} accent="#10B981" />
@@ -1807,6 +1904,43 @@ function AppointmentTab({
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
         />
+    );
+}
+
+function ExportButtons({
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
+}: {
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
+}) {
+    return (
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+            <TouchableOpacity
+                style={[styles.exportBtn, exportingCsv && styles.exportBtnDisabled]}
+                onPress={onExportCsv}
+                disabled={exportingCsv}
+            >
+                <Download size={13} color={exportingCsv ? "#9CA3AF" : "#374151"} />
+                <Text style={[styles.exportBtnText, exportingCsv && { color: "#9CA3AF" }]}>
+                    {exportingCsv ? "Opening..." : "Export CSV"}
+                </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.exportBtn, exportingPdf && styles.exportBtnDisabled]}
+                onPress={onExportPdf}
+                disabled={exportingPdf}
+            >
+                <FileText size={13} color={exportingPdf ? "#9CA3AF" : "#374151"} />
+                <Text style={[styles.exportBtnText, exportingPdf && { color: "#9CA3AF" }]}>
+                    {exportingPdf ? "Opening..." : "Export PDF"}
+                </Text>
+            </TouchableOpacity>
+        </View>
     );
 }
 
@@ -2264,4 +2398,19 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     worksheetNoteText: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
+    exportBtn: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+    },
+    exportBtnDisabled: { opacity: 0.5 },
+    exportBtnText: { fontSize: 12, fontWeight: "600", color: "#374151" },
 });

@@ -1,11 +1,12 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "@react-navigation/native";
 import {
     AlertCircle,
     AlertTriangle,
     CalendarClock,
     ChevronDown,
+    ChevronRight,
     History,
-    Layers,
     PackageSearch,
     Pencil,
     Plus,
@@ -66,6 +67,7 @@ type InventoryBatch = {
     conversion_factor: number;
     current_quantity: number;
     status: "active" | "unusable" | "depleted";
+    display_status?: string;
 };
 
 type Supplier = {
@@ -120,7 +122,7 @@ const filters = [
 
 export default function InventoryScreen() {
     const [activeTab, setActiveTab] = useState<
-        "items" | "transactions" | "batches" | "batch_issues" | "expiring_soon"
+        "items" | "transactions" | "batch_issues" | "expiring_soon"
     >("items");
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [summary, setSummary] = useState<Summary | null>(null);
@@ -129,8 +131,10 @@ export default function InventoryScreen() {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    // Key bumped after stock mutations to tell TransactionLogTab to reload
     const [transactionRefreshKey, setTransactionRefreshKey] = useState(0);
+    const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>(
+        {},
+    );
 
     // Modals
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -373,27 +377,63 @@ export default function InventoryScreen() {
         if (item.status === "out_of_stock") progressColor = "#DC2626";
 
         const percentage = Math.min(100, Math.max(0, item.percentage));
+        const isExpanded = !!expandedItems[item.id];
+        const activeBatches = (item.batches ?? []).filter(
+            (b) => b.status === "active",
+        );
+
+        const getBatchStatusColor = (b: InventoryBatch) => {
+            if (b.status === "unusable") return "#EF4444";
+            if (b.status === "depleted") return "#F59E0B";
+            if (b.expiry_date && new Date(b.expiry_date) < new Date())
+                return "#EF4444";
+            return "#10B981";
+        };
 
         return (
             <View style={styles.card}>
-                <View style={styles.cardHeader}>
+                {/* Header row with chevron */}
+                <TouchableOpacity
+                    style={styles.cardHeader}
+                    onPress={() =>
+                        setExpandedItems((prev) => ({
+                            ...prev,
+                            [item.id]: !prev[item.id],
+                        }))
+                    }
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.itemName}>{item.name}</Text>
                     <View
-                        style={[
-                            styles.statusBadge,
-                            { backgroundColor: progressColor + "22" },
-                        ]}
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                        }}
                     >
-                        <Text
+                        <View
                             style={[
-                                styles.statusText,
-                                { color: progressColor },
+                                styles.statusBadge,
+                                { backgroundColor: progressColor + "22" },
                             ]}
                         >
-                            {item.status.replace("_", " ")}
-                        </Text>
+                            <Text
+                                style={[
+                                    styles.statusText,
+                                    { color: progressColor },
+                                ]}
+                            >
+                                {item.status.replace("_", " ")}
+                            </Text>
+                        </View>
+                        {isExpanded ? (
+                            <ChevronDown size={16} color="#6B7280" />
+                        ) : (
+                            <ChevronRight size={16} color="#6B7280" />
+                        )}
                     </View>
-                </View>
+                </TouchableOpacity>
+
                 <Text style={styles.itemCategory}>{item.category}</Text>
                 <View style={styles.row}>
                     <Text style={styles.label}>On-hand</Text>
@@ -423,6 +463,152 @@ export default function InventoryScreen() {
                         </Text>
                     </Text>
                 )}
+
+                {/* Expanded batch details */}
+                {isExpanded && (
+                    <View style={styles.batchSection}>
+                        <Text style={styles.batchSectionTitle}>
+                            Batch Details ({item.batches?.length ?? 0})
+                        </Text>
+                        {(item.batches ?? []).length === 0 ? (
+                            <Text style={styles.batchEmpty}>
+                                No batch records available.
+                            </Text>
+                        ) : (
+                            (item.batches ?? []).map((b) => {
+                                const statusColor = getBatchStatusColor(b);
+                                return (
+                                    <View key={b.id} style={styles.batchRow}>
+                                        <View style={styles.batchRowHeader}>
+                                            <Text style={styles.batchNumber}>
+                                                {b.batch_number}
+                                            </Text>
+                                            <View
+                                                style={[
+                                                    styles.statusBadge,
+                                                    {
+                                                        backgroundColor:
+                                                            statusColor + "22",
+                                                    },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.statusText,
+                                                        { color: statusColor },
+                                                    ]}
+                                                >
+                                                    {b.status}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.batchGrid}>
+                                            <View style={styles.batchCell}>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellLabel
+                                                    }
+                                                >
+                                                    Purchased
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellValue
+                                                    }
+                                                >
+                                                    {b.purchase_quantity}{" "}
+                                                    {b.purchase_unit?.name ??
+                                                        ""}
+                                                </Text>
+                                                <Text
+                                                    style={styles.batchCellSub}
+                                                >
+                                                    1{" "}
+                                                    {b.purchase_unit?.name ??
+                                                        "unit"}{" "}
+                                                    = {b.conversion_factor}{" "}
+                                                    {item.unit}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.batchCell}>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellLabel
+                                                    }
+                                                >
+                                                    Remaining
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellValue
+                                                    }
+                                                >
+                                                    {Math.floor(
+                                                        b.current_quantity,
+                                                    )}{" "}
+                                                    {item.unit}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.batchCell}>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellLabel
+                                                    }
+                                                >
+                                                    Supplier
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellValue
+                                                    }
+                                                >
+                                                    {b.supplier_name ?? "—"}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.batchCell}>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellLabel
+                                                    }
+                                                >
+                                                    Received
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellValue
+                                                    }
+                                                >
+                                                    {b.received_date ?? "—"}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.batchCell}>
+                                                <Text
+                                                    style={
+                                                        styles.batchCellLabel
+                                                    }
+                                                >
+                                                    Expiry
+                                                </Text>
+                                                <Text
+                                                    style={[
+                                                        styles.batchCellValue,
+                                                        !b.expiry_date && {
+                                                            color: "#9CA3AF",
+                                                        },
+                                                    ]}
+                                                >
+                                                    {b.expiry_date ??
+                                                        "No expiry"}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                );
+                            })
+                        )}
+                    </View>
+                )}
+
                 <View style={styles.cardActions}>
                     <TouchableOpacity
                         style={styles.editBtn}
@@ -511,7 +697,6 @@ export default function InventoryScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.tabContainer}
-                contentContainerStyle={{ flexGrow: 1 }}
             >
                 <TouchableOpacity
                     style={[
@@ -554,26 +739,6 @@ export default function InventoryScreen() {
                         ]}
                     >
                         Transactions
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.tab,
-                        activeTab === "batches" && styles.tabActive,
-                    ]}
-                    onPress={() => setActiveTab("batches")}
-                >
-                    <Layers
-                        color={activeTab === "batches" ? "#ac3434" : "#6B7280"}
-                        size={16}
-                    />
-                    <Text
-                        style={[
-                            styles.tabLabel,
-                            activeTab === "batches" && styles.tabLabelActive,
-                        ]}
-                    >
-                        Batches
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -651,9 +816,7 @@ export default function InventoryScreen() {
                                 <TouchableOpacity
                                     style={styles.manageCategoriesButton}
                                     onPress={() =>
-                                        router.push(
-                                            "/(drawer)/inventory-units",
-                                        )
+                                        router.push("/(drawer)/inventory-units")
                                     }
                                 >
                                     <Ruler color="#374151" size={16} />
@@ -920,8 +1083,6 @@ export default function InventoryScreen() {
                 />
             ) : activeTab === "transactions" ? (
                 <TransactionLogTab refreshTrigger={transactionRefreshKey} />
-            ) : activeTab === "batches" ? (
-                <BatchesTab />
             ) : activeTab === "batch_issues" ? (
                 <BatchIssuesTab />
             ) : (
@@ -1285,6 +1446,8 @@ function CreateStockModal({
             errs.minimum_stock = ["Minimum stock must be a positive number."];
         else if (parseInt(formData.minimum_stock) > 999999)
             errs.minimum_stock = ["Minimum stock cannot exceed 999,999."];
+        if (!formData.base_unit_id)
+            errs.base_unit_id = ["Base unit is required."];
         return errs;
     };
 
@@ -1504,14 +1667,12 @@ function CreateStockModal({
                             )}
                             <Text style={styles.formHint}>
                                 You'll receive alerts when stock falls below
-                                this threshold
+                                this threshold. This does not add stock.
                             </Text>
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Base Unit (optional)
-                            </Text>
+                            <Text style={styles.formLabel}>Base Unit *</Text>
                             <UnitPickerSelect
                                 units={units as InventoryUnit[]}
                                 selectedValue={formData.base_unit_id}
@@ -1525,8 +1686,14 @@ function CreateStockModal({
                                 placeholder="Select base unit"
                                 hasError={!!errors.base_unit_id}
                             />
+                            {errors.base_unit_id?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.base_unit_id[0]}
+                                </Text>
+                            )}
                             <Text style={styles.formHint}>
-                                The base measurement unit for batch tracking
+                                Choose the smallest usage unit (e.g. Piece, mL).
+                                If 1 Box = 50 Pieces, set base unit to Piece.
                             </Text>
                         </View>
                     </ScrollView>
@@ -1575,7 +1742,6 @@ function StockInModal({
 }) {
     const [formData, setFormData] = useState({
         item_id: "",
-        quantity: "",
         reason: "",
         supplier_id: "",
         expiry_date: "",
@@ -1591,8 +1757,12 @@ function StockInModal({
 
     useEffect(() => {
         if (show) {
-            api.get("/suppliers").then((r) => setSuppliers(r.data.data ?? r.data)).catch(() => {});
-            api.get("/inventory-units").then((r) => setUnits(r.data.data ?? [])).catch(() => {});
+            api.get("/suppliers")
+                .then((r) => setSuppliers(r.data.data ?? r.data))
+                .catch(() => {});
+            api.get("/inventory-units")
+                .then((r) => setUnits(r.data.data ?? []))
+                .catch(() => {});
         }
     }, [show]);
 
@@ -1609,16 +1779,51 @@ function StockInModal({
     const validateStockIn = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.item_id) errs.item_id = ["Please select an item."];
-        if (!formData.quantity) errs.quantity = ["Quantity is required."];
-        else if (isNaN(parseInt(formData.quantity)) || parseInt(formData.quantity) < 1)
-            errs.quantity = ["Quantity must be at least 1."];
-        else if (parseInt(formData.quantity) > 999999)
-            errs.quantity = ["Quantity cannot exceed 999,999."];
+        if (!formData.supplier_id) errs.supplier_id = ["Supplier is required."];
+        if (!formData.purchase_unit_id)
+            errs.purchase_unit_id = ["Purchase unit is required."];
         if (!formData.reason.trim()) errs.reason = ["Reason is required."];
         else if (formData.reason.length > 500)
             errs.reason = ["Reason cannot exceed 500 characters."];
-        if (formData.conversion_factor && parseFloat(formData.conversion_factor) <= 0)
-            errs.conversion_factor = ["Conversion factor must be greater than 0."];
+        if (formData.expiry_date) {
+            if (new Date(formData.expiry_date) <= new Date())
+                errs.expiry_date = ["Expiry date must be in the future."];
+        }
+        if (
+            formData.purchase_quantity &&
+            (isNaN(parseFloat(formData.purchase_quantity)) ||
+                parseFloat(formData.purchase_quantity) <= 0)
+        )
+            errs.purchase_quantity = [
+                "Purchase quantity must be greater than 0.",
+            ];
+        if (
+            !formData.purchase_quantity ||
+            parseFloat(formData.purchase_quantity) <= 0
+        )
+            errs.purchase_quantity = [
+                "Purchase quantity must be greater than 0.",
+            ];
+        if (
+            !formData.conversion_factor ||
+            parseFloat(formData.conversion_factor) <= 0
+        )
+            errs.conversion_factor = [
+                "Conversion factor must be greater than 0.",
+            ];
+        else {
+            const converted =
+                parseFloat(formData.purchase_quantity || "0") *
+                parseFloat(formData.conversion_factor);
+            if (converted < 1)
+                errs.purchase_quantity = [
+                    "Converted base quantity must be at least 1.",
+                ];
+            else if (Math.abs(converted - Math.round(converted)) > 0.0001)
+                errs.purchase_quantity = [
+                    "Converted base quantity must be a whole number.",
+                ];
+        }
         return errs;
     };
 
@@ -1632,16 +1837,33 @@ function StockInModal({
         try {
             await onSubmit({
                 item_id: parseInt(formData.item_id),
-                quantity: parseInt(formData.quantity),
+                quantity: convertedBase ?? 0,
                 reason: formData.reason,
-                supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
+                supplier_id: formData.supplier_id
+                    ? parseInt(formData.supplier_id)
+                    : null,
                 expiry_date: formData.expiry_date || null,
                 purchased_date: formData.purchased_date || null,
-                purchase_unit_id: formData.purchase_unit_id ? parseInt(formData.purchase_unit_id) : null,
-                purchase_quantity: formData.purchase_quantity ? parseFloat(formData.purchase_quantity) : null,
-                conversion_factor: formData.conversion_factor ? parseFloat(formData.conversion_factor) : null,
+                purchase_unit_id: formData.purchase_unit_id
+                    ? parseInt(formData.purchase_unit_id)
+                    : null,
+                purchase_quantity: formData.purchase_quantity
+                    ? parseFloat(formData.purchase_quantity)
+                    : null,
+                conversion_factor: formData.conversion_factor
+                    ? parseFloat(formData.conversion_factor)
+                    : null,
             });
-            setFormData({ item_id: "", quantity: "", reason: "", supplier_id: "", expiry_date: "", purchased_date: "", purchase_unit_id: "", purchase_quantity: "", conversion_factor: "" });
+            setFormData({
+                item_id: "",
+                reason: "",
+                supplier_id: "",
+                expiry_date: "",
+                purchased_date: "",
+                purchase_unit_id: "",
+                purchase_quantity: "",
+                conversion_factor: "",
+            });
             setErrors({});
             onClose();
         } catch (err: any) {
@@ -1656,6 +1878,23 @@ function StockInModal({
     };
 
     const selectedItem = items.find((i) => String(i.id) === formData.item_id);
+    const selectedPurchaseUnit = units.find(
+        (u) => String(u.id) === formData.purchase_unit_id,
+    );
+    const baseUnitName =
+        selectedItem?.base_unit?.name ?? selectedItem?.unit ?? "base unit";
+    const purchaseUnitName = selectedPurchaseUnit?.name ?? "purchase unit";
+    const sameAsBase =
+        selectedItem &&
+        selectedPurchaseUnit &&
+        String(selectedItem.base_unit_id) === String(selectedPurchaseUnit.id);
+    const convertedBase =
+        formData.purchase_quantity && formData.conversion_factor
+            ? Math.round(
+                  parseFloat(formData.purchase_quantity) *
+                      parseFloat(formData.conversion_factor),
+              )
+            : null;
 
     return (
         <Modal visible={show} animationType="slide" transparent>
@@ -1682,31 +1921,44 @@ function StockInModal({
                                 items={items}
                                 selectedValue={formData.item_id}
                                 onValueChange={(value) => {
-                                    setFormData({ ...formData, item_id: value });
+                                    setFormData({
+                                        ...formData,
+                                        item_id: value,
+                                    });
                                     clearError("item_id");
                                 }}
                                 hasError={!!errors.item_id}
                             />
                             {errors.item_id?.[0] && (
-                                <Text style={styles.errorText}>{errors.item_id[0]}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.item_id[0]}
+                                </Text>
                             )}
                             {selectedItem && (
                                 <View style={styles.stockPreviewBlue}>
-                                    <Text style={styles.stockPreviewLabel}>Current Stock:</Text>
+                                    <Text style={styles.stockPreviewLabel}>
+                                        Current Stock:
+                                    </Text>
                                     <Text style={styles.stockPreviewValueBlue}>
-                                        {selectedItem.current_stock} {selectedItem.unit}
+                                        {selectedItem.current_stock}{" "}
+                                        {selectedItem.unit}
                                     </Text>
                                 </View>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Supplier (optional)</Text>
+                            <Text style={styles.formLabel}>
+                                Supplier (optional)
+                            </Text>
                             <SupplierPickerSelect
                                 suppliers={suppliers}
                                 selectedValue={formData.supplier_id}
                                 onValueChange={(val) => {
-                                    setFormData({ ...formData, supplier_id: val });
+                                    setFormData({
+                                        ...formData,
+                                        supplier_id: val,
+                                    });
                                     clearError("supplier_id");
                                 }}
                             />
@@ -1714,110 +1966,231 @@ function StockInModal({
 
                         <View style={styles.formRow}>
                             <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>Purchase Date</Text>
-                                <TextInput
-                                    style={styles.formInput}
+                                <Text style={styles.formLabel}>
+                                    Purchase Date
+                                </Text>
+                                <DatePickerField
                                     value={formData.purchased_date}
-                                    onChangeText={(t) => setFormData({ ...formData, purchased_date: t })}
-                                    placeholder="YYYY-MM-DD"
+                                    onChange={(val) => {
+                                        setFormData({
+                                            ...formData,
+                                            purchased_date: val,
+                                        });
+                                        clearError("purchased_date");
+                                    }}
+                                    placeholder="Select date"
+                                    hasError={!!errors.purchased_date}
                                 />
+                                {errors.purchased_date?.[0] && (
+                                    <Text style={styles.errorText}>
+                                        {errors.purchased_date[0]}
+                                    </Text>
+                                )}
                             </View>
                             <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>Expiry Date</Text>
-                                <TextInput
-                                    style={[
-                                        styles.formInput,
-                                        errors.expiry_date && styles.inputError,
-                                    ]}
+                                <Text style={styles.formLabel}>
+                                    Expiry Date
+                                </Text>
+                                <DatePickerField
                                     value={formData.expiry_date}
-                                    onChangeText={(t) => {
-                                        setFormData({ ...formData, expiry_date: t });
+                                    onChange={(val) => {
+                                        setFormData({
+                                            ...formData,
+                                            expiry_date: val,
+                                        });
                                         clearError("expiry_date");
                                     }}
-                                    placeholder="YYYY-MM-DD"
+                                    placeholder="Select date"
+                                    hasError={!!errors.expiry_date}
+                                    minimumDate={new Date()}
                                 />
                                 {errors.expiry_date?.[0] && (
-                                    <Text style={styles.errorText}>{errors.expiry_date[0]}</Text>
+                                    <Text style={styles.errorText}>
+                                        {errors.expiry_date[0]}
+                                    </Text>
                                 )}
                             </View>
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Purchase Unit (optional)</Text>
+                            <Text style={styles.formLabel}>
+                                Purchase Unit *
+                            </Text>
                             <UnitPickerSelect
                                 units={units}
                                 selectedValue={formData.purchase_unit_id}
                                 onValueChange={(val) => {
-                                    setFormData({ ...formData, purchase_unit_id: val });
+                                    const isSame =
+                                        selectedItem &&
+                                        String(selectedItem.base_unit_id) ===
+                                            val;
+                                    // Pre-fill conversion factor from most recent batch with this unit
+                                    let prefilled = "";
+                                    if (!isSame && selectedItem) {
+                                        const existingBatch = (
+                                            selectedItem.batches ?? []
+                                        )
+                                            .filter(
+                                                (b) =>
+                                                    String(
+                                                        b.purchase_unit_id,
+                                                    ) === val &&
+                                                    b.conversion_factor > 0,
+                                            )
+                                            .sort((a, b) => b.id - a.id)[0];
+                                        if (existingBatch)
+                                            prefilled = String(
+                                                existingBatch.conversion_factor,
+                                            );
+                                    }
+                                    setFormData({
+                                        ...formData,
+                                        purchase_unit_id: val,
+                                        conversion_factor: isSame
+                                            ? "1"
+                                            : prefilled ||
+                                              formData.conversion_factor,
+                                    });
                                     clearError("purchase_unit_id");
+                                    clearError("conversion_factor");
                                 }}
                                 placeholder="Select purchase unit"
+                                hasError={!!errors.purchase_unit_id}
                             />
+                            {errors.purchase_unit_id?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.purchase_unit_id[0]}
+                                </Text>
+                            )}
+                            <Text style={styles.formHint}>
+                                Example: choose Box if the supplier sold this
+                                item by box.
+                            </Text>
                         </View>
 
                         <View style={styles.formRow}>
                             <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>Purchase Qty</Text>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={formData.purchase_quantity}
-                                    onChangeText={(t) => setFormData({ ...formData, purchase_quantity: t.replace(/[^0-9.]/g, "") })}
-                                    placeholder="e.g. 10"
-                                    keyboardType="decimal-pad"
-                                />
-                            </View>
-                            <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>Conversion Factor</Text>
+                                <Text style={styles.formLabel}>
+                                    Quantity Bought *
+                                </Text>
                                 <TextInput
                                     style={[
                                         styles.formInput,
-                                        errors.conversion_factor && styles.inputError,
+                                        errors.purchase_quantity &&
+                                            styles.inputError,
                                     ]}
-                                    value={formData.conversion_factor}
+                                    value={formData.purchase_quantity}
                                     onChangeText={(t) => {
-                                        setFormData({ ...formData, conversion_factor: t.replace(/[^0-9.]/g, "") });
-                                        clearError("conversion_factor");
+                                        setFormData({
+                                            ...formData,
+                                            purchase_quantity: t.replace(
+                                                /[^0-9.]/g,
+                                                "",
+                                            ),
+                                        });
+                                        clearError("purchase_quantity");
                                     }}
-                                    placeholder="e.g. 100"
+                                    placeholder="e.g. 10"
                                     keyboardType="decimal-pad"
                                 />
-                                {errors.conversion_factor?.[0] && (
-                                    <Text style={styles.errorText}>{errors.conversion_factor[0]}</Text>
+                                {errors.purchase_quantity?.[0] && (
+                                    <Text style={styles.errorText}>
+                                        {errors.purchase_quantity[0]}
+                                    </Text>
                                 )}
+                                <Text style={styles.formHint}>
+                                    How many {purchaseUnitName} were delivered.
+                                </Text>
+                            </View>
+                            <View style={styles.formGroupHalf}>
+                                <Text style={styles.formLabel}>
+                                    Conversion Factor
+                                </Text>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.conversion_factor &&
+                                            styles.inputError,
+                                        sameAsBase
+                                            ? {
+                                                  backgroundColor: "#F9FAFB",
+                                                  color: "#9CA3AF",
+                                              }
+                                            : undefined,
+                                    ]}
+                                    value={
+                                        sameAsBase
+                                            ? "1"
+                                            : formData.conversion_factor
+                                    }
+                                    onChangeText={(t) => {
+                                        if (sameAsBase) return;
+                                        setFormData({
+                                            ...formData,
+                                            conversion_factor: t.replace(
+                                                /[^0-9.]/g,
+                                                "",
+                                            ),
+                                        });
+                                        clearError("conversion_factor");
+                                    }}
+                                    placeholder="e.g. 50"
+                                    keyboardType="decimal-pad"
+                                    editable={!sameAsBase}
+                                />
+                                {errors.conversion_factor?.[0] && (
+                                    <Text style={styles.errorText}>
+                                        {errors.conversion_factor[0]}
+                                    </Text>
+                                )}
+                                <Text style={styles.formHint}>
+                                    {sameAsBase
+                                        ? `Fixed to 1 (purchase unit matches base unit).`
+                                        : `E.g. 1 ${purchaseUnitName} = 50 ${baseUnitName}`}
+                                </Text>
+                                {!sameAsBase &&
+                                    formData.conversion_factor &&
+                                    (() => {
+                                        const prefillBatch = (
+                                            selectedItem?.batches ?? []
+                                        )
+                                            .filter(
+                                                (b) =>
+                                                    String(
+                                                        b.purchase_unit_id,
+                                                    ) ===
+                                                        formData.purchase_unit_id &&
+                                                    b.conversion_factor > 0,
+                                            )
+                                            .sort((a, b) => b.id - a.id)[0];
+                                        return prefillBatch ? (
+                                            <Text
+                                                style={[
+                                                    styles.formHint,
+                                                    { color: "#2563EB" },
+                                                ]}
+                                            >
+                                                ✓ Pre-filled from previous
+                                                stock-in. Adjust if this
+                                                delivery differs.
+                                            </Text>
+                                        ) : null;
+                                    })()}
                             </View>
                         </View>
-                        <Text style={[styles.formHint, { marginTop: -12, marginBottom: 16 }]}>
-                            Base qty = Purchase qty × Conversion factor
-                        </Text>
 
-                        <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Quantity to Add *</Text>
-                            <TextInput
-                                style={[
-                                    styles.formInput,
-                                    errors.quantity && styles.inputError,
-                                ]}
-                                value={formData.quantity}
-                                onChangeText={(text) => {
-                                    setFormData({ ...formData, quantity: text.replace(/[^0-9]/g, "") });
-                                    clearError("quantity");
-                                }}
-                                placeholder="Enter quantity"
-                                keyboardType="number-pad"
-                                maxLength={6}
-                            />
-                            {errors.quantity?.[0] && (
-                                <Text style={styles.errorText}>{errors.quantity[0]}</Text>
-                            )}
-                            {selectedItem && formData.quantity && !isNaN(parseInt(formData.quantity)) && (
-                                <View style={styles.stockPreviewGreen}>
-                                    <Text style={styles.stockPreviewLabel}>New Stock After Addition:</Text>
-                                    <Text style={styles.stockPreviewValueGreen}>
-                                        {selectedItem.current_stock + parseInt(formData.quantity)} {selectedItem.unit}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
+                        {convertedBase !== null && selectedItem && (
+                            <View style={styles.stockPreviewGreen}>
+                                <Text style={styles.stockPreviewLabel}>
+                                    You are adding:
+                                </Text>
+                                <Text style={styles.stockPreviewValueGreen}>
+                                    {formData.purchase_quantity}{" "}
+                                    {purchaseUnitName} = {convertedBase}{" "}
+                                    {baseUnitName}
+                                </Text>
+                            </View>
+                        )}
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Reason *</Text>
@@ -1837,28 +2210,47 @@ function StockInModal({
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
                                 {formData.reason.length}/500
                             </Text>
                             {errors.reason?.[0] && (
-                                <Text style={styles.errorText}>{errors.reason[0]}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.reason[0]}
+                                </Text>
                             )}
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={onClose}>
-                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>
+                                Cancel
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.modalButtonPrimary, { backgroundColor: "#10B981" }]}
+                            style={[
+                                styles.modalButtonPrimary,
+                                { backgroundColor: "#10B981" },
+                            ]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>Add Stock</Text>
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Add Stock
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -1887,15 +2279,8 @@ function StockOutModal({
         reason: "",
         unit_id: "",
     });
-    const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
-
-    useEffect(() => {
-        if (show) {
-            api.get("/inventory-units").then((r) => setUnits(r.data.data ?? [])).catch(() => {});
-        }
-    }, [show]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1911,7 +2296,10 @@ function StockOutModal({
         const errs: Record<string, string[]> = {};
         if (!formData.item_id) errs.item_id = ["Please select an item."];
         if (!formData.quantity) errs.quantity = ["Quantity is required."];
-        else if (isNaN(parseInt(formData.quantity)) || parseInt(formData.quantity) < 1)
+        else if (
+            isNaN(parseInt(formData.quantity)) ||
+            parseInt(formData.quantity) < 1
+        )
             errs.quantity = ["Quantity must be at least 1."];
         else if (parseInt(formData.quantity) > 999999)
             errs.quantity = ["Quantity cannot exceed 999,999."];
@@ -1942,7 +2330,9 @@ function StockOutModal({
             if (err.response?.data?.errors) {
                 setErrors(err.response.data.errors);
             } else {
-                onError(err.response?.data?.message || "Failed to remove stock");
+                onError(
+                    err.response?.data?.message || "Failed to remove stock",
+                );
             }
         } finally {
             setLoading(false);
@@ -1950,17 +2340,51 @@ function StockOutModal({
     };
 
     const selectedItem = items.find((i) => String(i.id) === formData.item_id);
+
+    // Build unit options from item's active batches — mirrors web behaviour
+    const availableUnits = (() => {
+        if (!selectedItem) return [];
+        const seen = new Map<
+            string,
+            {
+                id: string;
+                name: string;
+                short_name: string;
+                conversion_factor: number;
+            }
+        >();
+        (selectedItem.batches ?? [])
+            .filter((b) => b.status === "active")
+            .forEach((b) => {
+                const key = String(b.purchase_unit_id);
+                if (!seen.has(key) && b.purchase_unit) {
+                    seen.set(key, {
+                        id: key,
+                        name: b.purchase_unit.name,
+                        short_name: b.purchase_unit.short_name,
+                        conversion_factor: b.conversion_factor,
+                    });
+                }
+            });
+        return Array.from(seen.values());
+    })();
+
+    const selectedUnit = availableUnits.find((u) => u.id === formData.unit_id);
+    const effectiveFactor = selectedUnit?.conversion_factor ?? 1;
     const qty = parseInt(formData.quantity);
+    const normalizedBase = !isNaN(qty) ? Math.round(qty * effectiveFactor) : 0;
     const insufficientStock =
         selectedItem && formData.quantity && !isNaN(qty)
-            ? qty > selectedItem.current_stock
+            ? normalizedBase > selectedItem.current_stock
             : false;
     const newStock =
         selectedItem && formData.quantity && !isNaN(qty) && !insufficientStock
-            ? selectedItem.current_stock - qty
+            ? selectedItem.current_stock - normalizedBase
             : null;
     const willBeLowStock =
-        newStock !== null && selectedItem && newStock < selectedItem.minimum_stock;
+        newStock !== null &&
+        selectedItem &&
+        newStock < selectedItem.minimum_stock;
 
     return (
         <Modal visible={show} animationType="slide" transparent>
@@ -1968,8 +2392,12 @@ function StockOutModal({
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <View>
-                            <Text style={styles.modalTitle}>Stock Out - Remove Inventory</Text>
-                            <Text style={styles.modalSubtitle}>Remove used or consumed stock</Text>
+                            <Text style={styles.modalTitle}>
+                                Stock Out - Remove Inventory
+                            </Text>
+                            <Text style={styles.modalSubtitle}>
+                                Remove used or consumed stock
+                            </Text>
                         </View>
                         <TouchableOpacity onPress={onClose}>
                             <X color="#6B7280" size={24} />
@@ -1983,42 +2411,112 @@ function StockOutModal({
                                 items={items}
                                 selectedValue={formData.item_id}
                                 onValueChange={(value) => {
-                                    setFormData({ ...formData, item_id: value, unit_id: "" });
+                                    setFormData({
+                                        ...formData,
+                                        item_id: value,
+                                        unit_id: "",
+                                    });
                                     clearError("item_id");
                                 }}
                                 hasError={!!errors.item_id}
                             />
                             {errors.item_id?.[0] && (
-                                <Text style={styles.errorText}>{errors.item_id[0]}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.item_id[0]}
+                                </Text>
                             )}
                             {selectedItem && (
                                 <View style={styles.stockPreviewBlue}>
-                                    <Text style={styles.stockPreviewLabel}>Available Stock:</Text>
+                                    <Text style={styles.stockPreviewLabel}>
+                                        Available Stock:
+                                    </Text>
                                     <Text style={styles.stockPreviewValueBlue}>
-                                        {selectedItem.current_stock} {selectedItem.unit}
+                                        {selectedItem.current_stock}{" "}
+                                        {selectedItem.unit}
                                     </Text>
                                 </View>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Unit (optional)</Text>
-                            <UnitPickerSelect
-                                units={units}
-                                selectedValue={formData.unit_id}
-                                onValueChange={(val) => {
-                                    setFormData({ ...formData, unit_id: val });
-                                    clearError("unit_id");
-                                }}
-                                placeholder="Use base unit (default)"
-                            />
-                            <Text style={styles.formHint}>
-                                Select a purchase unit to deduct by that unit's conversion
-                            </Text>
+                            <Text style={styles.formLabel}>Unit *</Text>
+                            {availableUnits.length > 0 ? (
+                                <UnitPickerSelect
+                                    units={availableUnits.map((u) => ({
+                                        id: parseInt(u.id),
+                                        name: u.name,
+                                        short_name: u.short_name,
+                                    }))}
+                                    selectedValue={formData.unit_id}
+                                    onValueChange={(val) => {
+                                        setFormData({
+                                            ...formData,
+                                            unit_id: val,
+                                        });
+                                        clearError("unit_id");
+                                    }}
+                                    placeholder="Choose unit"
+                                    hasError={!!errors.unit_id}
+                                />
+                            ) : (
+                                <View
+                                    style={[
+                                        styles.pickerButton,
+                                        { backgroundColor: "#F9FAFB" },
+                                    ]}
+                                >
+                                    <Text
+                                        style={styles.pickerButtonPlaceholder}
+                                    >
+                                        {selectedItem
+                                            ? "No active batches available"
+                                            : "Select an item first"}
+                                    </Text>
+                                </View>
+                            )}
+                            {errors.unit_id?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.unit_id[0]}
+                                </Text>
+                            )}
+                            {selectedItem && (
+                                <Text style={styles.formHint}>
+                                    Units are based on the item's active batch
+                                    stock-in setup.
+                                </Text>
+                            )}
                         </View>
 
+                        {selectedUnit && effectiveFactor !== 1 && (
+                            <View style={styles.infoNote}>
+                                <Text style={styles.infoNoteText}>
+                                    Conversion: 1 {selectedUnit.name} ={" "}
+                                    {effectiveFactor} {selectedItem?.unit}
+                                </Text>
+                            </View>
+                        )}
+
+                        {selectedItem &&
+                            formData.quantity &&
+                            !isNaN(parseInt(formData.quantity)) &&
+                            selectedUnit &&
+                            effectiveFactor !== 1 && (
+                                <View style={styles.stockPreviewBlue}>
+                                    <Text style={styles.stockPreviewLabel}>
+                                        Converted quantity:
+                                    </Text>
+                                    <Text style={styles.stockPreviewValueBlue}>
+                                        {normalizedBase} {selectedItem.unit}{" "}
+                                        (from {formData.quantity}{" "}
+                                        {selectedUnit.name})
+                                    </Text>
+                                </View>
+                            )}
+
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Quantity to Remove *</Text>
+                            <Text style={styles.formLabel}>
+                                Quantity to Remove *
+                            </Text>
                             <TextInput
                                 style={[
                                     styles.formInput,
@@ -2026,7 +2524,10 @@ function StockOutModal({
                                 ]}
                                 value={formData.quantity}
                                 onChangeText={(text) => {
-                                    setFormData({ ...formData, quantity: text.replace(/[^0-9]/g, "") });
+                                    setFormData({
+                                        ...formData,
+                                        quantity: text.replace(/[^0-9]/g, ""),
+                                    });
                                     clearError("quantity");
                                 }}
                                 placeholder="Enter quantity"
@@ -2034,32 +2535,70 @@ function StockOutModal({
                                 maxLength={6}
                             />
                             {errors.quantity?.[0] && (
-                                <Text style={styles.errorText}>{errors.quantity[0]}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.quantity[0]}
+                                </Text>
                             )}
                             {insufficientStock && (
                                 <View style={styles.stockWarnRed}>
-                                    <AlertTriangle size={16} color="#DC2626" style={{ marginTop: 1 }} />
+                                    <AlertTriangle
+                                        size={16}
+                                        color="#DC2626"
+                                        style={{ marginTop: 1 }}
+                                    />
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.stockWarnRedTitle}>Insufficient Stock</Text>
+                                        <Text style={styles.stockWarnRedTitle}>
+                                            Insufficient Stock
+                                        </Text>
                                         <Text style={styles.stockWarnRedText}>
-                                            Only {selectedItem!.current_stock} {selectedItem!.unit} available.
+                                            Cannot remove {normalizedBase}{" "}
+                                            {selectedItem!.unit}. Only{" "}
+                                            {selectedItem!.current_stock}{" "}
+                                            {selectedItem!.unit} available.
                                         </Text>
                                     </View>
                                 </View>
                             )}
                             {newStock !== null && selectedItem && (
-                                <View style={willBeLowStock ? styles.stockPreviewYellow : styles.stockPreviewRed}>
+                                <View
+                                    style={
+                                        willBeLowStock
+                                            ? styles.stockPreviewYellow
+                                            : styles.stockPreviewRed
+                                    }
+                                >
                                     <View style={styles.stockPreviewRow}>
-                                        <Text style={styles.stockPreviewLabel}>Remaining After Removal:</Text>
-                                        <Text style={willBeLowStock ? styles.stockPreviewValueYellow : styles.stockPreviewValueRed}>
+                                        <Text style={styles.stockPreviewLabel}>
+                                            Remaining After Removal:
+                                        </Text>
+                                        <Text
+                                            style={
+                                                willBeLowStock
+                                                    ? styles.stockPreviewValueYellow
+                                                    : styles.stockPreviewValueRed
+                                            }
+                                        >
                                             {newStock} {selectedItem.unit}
                                         </Text>
                                     </View>
                                     {willBeLowStock && (
-                                        <View style={styles.stockWarnYellowInner}>
-                                            <AlertTriangle size={14} color="#92400E" style={{ marginTop: 1 }} />
-                                            <Text style={styles.stockWarnYellowText}>
-                                                Warning: Stock will be below minimum ({selectedItem.minimum_stock} {selectedItem.unit})
+                                        <View
+                                            style={styles.stockWarnYellowInner}
+                                        >
+                                            <AlertTriangle
+                                                size={14}
+                                                color="#92400E"
+                                                style={{ marginTop: 1 }}
+                                            />
+                                            <Text
+                                                style={
+                                                    styles.stockWarnYellowText
+                                                }
+                                            >
+                                                Warning: Stock will be below
+                                                minimum (
+                                                {selectedItem.minimum_stock}{" "}
+                                                {selectedItem.unit})
                                             </Text>
                                         </View>
                                     )}
@@ -2068,7 +2607,9 @@ function StockOutModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Reason for Removal *</Text>
+                            <Text style={styles.formLabel}>
+                                Reason for Removal *
+                            </Text>
                             <TextInput
                                 style={[
                                     styles.formInput,
@@ -2085,28 +2626,47 @@ function StockOutModal({
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
                                 {formData.reason.length}/500
                             </Text>
                             {errors.reason?.[0] && (
-                                <Text style={styles.errorText}>{errors.reason[0]}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.reason[0]}
+                                </Text>
                             )}
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={onClose}>
-                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>
+                                Cancel
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.modalButtonPrimary, { backgroundColor: "#DC2626" }]}
+                            style={[
+                                styles.modalButtonPrimary,
+                                { backgroundColor: "#DC2626" },
+                            ]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>Remove Stock</Text>
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Remove Stock
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -2305,7 +2865,11 @@ function AdjustStockModal({
     show: boolean;
     item: InventoryItem | null;
     onClose: () => void;
-    onSubmit: (data: { new_quantity: number; reason: string; batch_id?: number | null }) => Promise<void>;
+    onSubmit: (data: {
+        new_quantity: number;
+        reason: string;
+        batch_id?: number | null;
+    }) => Promise<void>;
     onError: (message: string) => void;
 }) {
     const [newQuantity, setNewQuantity] = useState("");
@@ -2318,7 +2882,13 @@ function AdjustStockModal({
     useEffect(() => {
         if (show && item) {
             api.get(`/inventory/${item.id}/batches`)
-                .then((r) => setBatches((r.data.data ?? []).filter((b: InventoryBatch) => b.status === "active")))
+                .then((r) =>
+                    setBatches(
+                        (r.data.data ?? []).filter(
+                            (b: InventoryBatch) => b.status === "active",
+                        ),
+                    ),
+                )
                 .catch(() => setBatches([]));
         }
     }, [show, item?.id]);
@@ -2338,19 +2908,24 @@ function AdjustStockModal({
 
     const validate = () => {
         const errs: Record<string, string> = {};
-        if (!newQuantity.trim()) errs.new_quantity = "New quantity is required.";
+        if (!newQuantity.trim())
+            errs.new_quantity = "New quantity is required.";
         else if (isNaN(parseInt(newQuantity)) || parseInt(newQuantity) < 0)
             errs.new_quantity = "Enter a valid non-negative number.";
         else if (parseInt(newQuantity) > 999999)
             errs.new_quantity = "Quantity cannot exceed 999,999.";
         if (!reason.trim()) errs.reason = "Reason for adjustment is required.";
-        else if (reason.length > 500) errs.reason = "Reason cannot exceed 500 characters.";
+        else if (reason.length > 500)
+            errs.reason = "Reason cannot exceed 500 characters.";
         return errs;
     };
 
     const handleSubmit = async () => {
         const errs = validate();
-        if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
         setLoading(true);
         try {
             await onSubmit({
@@ -2361,7 +2936,10 @@ function AdjustStockModal({
             reset();
             onClose();
         } catch (err: any) {
-            onError(err.response?.data?.message || getApiErrorMessage(err, "Failed to adjust stock."));
+            onError(
+                err.response?.data?.message ||
+                    getApiErrorMessage(err, "Failed to adjust stock."),
+            );
         } finally {
             setLoading(false);
         }
@@ -2377,8 +2955,12 @@ function AdjustStockModal({
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <View>
-                            <Text style={styles.modalTitle}>Adjust Stock Level</Text>
-                            <Text style={styles.modalSubtitle}>Manual adjustment for {item.name}</Text>
+                            <Text style={styles.modalTitle}>
+                                Adjust Stock Level
+                            </Text>
+                            <Text style={styles.modalSubtitle}>
+                                Manual adjustment for {item.name}
+                            </Text>
                         </View>
                         <TouchableOpacity onPress={handleClose}>
                             <X color="#6B7280" size={24} />
@@ -2388,111 +2970,185 @@ function AdjustStockModal({
                     <ScrollView style={styles.modalBody}>
                         <View style={styles.adjustInfoBox}>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>Item:</Text>
-                                <Text style={styles.adjustInfoValue}>{item.name}</Text>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Item:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {item.name}
+                                </Text>
                             </View>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>Current Stock:</Text>
-                                <Text style={[styles.adjustInfoValue, { color: "#2563EB", fontWeight: "700" }]}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Current Stock:
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.adjustInfoValue,
+                                        { color: "#2563EB", fontWeight: "700" },
+                                    ]}
+                                >
                                     {item.current_stock} {item.unit}
                                 </Text>
                             </View>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>Minimum Stock:</Text>
-                                <Text style={styles.adjustInfoValue}>{item.minimum_stock} {item.unit}</Text>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Minimum Stock:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {item.minimum_stock} {item.unit}
+                                </Text>
                             </View>
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Batch (optional)</Text>
+                            <Text style={styles.formLabel}>
+                                Batch (optional)
+                            </Text>
                             <BatchPickerSelect
                                 batches={batches}
                                 selectedValue={batchId}
                                 onValueChange={(val) => {
                                     setBatchId(val);
                                     if (val) {
-                                        const b = batches.find((b) => String(b.id) === val);
-                                        if (b) setNewQuantity(String(Math.floor(b.current_quantity)));
+                                        const b = batches.find(
+                                            (b) => String(b.id) === val,
+                                        );
+                                        if (b)
+                                            setNewQuantity(
+                                                String(
+                                                    Math.floor(
+                                                        b.current_quantity,
+                                                    ),
+                                                ),
+                                            );
                                     }
                                 }}
                             />
                             {selectedBatch && (
                                 <View style={styles.stockPreviewBlue}>
-                                    <Text style={styles.stockPreviewLabel}>Batch current qty:</Text>
+                                    <Text style={styles.stockPreviewLabel}>
+                                        Batch current qty:
+                                    </Text>
                                     <Text style={styles.stockPreviewValueBlue}>
-                                        {selectedBatch.current_quantity} {item.unit}
+                                        {selectedBatch.current_quantity}{" "}
+                                        {item.unit}
                                     </Text>
                                 </View>
                             )}
                             <Text style={styles.formHint}>
-                                Select a batch to adjust that batch's quantity specifically
+                                Select a batch to adjust that batch's quantity
+                                specifically
                             </Text>
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>New Stock Quantity *</Text>
+                            <Text style={styles.formLabel}>
+                                New Stock Quantity *
+                            </Text>
                             <TextInput
-                                style={[styles.formInput, errors.new_quantity && styles.inputError]}
+                                style={[
+                                    styles.formInput,
+                                    errors.new_quantity && styles.inputError,
+                                ]}
                                 value={newQuantity}
                                 onChangeText={(t) => {
                                     setNewQuantity(t.replace(/[^0-9]/g, ""));
-                                    if (errors.new_quantity) setErrors((e) => ({ ...e, new_quantity: "" }));
+                                    if (errors.new_quantity)
+                                        setErrors((e) => ({
+                                            ...e,
+                                            new_quantity: "",
+                                        }));
                                 }}
                                 placeholder="Enter new quantity"
                                 keyboardType="number-pad"
                                 maxLength={6}
                             />
                             {!!errors.new_quantity && (
-                                <Text style={styles.errorText}>{errors.new_quantity}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.new_quantity}
+                                </Text>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Reason for Adjustment *</Text>
+                            <Text style={styles.formLabel}>
+                                Reason for Adjustment *
+                            </Text>
                             <TextInput
-                                style={[styles.formInput, styles.textArea, errors.reason && styles.inputError]}
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    errors.reason && styles.inputError,
+                                ]}
                                 value={reason}
                                 onChangeText={(t) => {
                                     setReason(t);
-                                    if (errors.reason) setErrors((e) => ({ ...e, reason: "" }));
+                                    if (errors.reason)
+                                        setErrors((e) => ({
+                                            ...e,
+                                            reason: "",
+                                        }));
                                 }}
                                 placeholder="e.g., Physical inventory count correction"
                                 multiline
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
                                 {reason.length}/500
                             </Text>
                             {!!errors.reason && (
-                                <Text style={styles.errorText}>{errors.reason}</Text>
+                                <Text style={styles.errorText}>
+                                    {errors.reason}
+                                </Text>
                             )}
                         </View>
 
                         <View style={styles.warningNote}>
                             <AlertCircle size={16} color="#D97706" />
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.warningNoteTitle}>Manual Adjustment</Text>
+                                <Text style={styles.warningNoteTitle}>
+                                    Manual Adjustment
+                                </Text>
                                 <Text style={styles.warningNoteText}>
-                                    This will directly update the stock level. For normal stock movements, use Stock In/Out instead.
+                                    This will directly update the stock level.
+                                    For normal stock movements, use Stock In/Out
+                                    instead.
                                 </Text>
                             </View>
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={handleClose}>
-                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={handleClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>
+                                Cancel
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.modalButtonPrimary, { backgroundColor: "#2563EB" }]}
+                            style={[
+                                styles.modalButtonPrimary,
+                                { backgroundColor: "#2563EB" },
+                            ]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>Adjust Stock</Text>
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Adjust Stock
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -2811,6 +3467,61 @@ function EditItemModal({
     );
 }
 
+function DatePickerField({
+    value,
+    onChange,
+    placeholder = "Select date",
+    hasError = false,
+    minimumDate,
+}: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    hasError?: boolean;
+    minimumDate?: Date;
+}) {
+    const [show, setShow] = useState(false);
+    const date = value ? new Date(value) : new Date();
+
+    const formatDisplay = (d: Date) => d.toLocaleDateString("en-CA"); // YYYY-MM-DD
+
+    return (
+        <>
+            <TouchableOpacity
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
+                onPress={() => setShow(true)}
+            >
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !value && styles.pickerButtonPlaceholder,
+                    ]}
+                >
+                    {value ? formatDisplay(new Date(value)) : placeholder}
+                </Text>
+                <CalendarClock color="#6B7280" size={18} />
+            </TouchableOpacity>
+            {show && (
+                <DateTimePicker
+                    value={date}
+                    mode="date"
+                    display="default"
+                    minimumDate={minimumDate}
+                    onChange={(_, selected) => {
+                        setShow(false);
+                        if (selected) {
+                            onChange(selected.toLocaleDateString("en-CA"));
+                        }
+                    }}
+                />
+            )}
+        </>
+    );
+}
+
 function UnitPickerSelect({
     units,
     selectedValue,
@@ -2829,39 +3540,83 @@ function UnitPickerSelect({
     return (
         <>
             <TouchableOpacity
-                style={[styles.pickerButton, hasError && styles.pickerButtonError]}
+                style={[
+                    styles.pickerButton,
+                    hasError && styles.pickerButtonError,
+                ]}
                 onPress={() => setShowPicker(true)}
             >
-                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
-                    {selected ? `${selected.name} (${selected.short_name})` : placeholder}
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !selectedValue && styles.pickerButtonPlaceholder,
+                    ]}
+                >
+                    {selected
+                        ? `${selected.name} (${selected.short_name})`
+                        : placeholder}
                 </Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
             <Modal visible={showPicker} transparent animationType="fade">
-                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowPicker(false)}
+                >
                     <View style={styles.pickerModal}>
                         <View style={styles.pickerHeader}>
-                            <Text style={styles.pickerTitle}>{placeholder}</Text>
-                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                            <Text style={styles.pickerTitle}>
+                                {placeholder}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setShowPicker(false)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerList}>
                             <TouchableOpacity
-                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
-                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                                style={[
+                                    styles.pickerOption,
+                                    !selectedValue &&
+                                        styles.pickerOptionSelected,
+                                ]}
+                                onPress={() => {
+                                    onValueChange("");
+                                    setShowPicker(false);
+                                }}
                             >
-                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>
+                                <Text
+                                    style={[
+                                        styles.pickerOptionText,
+                                        !selectedValue &&
+                                            styles.pickerOptionTextSelected,
+                                    ]}
+                                >
                                     — None —
                                 </Text>
                             </TouchableOpacity>
                             {units.map((u) => (
                                 <TouchableOpacity
                                     key={u.id}
-                                    style={[styles.pickerOption, selectedValue === String(u.id) && styles.pickerOptionSelected]}
-                                    onPress={() => { onValueChange(String(u.id)); setShowPicker(false); }}
+                                    style={[
+                                        styles.pickerOption,
+                                        selectedValue === String(u.id) &&
+                                            styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        onValueChange(String(u.id));
+                                        setShowPicker(false);
+                                    }}
                                 >
-                                    <Text style={[styles.pickerOptionText, selectedValue === String(u.id) && styles.pickerOptionTextSelected]}>
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            selectedValue === String(u.id) &&
+                                                styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
                                         {u.name} ({u.short_name})
                                     </Text>
                                 </TouchableOpacity>
@@ -2887,35 +3642,79 @@ function SupplierPickerSelect({
     const selected = suppliers.find((s) => String(s.id) === selectedValue);
     return (
         <>
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
-                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPicker(true)}
+            >
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !selectedValue && styles.pickerButtonPlaceholder,
+                    ]}
+                >
                     {selected ? selected.name : "Select supplier (optional)"}
                 </Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
             <Modal visible={showPicker} transparent animationType="fade">
-                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowPicker(false)}
+                >
                     <View style={styles.pickerModal}>
                         <View style={styles.pickerHeader}>
-                            <Text style={styles.pickerTitle}>Select Supplier</Text>
-                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                            <Text style={styles.pickerTitle}>
+                                Select Supplier
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setShowPicker(false)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerList}>
                             <TouchableOpacity
-                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
-                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                                style={[
+                                    styles.pickerOption,
+                                    !selectedValue &&
+                                        styles.pickerOptionSelected,
+                                ]}
+                                onPress={() => {
+                                    onValueChange("");
+                                    setShowPicker(false);
+                                }}
                             >
-                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>— None —</Text>
+                                <Text
+                                    style={[
+                                        styles.pickerOptionText,
+                                        !selectedValue &&
+                                            styles.pickerOptionTextSelected,
+                                    ]}
+                                >
+                                    — None —
+                                </Text>
                             </TouchableOpacity>
                             {suppliers.map((s) => (
                                 <TouchableOpacity
                                     key={s.id}
-                                    style={[styles.pickerOption, selectedValue === String(s.id) && styles.pickerOptionSelected]}
-                                    onPress={() => { onValueChange(String(s.id)); setShowPicker(false); }}
+                                    style={[
+                                        styles.pickerOption,
+                                        selectedValue === String(s.id) &&
+                                            styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        onValueChange(String(s.id));
+                                        setShowPicker(false);
+                                    }}
                                 >
-                                    <Text style={[styles.pickerOptionText, selectedValue === String(s.id) && styles.pickerOptionTextSelected]}>
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            selectedValue === String(s.id) &&
+                                                styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
                                         {s.name}
                                     </Text>
                                 </TouchableOpacity>
@@ -2941,39 +3740,84 @@ function BatchPickerSelect({
     const selected = batches.find((b) => String(b.id) === selectedValue);
     return (
         <>
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
-                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
-                    {selected ? `${selected.batch_number} (qty: ${selected.current_quantity})` : "Select batch (optional)"}
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPicker(true)}
+            >
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !selectedValue && styles.pickerButtonPlaceholder,
+                    ]}
+                >
+                    {selected
+                        ? `${selected.batch_number} (qty: ${selected.current_quantity})`
+                        : "Select batch (optional)"}
                 </Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
             <Modal visible={showPicker} transparent animationType="fade">
-                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowPicker(false)}
+                >
                     <View style={styles.pickerModal}>
                         <View style={styles.pickerHeader}>
                             <Text style={styles.pickerTitle}>Select Batch</Text>
-                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                            <TouchableOpacity
+                                onPress={() => setShowPicker(false)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerList}>
                             <TouchableOpacity
-                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
-                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                                style={[
+                                    styles.pickerOption,
+                                    !selectedValue &&
+                                        styles.pickerOptionSelected,
+                                ]}
+                                onPress={() => {
+                                    onValueChange("");
+                                    setShowPicker(false);
+                                }}
                             >
-                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>— Adjust item total —</Text>
+                                <Text
+                                    style={[
+                                        styles.pickerOptionText,
+                                        !selectedValue &&
+                                            styles.pickerOptionTextSelected,
+                                    ]}
+                                >
+                                    — Adjust item total —
+                                </Text>
                             </TouchableOpacity>
                             {batches.map((b) => (
                                 <TouchableOpacity
                                     key={b.id}
-                                    style={[styles.pickerOption, selectedValue === String(b.id) && styles.pickerOptionSelected]}
-                                    onPress={() => { onValueChange(String(b.id)); setShowPicker(false); }}
+                                    style={[
+                                        styles.pickerOption,
+                                        selectedValue === String(b.id) &&
+                                            styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        onValueChange(String(b.id));
+                                        setShowPicker(false);
+                                    }}
                                 >
-                                    <Text style={[styles.pickerOptionText, selectedValue === String(b.id) && styles.pickerOptionTextSelected]}>
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            selectedValue === String(b.id) &&
+                                                styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
                                         {b.batch_number}
                                     </Text>
                                     <Text style={styles.pickerOptionSubtext}>
-                                        Qty: {b.current_quantity} • Exp: {b.expiry_date ?? "N/A"}
+                                        Qty: {b.current_quantity} • Exp:{" "}
+                                        {b.expiry_date ?? "N/A"}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
@@ -2985,111 +3829,308 @@ function BatchPickerSelect({
     );
 }
 
-function BatchCard({ batch, onFlag }: { batch: InventoryBatch; onFlag?: (b: InventoryBatch) => void }) {
-    const statusColor = batch.status === "active" ? "#10B981" : batch.status === "unusable" ? "#EF4444" : "#9CA3AF";
+function BatchIssueRow({
+    batch,
+    onFlag,
+}: {
+    batch: InventoryBatch;
+    onFlag?: (b: InventoryBatch) => void;
+}) {
+    // Use server-computed display_status if available, otherwise derive client-side
+    const isExpired = !!(
+        batch.expiry_date &&
+        new Date(batch.expiry_date + "T00:00:00") < new Date()
+    );
+    const displayStatus =
+        batch.display_status ??
+        (batch.current_quantity <= 0
+            ? "depleted"
+            : isExpired && batch.status === "active"
+              ? "expired"
+              : batch.status);
+
+    const badgeStyle: Record<string, { bg: string; text: string }> = {
+        active: { bg: "#D1FAE5", text: "#065F46" },
+        expired: { bg: "#FEE2E2", text: "#991B1B" },
+        unusable: { bg: "#FFE4E6", text: "#9F1239" },
+        depleted: { bg: "#FEF3C7", text: "#92400E" },
+    };
+    const colors = badgeStyle[displayStatus] ?? {
+        bg: "#F3F4F6",
+        text: "#374151",
+    };
+
+    const rowBg =
+        displayStatus === "expired"
+            ? "#FFF5F5"
+            : displayStatus === "unusable"
+              ? "#FFF1F2"
+              : displayStatus === "depleted"
+                ? "#FFFBEB"
+                : "#fff";
+
+    const rowBorder =
+        displayStatus === "expired"
+            ? "#FECACA"
+            : displayStatus === "unusable"
+              ? "#FECDD3"
+              : displayStatus === "depleted"
+                ? "#FDE68A"
+                : "#E5E7EB";
+
     return (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <Text style={styles.itemName}>{batch.batch_number}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: statusColor + "22" }]}>
-                    <Text style={[styles.statusText, { color: statusColor }]}>{batch.status}</Text>
+        <View
+            style={[
+                batchStyles.row,
+                { backgroundColor: rowBg, borderColor: rowBorder },
+            ]}
+        >
+            {/* Item + Batch */}
+            <View style={batchStyles.rowHeader}>
+                <View style={{ flex: 1 }}>
+                    <Text style={batchStyles.itemName} numberOfLines={1}>
+                        {batch.item_name ?? "—"}
+                    </Text>
+                    <Text style={batchStyles.batchNum}>
+                        {batch.batch_number}
+                    </Text>
                 </View>
-            </View>
-            {batch.item_name && <Text style={styles.itemCategory}>{batch.item_name}</Text>}
-            <View style={styles.row}>
-                <Text style={styles.label}>Current Qty</Text>
-                <Text style={styles.value}>{batch.current_quantity}</Text>
-            </View>
-            <View style={styles.row}>
-                <Text style={styles.label}>Expiry</Text>
-                <Text style={[styles.value, !batch.expiry_date && { color: "#9CA3AF" }]}>
-                    {batch.expiry_date ?? "No expiry"}
-                </Text>
-            </View>
-            <View style={styles.row}>
-                <Text style={styles.label}>Received</Text>
-                <Text style={styles.value}>{batch.received_date ?? "—"}</Text>
-            </View>
-            {batch.supplier_name && (
-                <View style={styles.row}>
-                    <Text style={styles.label}>Supplier</Text>
-                    <Text style={styles.value}>{batch.supplier_name}</Text>
-                </View>
-            )}
-            {onFlag && batch.status === "active" && (
-                <View style={styles.cardActions}>
-                    <TouchableOpacity
-                        style={[styles.toggleBtn, { borderColor: "#FECACA" }]}
-                        onPress={() => onFlag(batch)}
+                <View
+                    style={[batchStyles.badge, { backgroundColor: colors.bg }]}
+                >
+                    <Text
+                        style={[batchStyles.badgeText, { color: colors.text }]}
                     >
-                        <ShieldAlert size={14} color="#EF4444" />
-                        <Text style={[styles.toggleBtnText, { color: "#EF4444" }]}>Flag Unusable</Text>
-                    </TouchableOpacity>
+                        {displayStatus}
+                    </Text>
                 </View>
+            </View>
+            {/* Details grid */}
+            <View style={batchStyles.grid}>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Supplier</Text>
+                    <Text style={batchStyles.cellValue} numberOfLines={1}>
+                        {batch.supplier_name ?? "—"}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Remaining</Text>
+                    <Text style={batchStyles.cellValue}>
+                        {Math.floor(batch.current_quantity)}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Expiration Date</Text>
+                    <Text
+                        style={[
+                            batchStyles.cellValue,
+                            isExpired && { color: "#DC2626" },
+                        ]}
+                    >
+                        {batch.expiry_date ?? "No expiry"}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Received</Text>
+                    <Text style={batchStyles.cellValue}>
+                        {batch.received_date ?? "—"}
+                    </Text>
+                </View>
+            </View>
+            {/* Flag button — only for active batches (not yet flagged) */}
+            {onFlag && batch.status === "active" && (
+                <TouchableOpacity
+                    style={batchStyles.flagBtn}
+                    onPress={() => onFlag(batch)}
+                >
+                    <ShieldAlert size={13} color="#EF4444" />
+                    <Text style={batchStyles.flagBtnText}>Flag Unusable</Text>
+                </TouchableOpacity>
             )}
         </View>
     );
 }
 
-function BatchesTab() {
-    const [items, setItems] = useState<InventoryItem[]>([]);
-    const [selectedItemId, setSelectedItemId] = useState("");
-    const [batches, setBatches] = useState<InventoryBatch[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        api.get("/inventory").then((r) => setItems(r.data.items ?? [])).catch(() => {});
-    }, []);
-
-    useEffect(() => {
-        if (!selectedItemId) { setBatches([]); return; }
-        setLoading(true);
-        api.get(`/inventory/${selectedItemId}/batches`)
-            .then((r) => setBatches(r.data.data ?? []))
-            .catch(() => setBatches([]))
-            .finally(() => setLoading(false));
-    }, [selectedItemId]);
+function ExpiringSoonRow({ batch }: { batch: InventoryBatch }) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = batch.expiry_date
+        ? new Date(batch.expiry_date + "T00:00:00")
+        : null;
+    const daysLeft = expiry
+        ? Math.ceil(
+              (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+          )
+        : null;
+    const isUrgent = daysLeft !== null && daysLeft <= 7;
 
     return (
-        <FlatList
-            data={batches}
-            keyExtractor={(b) => String(b.id)}
-            renderItem={({ item }) => <BatchCard batch={item} />}
-            ListHeaderComponent={
-                <View style={{ padding: 20, paddingBottom: 0 }}>
-                    <Text style={styles.formLabel}>Select Item</Text>
-                    <ItemPickerSelect
-                        items={items}
-                        selectedValue={selectedItemId}
-                        onValueChange={setSelectedItemId}
-                        hasError={false}
-                    />
+        <View
+            style={[
+                batchStyles.row,
+                {
+                    borderColor: isUrgent ? "#FECACA" : "#FDE68A",
+                    backgroundColor: isUrgent ? "#FFF5F5" : "#FFFBEB",
+                },
+            ]}
+        >
+            <View style={batchStyles.rowHeader}>
+                <View style={{ flex: 1 }}>
+                    <Text style={batchStyles.itemName} numberOfLines={1}>
+                        {batch.item_name ?? "—"}
+                    </Text>
+                    <Text style={batchStyles.batchNum}>
+                        {batch.batch_number}
+                    </Text>
                 </View>
-            }
-            ListEmptyComponent={
-                <View style={styles.emptyState}>
-                    {loading ? (
-                        <ActivityIndicator color="#ac3434" />
-                    ) : (
-                        <>
-                            <Layers color="#D1D5DB" size={42} />
-                            <Text style={styles.emptyTitle}>
-                                {selectedItemId ? "No batches found" : "Select an item to view batches"}
-                            </Text>
-                        </>
-                    )}
+                <View
+                    style={[
+                        batchStyles.badge,
+                        { backgroundColor: isUrgent ? "#FEE2E2" : "#FEF3C7" },
+                    ]}
+                >
+                    <Text
+                        style={[
+                            batchStyles.badgeText,
+                            { color: isUrgent ? "#991B1B" : "#92400E" },
+                        ]}
+                    >
+                        {daysLeft !== null
+                            ? `${daysLeft}d left`
+                            : "expiring soon"}
+                    </Text>
                 </View>
-            }
-            contentContainerStyle={{ padding: 20, paddingTop: 12, paddingBottom: 64 }}
-        />
+            </View>
+            <View style={batchStyles.grid}>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Supplier</Text>
+                    <Text style={batchStyles.cellValue} numberOfLines={1}>
+                        {batch.supplier_name ?? "—"}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Remaining</Text>
+                    <Text style={batchStyles.cellValue}>
+                        {Math.floor(batch.current_quantity)}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Expiration Date</Text>
+                    <Text
+                        style={[
+                            batchStyles.cellValue,
+                            {
+                                color: isUrgent ? "#DC2626" : "#D97706",
+                                fontWeight: "700",
+                            },
+                        ]}
+                    >
+                        {batch.expiry_date}
+                    </Text>
+                </View>
+                <View style={batchStyles.cell}>
+                    <Text style={batchStyles.cellLabel}>Received</Text>
+                    <Text style={batchStyles.cellValue}>
+                        {batch.received_date ?? "—"}
+                    </Text>
+                </View>
+            </View>
+        </View>
     );
 }
+
+const batchStyles = StyleSheet.create({
+    row: {
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+        elevation: 1,
+    },
+    rowHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginBottom: 10,
+    },
+    itemName: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#111827",
+    },
+    batchNum: {
+        fontSize: 11,
+        color: "#6B7280",
+        marginTop: 2,
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        marginLeft: 8,
+        alignSelf: "flex-start",
+    },
+    badgeText: {
+        fontSize: 11,
+        fontWeight: "700",
+        textTransform: "capitalize",
+    },
+    grid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    cell: {
+        minWidth: "45%",
+        flex: 1,
+    },
+    cellLabel: {
+        fontSize: 10,
+        color: "#9CA3AF",
+        marginBottom: 2,
+        textTransform: "uppercase",
+        letterSpacing: 0.3,
+    },
+    cellValue: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#111827",
+    },
+    flagBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        alignSelf: "flex-end",
+        marginTop: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#FECACA",
+        backgroundColor: "#FEF2F2",
+    },
+    flagBtnText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#EF4444",
+    },
+});
 
 function BatchIssuesTab() {
     const [batches, setBatches] = useState<InventoryBatch[]>([]);
     const [loading, setLoading] = useState(true);
-    const [successDialog, setSuccessDialog] = useState({ visible: false, title: "", message: "", type: "success" as "success" | "error" });
+    const [successDialog, setSuccessDialog] = useState({
+        visible: false,
+        title: "",
+        message: "",
+        type: "success" as "success" | "error",
+    });
     const [flagReason, setFlagReason] = useState("");
+    const [flagReasonError, setFlagReasonError] = useState("");
     const [flagBatch, setFlagBatch] = useState<InventoryBatch | null>(null);
 
     const load = useCallback(async () => {
@@ -3097,41 +4138,78 @@ function BatchIssuesTab() {
         try {
             const r = await api.get("/inventory/batch-issues");
             setBatches(r.data.data ?? []);
-        } catch { } finally { setLoading(false); }
+        } catch {
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    useFocusEffect(useCallback(() => { load(); }, [load]));
+    useFocusEffect(
+        useCallback(() => {
+            load();
+        }, [load]),
+    );
 
     const handleFlag = (batch: InventoryBatch) => {
         setFlagBatch(batch);
         setFlagReason("");
+        setFlagReasonError("");
     };
 
     const submitFlag = async () => {
-        if (!flagBatch || !flagReason.trim()) return;
+        if (!flagBatch) return;
+        if (!flagReason.trim()) {
+            setFlagReasonError("Reason is required.");
+            return;
+        }
+        if (flagReason.length > 500) {
+            setFlagReasonError("Reason cannot exceed 500 characters.");
+            return;
+        }
         try {
-            await api.post(`/inventory/batches/${flagBatch.id}/flag`, { reason: flagReason });
+            await api.post(`/inventory/batches/${flagBatch.id}/flag`, {
+                reason: flagReason,
+            });
             setFlagBatch(null);
-            setSuccessDialog({ visible: true, title: "Success", message: "Batch flagged as unusable", type: "success" });
+            setSuccessDialog({
+                visible: true,
+                title: "Success",
+                message: "Batch flagged as unusable",
+                type: "success",
+            });
             load();
         } catch (e: any) {
-            setSuccessDialog({ visible: true, title: "Error", message: e.response?.data?.message || "Failed to flag batch", type: "error" });
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: e.response?.data?.message || "Failed to flag batch",
+                type: "error",
+            });
         }
     };
 
-    if (loading) return <View style={styles.emptyState}><ActivityIndicator color="#ac3434" /></View>;
+    if (loading)
+        return (
+            <View style={styles.emptyState}>
+                <ActivityIndicator color="#ac3434" />
+            </View>
+        );
 
     return (
         <>
             <FlatList
                 data={batches}
                 keyExtractor={(b) => String(b.id)}
-                renderItem={({ item }) => <BatchCard batch={item} onFlag={handleFlag} />}
+                renderItem={({ item }) => (
+                    <BatchIssueRow batch={item} onFlag={handleFlag} />
+                )}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <ShieldAlert color="#D1D5DB" size={42} />
                         <Text style={styles.emptyTitle}>No batch issues</Text>
-                        <Text style={styles.emptySubtitle}>No expired or unusable batches found.</Text>
+                        <Text style={styles.emptySubtitle}>
+                            No expired or unusable batches found.
+                        </Text>
                     </View>
                 }
                 contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
@@ -3141,31 +4219,60 @@ function BatchIssuesTab() {
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { borderRadius: 16 }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Flag as Unusable</Text>
-                            <TouchableOpacity onPress={() => setFlagBatch(null)}>
+                            <Text style={styles.modalTitle}>
+                                Flag as Unusable
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setFlagBatch(null)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
                         <View style={{ padding: 20 }}>
                             <Text style={styles.formLabel}>Reason *</Text>
                             <TextInput
-                                style={[styles.formInput, styles.textArea]}
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    flagReasonError
+                                        ? styles.inputError
+                                        : undefined,
+                                ]}
                                 value={flagReason}
-                                onChangeText={setFlagReason}
+                                onChangeText={(t) => {
+                                    setFlagReason(t);
+                                    if (flagReasonError) setFlagReasonError("");
+                                }}
                                 placeholder="e.g., Contaminated, damaged packaging"
                                 multiline
                                 numberOfLines={3}
+                                maxLength={500}
                             />
+                            {!!flagReasonError && (
+                                <Text style={styles.errorText}>
+                                    {flagReasonError}
+                                </Text>
+                            )}
                         </View>
                         <View style={styles.modalFooter}>
-                            <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setFlagBatch(null)}>
-                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                            <TouchableOpacity
+                                style={styles.modalButtonSecondary}
+                                onPress={() => setFlagBatch(null)}
+                            >
+                                <Text style={styles.modalButtonTextSecondary}>
+                                    Cancel
+                                </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.modalButtonPrimary, { backgroundColor: "#EF4444" }]}
+                                style={[
+                                    styles.modalButtonPrimary,
+                                    { backgroundColor: "#EF4444" },
+                                ]}
                                 onPress={submitFlag}
                             >
-                                <Text style={styles.modalButtonTextPrimary}>Flag Unusable</Text>
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Flag Unusable
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -3177,7 +4284,9 @@ function BatchIssuesTab() {
                 message={successDialog.message}
                 type={successDialog.type}
                 autoClose={successDialog.type === "success"}
-                onClose={() => setSuccessDialog({ ...successDialog, visible: false })}
+                onClose={() =>
+                    setSuccessDialog({ ...successDialog, visible: false })
+                }
             />
         </>
     );
@@ -3190,25 +4299,41 @@ function ExpiringSoonTab() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const r = await api.get("/inventory/expiring-soon", { params: { days: 30 } });
+            const r = await api.get("/inventory/expiring-soon", {
+                params: { days: 30 },
+            });
             setBatches(r.data.data ?? []);
-        } catch { } finally { setLoading(false); }
+        } catch {
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    useFocusEffect(useCallback(() => { load(); }, [load]));
+    useFocusEffect(
+        useCallback(() => {
+            load();
+        }, [load]),
+    );
 
-    if (loading) return <View style={styles.emptyState}><ActivityIndicator color="#ac3434" /></View>;
+    if (loading)
+        return (
+            <View style={styles.emptyState}>
+                <ActivityIndicator color="#ac3434" />
+            </View>
+        );
 
     return (
         <FlatList
             data={batches}
             keyExtractor={(b) => String(b.id)}
-            renderItem={({ item }) => <BatchCard batch={item} />}
+            renderItem={({ item }) => <ExpiringSoonRow batch={item} />}
             ListEmptyComponent={
                 <View style={styles.emptyState}>
                     <CalendarClock color="#D1D5DB" size={42} />
                     <Text style={styles.emptyTitle}>No expiring batches</Text>
-                    <Text style={styles.emptySubtitle}>No batches expiring within 30 days.</Text>
+                    <Text style={styles.emptySubtitle}>
+                        No batches expiring within 30 days.
+                    </Text>
                 </View>
             }
             contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
@@ -3547,6 +4672,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
+        maxHeight: 48,
     },
     tab: {
         flexDirection: "row",
@@ -3966,4 +5092,43 @@ const styles = StyleSheet.create({
     },
     warningNoteTitle: { fontSize: 13, fontWeight: "700", color: "#D97706" },
     warningNoteText: { fontSize: 12, color: "#92400E", marginTop: 2 },
+    batchSection: {
+        marginTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+        paddingTop: 10,
+    },
+    batchSectionTitle: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#6B7280",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        marginBottom: 8,
+    },
+    batchEmpty: { fontSize: 13, color: "#9CA3AF" },
+    batchRow: {
+        backgroundColor: "#F9FAFB",
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        padding: 10,
+        marginBottom: 8,
+    },
+    batchRowHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    batchNumber: { fontSize: 13, fontWeight: "700", color: "#111827" },
+    batchGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    batchCell: { minWidth: "45%", flex: 1 },
+    batchCellLabel: { fontSize: 10, color: "#9CA3AF", marginBottom: 2 },
+    batchCellValue: { fontSize: 12, fontWeight: "600", color: "#111827" },
+    batchCellSub: { fontSize: 10, color: "#6B7280", marginTop: 1 },
 });
