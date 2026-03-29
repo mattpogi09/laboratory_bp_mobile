@@ -98,8 +98,13 @@ export function usePushNotifications(
             })
                 .then(() => {
                     tokenRegistered.current = true;
+                    console.log("[Push] Token saved successfully:", token);
                 })
-                .catch(() => {});
+                .catch((err) => {
+                    console.error("[Push] Failed to save token:", err?.response?.data ?? err?.message);
+                });
+        }).catch((err) => {
+            console.error("[Push] Failed to get push token:", err?.message ?? err);
         });
 
         // Fix 2: listeners read from refs — stable references, never stale
