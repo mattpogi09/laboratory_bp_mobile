@@ -13,6 +13,9 @@ import {
     Phone,
     RefreshCw,
     Search,
+    Settings,
+    ToggleLeft,
+    ToggleRight,
     User,
     X,
 } from "lucide-react-native";
@@ -33,10 +36,18 @@ import {
 import { Image } from "react-native";
 
 import api, { API_BASE_URL } from "@/app/services/api";
-import { useAuth } from "@/contexts/AuthContext";
 import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+
+const CLOSURE_PRESETS = [
+    { label: "Public Holiday",         value: "The clinic is closed for a public holiday." },
+    { label: "System Maintenance",     value: "The system is currently under maintenance. Please try again later." },
+    { label: "Staff Training",         value: "The clinic is closed for staff training today." },
+    { label: "Emergency Closure",      value: "The clinic is temporarily closed due to an emergency." },
+    { label: "Special Event",          value: "The clinic is closed for a special event." },
+    { label: "Other (custom message)", value: "Other" },
+];
 
 const STATUS_COLORS: Record<AppointmentStatus | string, string> = {
     PENDING: "#EAB308",
@@ -53,13 +64,6 @@ const STATUS_TABS: { label: string; value: string }[] = [
     { label: "Confirmed", value: "CONFIRMED" },
     { label: "Cancelled", value: "CANCELLED" },
     { label: "No Show", value: "NO_SHOW" },
-];
-
-const DATE_PILLS = [
-    { label: "All", value: "" },
-    { label: "Today", value: "today" },
-    { label: "This Week", value: "week" },
-    { label: "This Month", value: "month" },
 ];
 
 function FilterPicker({
@@ -224,6 +228,106 @@ export default function AppointmentsScreen() {
     const [holidays, setHolidays] = useState<string[]>([]); // YYYY-MM-DD strings
     const [rescheduleDateError, setRescheduleDateError] = useState("");
 
+    // Settings modal
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [settingsLoading, setSettingsLoading] = useState(false);
+    const [settingsSaving, setSettingsSaving] = useState(false);
+    const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
+    const [settingsForm, setSettingsForm] = useState({
+        booking_enabled: true,
+        closure_reason: "",
+        open_time: "07:00",
+        close_time: "16:30",
+        slot_interval: 30,
+        slot_limit: 0,
+        advance_days: 30,
+        same_day_cutoff: "12:00",
+    });
+    const [closureReasonPreset, setClosureReasonPreset] = useState("");
+
+    // Time picker for settings
+    const [showTimePicker, setShowTimePicker] = useState<null | "open_time" | "close_time" | "same_day_cutoff">(null);
+
+    const loadSettings = useCallback(async () => {
+        setSettingsLoading(true);
+        try {
+            const res = await api.get("/appointments/settings");
+            const s = res.data;
+            setSettingsForm({
+                booking_enabled: s.booking_enabled,
+                closure_reason: s.closure_reason ?? "",
+                open_time: s.open_time ?? "07:00",
+                close_time: s.close_time ?? "16:30",
+                slot_interval: s.slot_interval ?? 30,
+                slot_limit: s.slot_limit ?? 0,
+                advance_days: s.advance_days ?? 30,
+                same_day_cutoff: s.same_day_cutoff ?? "12:00",
+            });
+            const presetValues = CLOSURE_PRESETS.filter(p => p.value !== "Other").map(p => p.value);
+            setClosureReasonPreset(
+                presetValues.includes(s.closure_reason) ? s.closure_reason
+                : s.closure_reason ? "Other" : ""
+            );
+        } catch {
+            // silent — modal will show empty defaults
+        } finally {
+            setSettingsLoading(false);
+        }
+    }, []);
+
+    const openSettingsModal = () => {
+        setSettingsErrors({});
+        loadSettings();
+        setShowSettingsModal(true);
+    };
+
+    const toMinutes = (t: string) => {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+    };
+
+    const formatTimeLabel = (t: string) => {
+        const [h, m] = t.split(":").map(Number);
+        const suffix = h >= 12 ? "PM" : "AM";
+        const hour = h % 12 === 0 ? 12 : h % 12;
+        return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+    };
+
+    const saveSettings = async () => {
+        const errors: Record<string, string> = {};
+        const openM  = toMinutes(settingsForm.open_time);
+        const closeM = toMinutes(settingsForm.close_time);
+        const cutoffM = toMinutes(settingsForm.same_day_cutoff);
+
+        if (closeM <= openM) errors.close_time = "Close time must be after open time.";
+        if (cutoffM < openM || cutoffM >= closeM) errors.same_day_cutoff = "Same-day cutoff must be within operating hours and before close time.";
+        if (settingsForm.slot_limit < 0 || settingsForm.slot_limit > 999) errors.slot_limit = "Must be between 0 and 999.";
+        if (settingsForm.advance_days < 1 || settingsForm.advance_days > 365) errors.advance_days = "Must be between 1 and 365.";
+        if (!settingsForm.booking_enabled && !settingsForm.closure_reason.trim()) errors.closure_reason = "Please provide a reason for closing online booking.";
+
+        setSettingsErrors(errors);
+        if (Object.keys(errors).length > 0) return;
+
+        setSettingsSaving(true);
+        try {
+            await api.post("/appointments/settings", settingsForm);
+            setShowSettingsModal(false);
+            setSuccessDialog({ visible: true, title: "Saved", message: "Appointment settings updated successfully.", type: "success" });
+            loadAppointments(1, true);
+        } catch (err: any) {
+            const data = err?.response?.data;
+            if (data?.errors) {
+                const mapped: Record<string, string> = {};
+                Object.entries(data.errors).forEach(([k, v]: any) => { mapped[k] = v[0]; });
+                setSettingsErrors(mapped);
+            } else {
+                setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to save settings."), type: "error" });
+            }
+        } finally {
+            setSettingsSaving(false);
+        }
+    };
+
     const [confirmDialog, setConfirmDialog] = useState({
         visible: false,
         title: "",
@@ -241,7 +345,7 @@ export default function AppointmentsScreen() {
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const loadAppointments = useCallback(
-        async (page = 1, replace = true) => {
+        async (page = 1, replace = true, isRefreshing = false) => {
             try {
                 if (page === 1) setLoading(true);
                 else setLoadingMore(true);
@@ -270,7 +374,7 @@ export default function AppointmentsScreen() {
                     err,
                     "Failed to load appointments.",
                 );
-                if (page === 1 && !refreshing) setLoadError(msg);
+                if (page === 1 && !isRefreshing) setLoadError(msg);
                 else
                     setSuccessDialog({
                         visible: true,
@@ -293,14 +397,9 @@ export default function AppointmentsScreen() {
         }, [loadAppointments]),
     );
 
-    useEffect(() => {
-        const t = setTimeout(() => loadAppointments(1, true), 400);
-        return () => clearTimeout(t);
-    }, [loadAppointments]);
-
     const onRefresh = () => {
         setRefreshing(true);
-        loadAppointments(1, true);
+        loadAppointments(1, true, true);
     };
 
     const loadMore = () => {
@@ -538,8 +637,7 @@ export default function AppointmentsScreen() {
                 {(item as any).id_picture_url ? (
                     <TouchableOpacity
                         style={styles.idBtn}
-                        onPress={(e) => {
-                            e.stopPropagation();
+                        onPress={() => {
                             setIdViewerUrl((item as any).id_picture_url);
                             setIdViewerName(item.patient_name);
                         }}
@@ -562,6 +660,13 @@ export default function AppointmentsScreen() {
                     <Calendar size={22} color="#ac3434" />
                     <Text style={styles.headerTitle}>Appointments</Text>
                 </View>
+                <TouchableOpacity
+                    style={styles.settingsBtn}
+                    onPress={openSettingsModal}
+                >
+                    <Settings size={18} color="#374151" />
+                    <Text style={styles.settingsBtnText}>Settings</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Stats */}
@@ -995,27 +1100,6 @@ export default function AppointmentsScreen() {
                                                 <DemographicBadge category={(selected as any).priority_category} />
                                             </View>
                                         )}
-                                        {/* Demographic priority — always show */}
-                                        <View style={styles.detailCardRow}>
-                                            <Text style={styles.detailCardLabel}>Priority</Text>
-                                            <View style={{
-                                                backgroundColor: (selected as any).priority_category === "PWD" ? "#DBEAFE"
-                                                    : (selected as any).priority_category === "Senior Citizen" ? "#EDE9FE"
-                                                    : (selected as any).priority_category === "Pregnant" ? "#FCE7F3"
-                                                    : "#F3F4F6",
-                                                paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99
-                                            }}>
-                                                <Text style={{
-                                                    fontSize: 11, fontWeight: "700",
-                                                    color: (selected as any).priority_category === "PWD" ? "#1E40AF"
-                                                        : (selected as any).priority_category === "Senior Citizen" ? "#5B21B6"
-                                                        : (selected as any).priority_category === "Pregnant" ? "#9D174D"
-                                                        : "#374151"
-                                                }}>
-                                                    {(selected as any).priority_category ?? "Regular"}
-                                                </Text>
-                                            </View>
-                                        </View>
                                         {(selected as any).id_picture_url ? (
                                             <TouchableOpacity
                                                 style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, backgroundColor: "#EFF6FF", borderRadius: 8, padding: 10 }}
@@ -1526,6 +1610,233 @@ export default function AppointmentsScreen() {
                 </View>
             </Modal>
 
+            {/* Settings Modal */}
+            <Modal
+                visible={showSettingsModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowSettingsModal(false)}
+            >
+                <View style={styles.overlay}>
+                    <View style={[styles.modal, { maxHeight: "92%" }]}>
+                        <View style={styles.modalHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.modalTitle}>Appointment Settings</Text>
+                                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>Configure online booking behavior</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+                                <X size={20} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {settingsLoading ? (
+                            <ActivityIndicator size="large" color="#ac3434" style={{ marginVertical: 32 }} />
+                        ) : (
+                            <ScrollView showsVerticalScrollIndicator={false}>
+
+                                {/* ── Booking Status ── */}
+                                <Text style={styles.settingsSectionLabel}>Booking Status</Text>
+                                <View style={styles.settingsRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.settingsRowTitle}>Online Booking</Text>
+                                        <Text style={styles.settingsRowSub}>Allow patients to book appointments online</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setSettingsForm(f => ({ ...f, booking_enabled: !f.booking_enabled }))}>
+                                        {settingsForm.booking_enabled
+                                            ? <ToggleRight size={36} color="#22C55E" />
+                                            : <ToggleLeft size={36} color="#9CA3AF" />}
+                                    </TouchableOpacity>
+                                </View>
+
+                                {!settingsForm.booking_enabled && (
+                                    <View style={{ marginBottom: 12 }}>
+                                        <Text style={styles.inputLabel}>Closure Reason</Text>
+                                        {/* Preset picker */}
+                                        <FilterPicker
+                                            label="Select a reason..."
+                                            value={closureReasonPreset}
+                                            options={[
+                                                { label: "Select a reason...", value: "" },
+                                                ...CLOSURE_PRESETS,
+                                            ]}
+                                            onChange={(v) => {
+                                                setClosureReasonPreset(v);
+                                                if (v !== "Other") setSettingsForm(f => ({ ...f, closure_reason: v }));
+                                                else setSettingsForm(f => ({ ...f, closure_reason: "" }));
+                                            }}
+                                        />
+                                        {closureReasonPreset === "Other" && (
+                                            <TextInput
+                                                style={[styles.input, { marginTop: 8 }, settingsErrors.closure_reason ? styles.inputError : null]}
+                                                placeholder="Describe the reason..."
+                                                value={settingsForm.closure_reason}
+                                                onChangeText={t => setSettingsForm(f => ({ ...f, closure_reason: t }))}
+                                                maxLength={255}
+                                            />
+                                        )}
+                                        {settingsErrors.closure_reason ? (
+                                            <Text style={styles.fieldError}>{settingsErrors.closure_reason}</Text>
+                                        ) : null}
+                                    </View>
+                                )}
+
+                                <View style={styles.settingsDivider} />
+
+                                {/* ── Operating Hours ── */}
+                                <Text style={styles.settingsSectionLabel}>Operating Hours</Text>
+                                {([
+                                    { key: "open_time",       label: "Open Time" },
+                                    { key: "close_time",      label: "Close Time" },
+                                    { key: "same_day_cutoff", label: "Same-day Cutoff" },
+                                ] as const).map(({ key, label }) => (
+                                    <View key={key} style={{ marginBottom: 12 }}>
+                                        <Text style={styles.inputLabel}>{label}</Text>
+                                        <TouchableOpacity
+                                            style={[styles.datePickerBtn, settingsErrors[key] ? styles.inputError : null]}
+                                            onPress={() => setShowTimePicker(key)}
+                                        >
+                                            <Clock size={16} color="#6B7280" />
+                                            <Text style={styles.datePickerBtnText}>
+                                                {formatTimeLabel(settingsForm[key])}
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {showTimePicker === key && (
+                                            <DateTimePicker
+                                                value={(() => {
+                                                    const [h, m] = settingsForm[key].split(":").map(Number);
+                                                    const d = new Date();
+                                                    d.setHours(h, m, 0, 0);
+                                                    return d;
+                                                })()}
+                                                mode="time"
+                                                is24Hour
+                                                display={Platform.OS === "ios" ? "spinner" : "default"}
+                                                onChange={(e, date) => {
+                                                    if (Platform.OS === "android") setShowTimePicker(null);
+                                                    if (date && e.type !== "dismissed") {
+                                                        const hh = String(date.getHours()).padStart(2, "0");
+                                                        const mm = String(date.getMinutes()).padStart(2, "0");
+                                                        setSettingsForm(f => ({ ...f, [key]: `${hh}:${mm}` }));
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                        {Platform.OS === "ios" && showTimePicker === key && (
+                                            <TouchableOpacity style={styles.datePickerDone} onPress={() => setShowTimePicker(null)}>
+                                                <Text style={styles.datePickerDoneText}>Done</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                        {settingsErrors[key] ? <Text style={styles.fieldError}>{settingsErrors[key]}</Text> : null}
+                                        {key === "same_day_cutoff" && !settingsErrors[key] ? (
+                                            <Text style={styles.fieldHint}>Last time to book same-day</Text>
+                                        ) : null}
+                                    </View>
+                                ))}
+
+                                <View style={styles.settingsDivider} />
+
+                                {/* ── Capacity & Scheduling ── */}
+                                <Text style={styles.settingsSectionLabel}>Capacity & Scheduling</Text>
+
+                                {/* Slot Interval */}
+                                <View style={{ marginBottom: 12 }}>
+                                    <Text style={styles.inputLabel}>Slot Interval</Text>
+                                    <View style={styles.segmentRow}>
+                                        {[15, 30, 60].map(v => (
+                                            <TouchableOpacity
+                                                key={v}
+                                                style={[styles.segmentBtn, settingsForm.slot_interval === v && styles.segmentBtnActive]}
+                                                onPress={() => setSettingsForm(f => ({ ...f, slot_interval: v }))}
+                                            >
+                                                <Text style={[styles.segmentBtnText, settingsForm.slot_interval === v && styles.segmentBtnTextActive]}>
+                                                    {v} min
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <Text style={styles.fieldHint}>Time between each slot</Text>
+                                </View>
+
+                                {/* Patients per Slot */}
+                                <View style={{ marginBottom: 12 }}>
+                                    <Text style={styles.inputLabel}>Patients per Slot</Text>
+                                    <TextInput
+                                        style={[styles.input, settingsErrors.slot_limit ? styles.inputError : null]}
+                                        keyboardType="number-pad"
+                                        value={settingsForm.slot_limit === 0 ? "" : String(settingsForm.slot_limit)}
+                                        onChangeText={t => setSettingsForm(f => ({ ...f, slot_limit: Math.min(999, parseInt(t) || 0) }))}
+                                        placeholder="0 = unlimited"
+                                        maxLength={3}
+                                    />
+                                    {settingsErrors.slot_limit
+                                        ? <Text style={styles.fieldError}>{settingsErrors.slot_limit}</Text>
+                                        : <Text style={styles.fieldHint}>Max per time slot. 0 = unlimited</Text>}
+                                </View>
+
+                                {/* Advance Booking Days */}
+                                <View style={{ marginBottom: 12 }}>
+                                    <Text style={styles.inputLabel}>Advance Booking Days</Text>
+                                    <TextInput
+                                        style={[styles.input, settingsErrors.advance_days ? styles.inputError : null]}
+                                        keyboardType="number-pad"
+                                        value={String(settingsForm.advance_days)}
+                                        onChangeText={t => setSettingsForm(f => ({ ...f, advance_days: parseInt(t) || 1 }))}
+                                        placeholder="30"
+                                        maxLength={3}
+                                    />
+                                    {settingsErrors.advance_days
+                                        ? <Text style={styles.fieldError}>{settingsErrors.advance_days}</Text>
+                                        : <Text style={styles.fieldHint}>Days ahead allowed</Text>}
+                                </View>
+
+                                {/* Capacity Preview */}
+                                {(() => {
+                                    const openM  = toMinutes(settingsForm.open_time);
+                                    const closeM = toMinutes(settingsForm.close_time);
+                                    if (closeM <= openM) return null;
+                                    const totalSlots = Math.floor((closeM - openM) / settingsForm.slot_interval) + 1;
+                                    const daily = settingsForm.slot_limit === 0 ? null : totalSlots * settingsForm.slot_limit;
+                                    return (
+                                        <View style={styles.capacityPreview}>
+                                            <Text style={styles.capacityTitle}>Capacity Preview</Text>
+                                            {[
+                                                ["Operating hours", `${formatTimeLabel(settingsForm.open_time)} – ${formatTimeLabel(settingsForm.close_time)}`],
+                                                ["Slot interval",   `${settingsForm.slot_interval} min`],
+                                                ["Total time slots", `${totalSlots} slots`],
+                                                ["Patients per slot", settingsForm.slot_limit === 0 ? "Unlimited" : String(settingsForm.slot_limit)],
+                                            ].map(([label, val]) => (
+                                                <View key={label} style={styles.capacityRow}>
+                                                    <Text style={styles.capacityLabel}>{label}</Text>
+                                                    <Text style={styles.capacityValue}>{val}</Text>
+                                                </View>
+                                            ))}
+                                            <View style={[styles.capacityRow, { borderTopWidth: 1, borderTopColor: "#BFDBFE", paddingTop: 8, marginTop: 4 }]}>
+                                                <Text style={[styles.capacityLabel, { fontWeight: "700", color: "#1D4ED8" }]}>Estimated daily capacity</Text>
+                                                <Text style={[styles.capacityValue, { fontWeight: "700", color: "#1E3A8A" }]}>
+                                                    {daily === null ? "Unlimited" : `${daily} patients/day`}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })()}
+
+                                {/* Actions */}
+                                <View style={[styles.modalActions, { marginTop: 16 }]}>
+                                    <TouchableOpacity style={styles.cancelBtnAlt} onPress={() => setShowSettingsModal(false)} disabled={settingsSaving}>
+                                        <Text style={styles.cancelBtnAltText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.saveBtn} onPress={saveSettings} disabled={settingsSaving}>
+                                        {settingsSaving
+                                            ? <ActivityIndicator size="small" color="#fff" />
+                                            : <Text style={styles.saveBtnText}>Save Settings</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
             <ConfirmDialog
                 visible={confirmDialog.visible}
                 title={confirmDialog.title}
@@ -1552,7 +1863,70 @@ export default function AppointmentsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F9FAFB" },
+    container: { flex: 1, backgroundColor: "#F3F4F6" },
+    settingsBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#fff",
+    },
+    settingsBtnText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    settingsSectionLabel: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#9CA3AF",
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+        marginBottom: 10,
+        marginTop: 4,
+    },
+    settingsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F9FAFB",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        padding: 14,
+        marginBottom: 12,
+        gap: 12,
+    },
+    settingsRowTitle: { fontSize: 14, fontWeight: "600", color: "#111827" },
+    settingsRowSub: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
+    settingsDivider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
+    inputError: { borderColor: "#EF4444" },
+    fieldError: { fontSize: 11, color: "#EF4444", marginTop: 3 },
+    fieldHint: { fontSize: 11, color: "#9CA3AF", marginTop: 3 },
+    segmentRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
+    segmentBtn: {
+        flex: 1,
+        paddingVertical: 9,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#fff",
+        alignItems: "center",
+    },
+    segmentBtnActive: { backgroundColor: "#ac3434", borderColor: "#ac3434" },
+    segmentBtnText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    segmentBtnTextActive: { color: "#fff" },
+    capacityPreview: {
+        backgroundColor: "#EFF6FF",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        padding: 14,
+        marginBottom: 12,
+    },
+    capacityTitle: { fontSize: 11, fontWeight: "700", color: "#1D4ED8", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 },
+    capacityRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+    capacityLabel: { fontSize: 12, color: "#3B82F6" },
+    capacityValue: { fontSize: 12, fontWeight: "600", color: "#1E3A8A" },
     errorContainer: {
         flex: 1,
         alignItems: "center",
