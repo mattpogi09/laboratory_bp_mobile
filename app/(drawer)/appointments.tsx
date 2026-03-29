@@ -20,7 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Linking,
+    Image,
     Modal,
     Platform,
     RefreshControl,
@@ -204,6 +204,7 @@ export default function AppointmentsScreen() {
     const [showDetail, setShowDetail] = useState(false);
     const [detailLoading, setDetailLoading] = useState(false);
     const [idViewerUrl, setIdViewerUrl] = useState<string | null>(null);
+    const [idViewerName, setIdViewerName] = useState<string | null>(null);
 
     // Cancel modal
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -538,7 +539,8 @@ export default function AppointmentsScreen() {
                         style={styles.idBtn}
                         onPress={(e) => {
                             e.stopPropagation();
-                            Linking.openURL((item as any).id_picture_url);
+                            setIdViewerUrl((item as any).id_picture_url);
+                            setIdViewerName(item.patient_name);
                         }}
                     >
                         <Eye size={13} color="#2563EB" />
@@ -758,6 +760,37 @@ export default function AppointmentsScreen() {
                     }
                 />
             )}
+
+            {/* In-app ID image viewer */}
+            <Modal
+                visible={!!idViewerUrl}
+                transparent
+                animationType="fade"
+                onRequestClose={() => { setIdViewerUrl(null); setIdViewerName(null); }}
+            >
+                <View style={styles.idViewerOverlay}>
+                    <View style={styles.idViewerBox}>
+                        <View style={styles.idViewerHeader}>
+                            <Text style={styles.idViewerTitle} numberOfLines={1}>
+                                ID — {idViewerName}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => { setIdViewerUrl(null); setIdViewerName(null); }}
+                                style={{ padding: 4 }}
+                            >
+                                <X size={22} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+                        {idViewerUrl && (
+                            <Image
+                                source={{ uri: idViewerUrl }}
+                                style={styles.idViewerImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
 
             {/* Detail Modal */}
             <Modal
@@ -981,7 +1014,10 @@ export default function AppointmentsScreen() {
                                         {(selected as any).id_picture_url ? (
                                             <TouchableOpacity
                                                 style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, backgroundColor: "#EFF6FF", borderRadius: 8, padding: 10 }}
-                                                onPress={() => Linking.openURL((selected as any).id_picture_url)}
+                                                onPress={() => {
+                                                    setIdViewerUrl((selected as any).id_picture_url);
+                                                    setIdViewerName(selected.patient_name);
+                                                }}
                                             >
                                                 <Eye size={16} color="#2563EB" />
                                                 <Text style={{ fontSize: 13, fontWeight: "600", color: "#2563EB" }}>View Uploaded ID</Text>
@@ -1705,6 +1741,32 @@ const styles = StyleSheet.create({
     },
     idBtnText: { fontSize: 12, fontWeight: "600", color: "#2563EB" },
     noIdText: { fontSize: 11, color: "#9CA3AF", marginTop: 4 },
+    // In-app ID viewer
+    idViewerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.85)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+    },
+    idViewerBox: {
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        width: "100%",
+        maxWidth: 400,
+        overflow: "hidden",
+    },
+    idViewerHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    idViewerTitle: { fontSize: 15, fontWeight: "700", color: "#111827", flex: 1, marginRight: 8 },
+    idViewerImage: { width: "100%", height: 300, backgroundColor: "#F3F4F6" },
     empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
     emptyText: { fontSize: 15, color: "#9CA3AF" },
     overlay: {

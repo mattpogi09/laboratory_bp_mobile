@@ -15,7 +15,7 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Linking,
+    Image,
     Modal,
     Platform,
     RefreshControl,
@@ -86,6 +86,10 @@ export default function WalkInScreen() {
     const [priorityModal, setPriorityModal] = useState<WalkIn | null>(null);
     const [pendingPriority, setPendingPriority] = useState<{ walkIn: WalkIn; newPriority: string } | null>(null);
     const [updatingPriority, setUpdatingPriority] = useState(false);
+
+    const [idViewer, setIdViewer] = useState<{ visible: boolean; url: string | null; name: string | null }>({
+        visible: false, url: null, name: null,
+    });
 
     const fetchWalkIns = useCallback(
         async (date: Date = selectedDate) => {
@@ -243,7 +247,7 @@ export default function WalkInScreen() {
                     {item.id_picture_url ? (
                         <TouchableOpacity
                             style={styles.idBtn}
-                            onPress={() => Linking.openURL(item.id_picture_url!)}
+                            onPress={() => setIdViewer({ visible: true, url: item.id_picture_url!, name: item.patient_name })}
                         >
                             <Eye size={13} color="#2563EB" />
                             <Text style={styles.idBtnText}>View Uploaded ID</Text>
@@ -405,6 +409,37 @@ export default function WalkInScreen() {
                     }
                 />
             ))}
+
+            {/* In-app ID image viewer */}
+            <Modal
+                visible={idViewer.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setIdViewer({ visible: false, url: null, name: null })}
+            >
+                <View style={styles.idViewerOverlay}>
+                    <View style={styles.idViewerBox}>
+                        <View style={styles.idViewerHeader}>
+                            <Text style={styles.idViewerTitle} numberOfLines={1}>
+                                ID — {idViewer.name}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setIdViewer({ visible: false, url: null, name: null })}
+                                style={{ padding: 4 }}
+                            >
+                                <X size={22} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+                        {idViewer.url && (
+                            <Image
+                                source={{ uri: idViewer.url }}
+                                style={styles.idViewerImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
 
             {/* Priority selection modal */}
             <Modal
@@ -655,6 +690,32 @@ const styles = StyleSheet.create({
     },
     idBtnText: { fontSize: 12, fontWeight: "600", color: "#2563EB" },
     noId: { fontSize: 11, color: "#9CA3AF", marginTop: 8 },
+    // In-app ID viewer
+    idViewerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.85)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+    },
+    idViewerBox: {
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        width: "100%",
+        maxWidth: 400,
+        overflow: "hidden",
+    },
+    idViewerHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    idViewerTitle: { fontSize: 15, fontWeight: "700", color: "#111827", flex: 1, marginRight: 8 },
+    idViewerImage: { width: "100%", height: 300, backgroundColor: "#F3F4F6" },
     // Error
     errorContainer: {
         flex: 1,
