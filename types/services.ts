@@ -4,6 +4,7 @@ export type Service = {
     category: string;
     price: number;
     description: string;
+    reference_config: Record<string, string> | null;
     is_active: boolean;
     created_at: string;
 };

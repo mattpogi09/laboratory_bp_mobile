@@ -4,15 +4,17 @@ import {
     ChevronDown,
     Edit,
     Grid,
+    Minus,
     Plus,
     Power,
     PowerOff,
     Search,
     Settings2,
+    SlidersHorizontal,
     TestTube,
     X,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -20,6 +22,7 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
@@ -69,6 +72,15 @@ export default function ServicesScreen() {
         type: "success" as "success" | "error" | "info" | "warning",
     });
     const [loadError, setLoadError] = useState<string | null>(null);
+
+    // Interpretation settings
+    const [showInterpretationModal, setShowInterpretationModal] = useState(false);
+    const [interpretationForm, setInterpretationForm] = useState({
+        engine_enabled: false,
+        show_in_lab_entry: false,
+        show_in_pdf: false,
+    });
+    const [savingInterpretation, setSavingInterpretation] = useState(false);
 
     const loadCategories = useCallback(async () => {
         try {
@@ -161,8 +173,39 @@ export default function ServicesScreen() {
             loadCategories();
             loadFormCategories();
             loadServices(1, true);
+            // Load interpretation settings
+            api.get("/settings").then((res) => {
+                const s = res.data.interpretation_settings;
+                if (s) setInterpretationForm({
+                    engine_enabled: !!s.engine_enabled,
+                    show_in_lab_entry: !!s.show_in_lab_entry,
+                    show_in_pdf: !!s.show_in_pdf,
+                });
+            }).catch(() => {});
         }, [loadCategories, loadFormCategories, loadServices]),
     );
+
+    const handleSaveInterpretation = async () => {
+        setSavingInterpretation(true);
+        try {
+            await api.post("/settings", {
+                // required general fields — send current values unchanged
+                email_sending_enabled: true,
+                email_notification_enabled: true,
+                notification_enabled: true,
+                pdf_password_format: "birthdate",
+                interpretation_engine_enabled: interpretationForm.engine_enabled,
+                interpretation_show_in_lab_entry: interpretationForm.show_in_lab_entry,
+                interpretation_show_in_pdf: interpretationForm.show_in_pdf,
+            });
+            setShowInterpretationModal(false);
+            setSuccessDialog({ visible: true, title: "Success", message: "Interpretation settings saved.", type: "success" });
+        } catch (err: any) {
+            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to save settings."), type: "error" });
+        } finally {
+            setSavingInterpretation(false);
+        }
+    };
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -325,19 +368,28 @@ export default function ServicesScreen() {
                         style={styles.manageCategoriesButton}
                         onPress={() => router.push("/(drawer)/test-categories")}
                     >
-                        <Settings2 color="#374151" size={16} />
+                        <Settings2 color="#374151" size={15} />
                         <Text style={styles.manageCategoriesText}>
                             Manage Categories
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => setShowCreateModal(true)}
+                        style={[styles.manageCategoriesButton, { borderColor: "#D97706", backgroundColor: "#FFFBEB" }]}
+                        onPress={() => setShowInterpretationModal(true)}
                     >
-                        <Plus color="#fff" size={18} />
-                        <Text style={styles.addButtonText}>Add Service</Text>
+                        <SlidersHorizontal color="#D97706" size={15} />
+                        <Text style={[styles.manageCategoriesText, { color: "#92400E" }]}>
+                            Interpretation
+                        </Text>
                     </TouchableOpacity>
                 </View>
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => setShowCreateModal(true)}
+                >
+                    <Plus color="#fff" size={18} />
+                    <Text style={styles.addButtonText}>Add Service</Text>
+                </TouchableOpacity>
             </View>
 
             <FlatList
@@ -579,6 +631,58 @@ export default function ServicesScreen() {
                     setSuccessDialog({ ...successDialog, visible: false })
                 }
             />
+
+            {/* Interpretation Settings Modal */}
+            <Modal visible={showInterpretationModal} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Interpretation Settings</Text>
+                            <TouchableOpacity onPress={() => setShowInterpretationModal(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={{ fontSize: 13, color: "#6B7280", paddingHorizontal: 16, marginBottom: 12 }}>
+                            Choose where interpretation labels are shown.
+                        </Text>
+                        <View style={{ paddingHorizontal: 16, gap: 10 }}>
+                            {[
+                                { key: "engine_enabled" as const, label: "Interpretation Engine", desc: "Master switch for interpretation labels." },
+                                { key: "show_in_lab_entry" as const, label: "Show in Lab Entry", desc: "Display labels during result encoding." },
+                                { key: "show_in_pdf" as const, label: "Show in PDF", desc: "Display labels in generated PDFs." },
+                            ].map(({ key, label, desc }) => (
+                                <View key={key} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 12 }}>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>{label}</Text>
+                                        <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{desc}</Text>
+                                    </View>
+                                    <Switch
+                                        value={interpretationForm[key]}
+                                        disabled={key !== "engine_enabled" && !interpretationForm.engine_enabled}
+                                        onValueChange={(val) => {
+                                            if (key === "engine_enabled") {
+                                                setInterpretationForm({ engine_enabled: val, show_in_lab_entry: val ? interpretationForm.show_in_lab_entry : false, show_in_pdf: val ? interpretationForm.show_in_pdf : false });
+                                            } else {
+                                                setInterpretationForm({ ...interpretationForm, [key]: val });
+                                            }
+                                        }}
+                                        trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
+                                        thumbColor="#fff"
+                                    />
+                                </View>
+                            ))}
+                        </View>
+                        <View style={[styles.modalFooter, { marginTop: 16 }]}>
+                            <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowInterpretationModal(false)}>
+                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalButtonPrimary} onPress={handleSaveInterpretation} disabled={savingInterpretation}>
+                                {savingInterpretation ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonTextPrimary}>Save</Text>}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -682,6 +786,7 @@ function CreateServiceModal({
         price: "",
         description: "",
     });
+    const [referenceRows, setReferenceRows] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -694,6 +799,12 @@ function CreateServiceModal({
             });
         }
     };
+
+    const buildReferenceConfig = (rows: { key: string; value: string }[]) =>
+        rows.reduce((acc: Record<string, string>, row) => {
+            if (row.key.trim() && row.value.trim()) acc[row.key.trim()] = row.value.trim();
+            return acc;
+        }, {});
 
     const validate = () => {
         const errs: Record<string, string[]> = {};
@@ -711,6 +822,12 @@ function CreateServiceModal({
             errs.price = ["Price cannot exceed ₱99,999.99."];
         if (formData.description && formData.description.length > 1000)
             errs.description = ["Description cannot exceed 1000 characters."];
+        const filled = referenceRows.filter(r => r.key.trim() || r.value.trim());
+        if (filled.some(r => !r.key.trim() || !r.value.trim()))
+            errs.reference_config = ["Each reference row needs both a key and value."];
+        const keys = filled.map(r => r.key.trim().toLowerCase());
+        if (new Set(keys).size !== keys.length)
+            errs.reference_config = ["Duplicate reference keys are not allowed."];
         return errs;
     };
 
@@ -722,11 +839,14 @@ function CreateServiceModal({
         }
         setLoading(true);
         try {
+            const referenceConfig = buildReferenceConfig(referenceRows);
             await onSubmit({
                 ...formData,
                 price: parseFloat(formData.price),
+                reference_config: Object.keys(referenceConfig).length > 0 ? referenceConfig : null,
             });
             setFormData({ name: "", category: "", price: "", description: "" });
+            setReferenceRows([{ key: "", value: "" }]);
             setErrors({});
             onClose();
         } catch (err: any) {
@@ -751,7 +871,7 @@ function CreateServiceModal({
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.modalBody}>
+                    <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
@@ -848,14 +968,7 @@ function CreateServiceModal({
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    color: "#9CA3AF",
-                                    textAlign: "right",
-                                    marginTop: 2,
-                                }}
-                            >
+                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
                                 {formData.description.length}/1000
                             </Text>
                             {errors.description?.[0] && (
@@ -864,7 +977,13 @@ function CreateServiceModal({
                                 </Text>
                             )}
                         </View>
-                    </View>
+
+                        <ReferenceValuesEditor
+                            rows={referenceRows}
+                            onChange={setReferenceRows}
+                            error={errors.reference_config?.[0]}
+                        />
+                    </ScrollView>
 
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
@@ -910,14 +1029,34 @@ function EditServiceModal({
     onSubmit: (id: number, data: any) => void;
     onError: (message: string) => void;
 }) {
+    const toRows = (cfg: Record<string, string> | null) =>
+        cfg && Object.keys(cfg).length > 0
+            ? Object.entries(cfg).map(([key, value]) => ({ key, value: String(value ?? "") }))
+            : [{ key: "", value: "" }];
+
     const [formData, setFormData] = useState({
         name: service.name,
         category: service.category,
         price: service.price.toString(),
         description: service.description || "",
     });
+    const [referenceRows, setReferenceRows] = useState<{ key: string; value: string }[]>(
+        toRows(service.reference_config ?? null)
+    );
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    // Sync form whenever the selected service changes
+    useEffect(() => {
+        setFormData({
+            name: service.name,
+            category: service.category,
+            price: service.price.toString(),
+            description: service.description || "",
+        });
+        setReferenceRows(toRows(service.reference_config ?? null));
+        setErrors({});
+    }, [service.id]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -928,6 +1067,12 @@ function EditServiceModal({
             });
         }
     };
+
+    const buildReferenceConfig = (rows: { key: string; value: string }[]) =>
+        rows.reduce((acc: Record<string, string>, row) => {
+            if (row.key.trim() && row.value.trim()) acc[row.key.trim()] = row.value.trim();
+            return acc;
+        }, {});
 
     const validate = () => {
         const errs: Record<string, string[]> = {};
@@ -945,6 +1090,12 @@ function EditServiceModal({
             errs.price = ["Price cannot exceed ₱99,999.99."];
         if (formData.description && formData.description.length > 1000)
             errs.description = ["Description cannot exceed 1000 characters."];
+        const filled = referenceRows.filter(r => r.key.trim() || r.value.trim());
+        if (filled.some(r => !r.key.trim() || !r.value.trim()))
+            errs.reference_config = ["Each reference row needs both a key and value."];
+        const keys = filled.map(r => r.key.trim().toLowerCase());
+        if (new Set(keys).size !== keys.length)
+            errs.reference_config = ["Duplicate reference keys are not allowed."];
         return errs;
     };
 
@@ -956,9 +1107,11 @@ function EditServiceModal({
         }
         setLoading(true);
         try {
+            const referenceConfig = buildReferenceConfig(referenceRows);
             await onSubmit(service.id, {
                 ...formData,
                 price: parseFloat(formData.price),
+                reference_config: Object.keys(referenceConfig).length > 0 ? referenceConfig : null,
             });
             setErrors({});
             onClose();
@@ -984,7 +1137,7 @@ function EditServiceModal({
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.modalBody}>
+                    <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
@@ -1019,10 +1172,7 @@ function EditServiceModal({
                                 selectedValue={formData.category}
                                 hasError={!!errors.category}
                                 onValueChange={(value) => {
-                                    setFormData({
-                                        ...formData,
-                                        category: value,
-                                    });
+                                    setFormData({ ...formData, category: value });
                                     clearError("category");
                                 }}
                                 categories={categories}
@@ -1046,10 +1196,7 @@ function EditServiceModal({
                                     const filtered = text
                                         .replace(/[^0-9.]/g, "")
                                         .replace(/(\..*)\./g, "$1");
-                                    setFormData({
-                                        ...formData,
-                                        price: filtered,
-                                    });
+                                    setFormData({ ...formData, price: filtered });
                                     clearError("price");
                                 }}
                                 placeholder="Enter price"
@@ -1064,31 +1211,19 @@ function EditServiceModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Description (Optional)
-                            </Text>
+                            <Text style={styles.formLabel}>Description (Optional)</Text>
                             <TextInput
                                 style={[styles.formInput, styles.textArea]}
                                 value={formData.description}
                                 onChangeText={(text) =>
-                                    setFormData({
-                                        ...formData,
-                                        description: text,
-                                    })
+                                    setFormData({ ...formData, description: text })
                                 }
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    color: "#9CA3AF",
-                                    textAlign: "right",
-                                    marginTop: 2,
-                                }}
-                            >
+                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
                                 {formData.description.length}/1000
                             </Text>
                             {errors.description?.[0] && (
@@ -1097,7 +1232,13 @@ function EditServiceModal({
                                 </Text>
                             )}
                         </View>
-                    </View>
+
+                        <ReferenceValuesEditor
+                            rows={referenceRows}
+                            onChange={setReferenceRows}
+                            error={errors.reference_config?.[0]}
+                        />
+                    </ScrollView>
 
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
@@ -1125,6 +1266,200 @@ function EditServiceModal({
                 </View>
             </View>
         </Modal>
+    );
+}
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+type Variant = { variant: string; label: string; text: string };
+
+function parseVariants(value: string): Variant[] {
+    if (!value || !value.includes("|")) {
+        return [{ variant: "single", label: "", text: value || "" }];
+    }
+    const parts = value.split("|").map((p) => p.trim());
+    const isGender = parts.some((p) => /^(M|F|Child)\s*:/.test(p));
+    if (isGender) {
+        return parts.map((part) => {
+            const m = part.match(/^(M|F|Child)\s*:\s*(.+)$/);
+            return m
+                ? { variant: m[1], label: m[1], text: m[2].trim() }
+                : { variant: "unknown", label: "", text: part };
+        });
+    }
+    return parts.map((part, idx) => {
+        const u = part.match(/(mmol\/L|mg\/dl|g\/L|U\/L|umol\/L|mm\/hr|x10\d|%)/i);
+        return { variant: `unit_${idx}`, label: u ? `(${u[0]})` : `#${idx + 1}`, text: part };
+    });
+}
+
+function reconstructValue(variants: Variant[]): string {
+    return variants
+        .filter((v) => v.text.trim())
+        .map((v) => {
+            if (v.variant === "single") return v.text;
+            if (/^(M|F|Child)$/.test(v.variant)) return `${v.variant}: ${v.text}`;
+            return v.text;
+        })
+        .join(" | ");
+}
+
+// ─── ReferenceValuesEditor ───────────────────────────────────────────────────
+
+function ReferenceValuesEditor({
+    rows,
+    onChange,
+    error,
+}: {
+    rows: { key: string; value: string }[];
+    onChange: (rows: { key: string; value: string }[]) => void;
+    error?: string;
+}) {
+    const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+    const updateRow = (index: number, field: "key" | "value", text: string) => {
+        onChange(rows.map((r, i) => (i === index ? { ...r, [field]: text } : r)));
+        // collapse expand panel when user edits the raw value directly
+        if (field === "value") setExpanded((p) => ({ ...p, [index]: false }));
+    };
+
+    const updateVariant = (rowIndex: number, variantIdx: number, text: string) => {
+        const variants = parseVariants(rows[rowIndex].value);
+        variants[variantIdx].text = text;
+        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+    };
+
+    const addVariant = (rowIndex: number) => {
+        const variants = parseVariants(rows[rowIndex].value);
+        // add a blank unit variant
+        variants.push({ variant: `unit_${variants.length}`, label: `#${variants.length + 1}`, text: "" });
+        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+    };
+
+    const removeVariant = (rowIndex: number, variantIdx: number) => {
+        const variants = parseVariants(rows[rowIndex].value);
+        if (variants.length <= 1) return;
+        variants.splice(variantIdx, 1);
+        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+    };
+
+    const addRow = () => onChange([...rows, { key: "", value: "" }]);
+    const removeRow = (index: number) => {
+        if (rows.length === 1) return;
+        onChange(rows.filter((_, i) => i !== index));
+        setExpanded((p) => {
+            const next = { ...p };
+            delete next[index];
+            return next;
+        });
+    };
+
+    return (
+        <View style={{ borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>Reference Values</Text>
+                    <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
+                        Tap the expand icon on a row to edit variants (M/F/Child or unit) separately.
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    onPress={addRow}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8 }}
+                >
+                    <Plus size={13} color="#374151" />
+                    <Text style={{ fontSize: 12, color: "#374151", fontWeight: "600" }}>Add Row</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Rows */}
+            {rows.map((row, index) => {
+                const variants = parseVariants(row.value);
+                const hasVariants = variants.length > 1;
+                const isExpanded = !!expanded[index];
+
+                return (
+                    <View key={index} style={{ borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 8, marginBottom: 8, overflow: "hidden", backgroundColor: "#F9FAFB" }}>
+                        {/* Key + Value + controls */}
+                        <View style={{ padding: 10, gap: 6 }}>
+                            <TextInput
+                                style={{ borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#111827", backgroundColor: "#fff" }}
+                                value={row.key}
+                                onChangeText={(t) => updateRow(index, "key", t)}
+                                placeholder="Parameter key (e.g. fbs, rbc)"
+                                placeholderTextColor="#9CA3AF"
+                            />
+                            <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                                <TextInput
+                                    style={{ flex: 1, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#111827", backgroundColor: "#fff" }}
+                                    value={row.value}
+                                    onChangeText={(t) => updateRow(index, "value", t)}
+                                    placeholder="Normal value (e.g. 70-104 mg/dl)"
+                                    placeholderTextColor="#9CA3AF"
+                                />
+                                {/* Expand variants toggle */}
+                                {hasVariants && (
+                                    <TouchableOpacity
+                                        onPress={() => setExpanded((p) => ({ ...p, [index]: !p[index] }))}
+                                        style={{ padding: 8, borderWidth: 1, borderColor: isExpanded ? "#2563EB" : "#D1D5DB", borderRadius: 8, backgroundColor: isExpanded ? "#EFF6FF" : "#fff" }}
+                                    >
+                                        <ChevronDown size={15} color={isExpanded ? "#2563EB" : "#6B7280"} style={{ transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] }} />
+                                    </TouchableOpacity>
+                                )}
+                                {/* Remove row */}
+                                <TouchableOpacity
+                                    onPress={() => removeRow(index)}
+                                    disabled={rows.length === 1}
+                                    style={{ padding: 8, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, backgroundColor: "#fff", opacity: rows.length === 1 ? 0.4 : 1 }}
+                                >
+                                    <Minus size={15} color="#6B7280" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Expanded variant editor */}
+                        {hasVariants && isExpanded && (
+                            <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", backgroundColor: "#fff", padding: 10, gap: 8 }}>
+                                <Text style={{ fontSize: 12, fontWeight: "600", color: "#374151", marginBottom: 2 }}>Edit variants separately:</Text>
+                                {variants.map((v, vi) => (
+                                    <View key={vi} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                        {/* Label badge */}
+                                        <View style={{ minWidth: 36, paddingHorizontal: 6, paddingVertical: 4, backgroundColor: "#F3F4F6", borderRadius: 6, alignItems: "center" }}>
+                                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#374151" }}>{v.label || `#${vi + 1}`}</Text>
+                                        </View>
+                                        <TextInput
+                                            style={{ flex: 1, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 13, color: "#111827", backgroundColor: "#F9FAFB" }}
+                                            value={v.text}
+                                            onChangeText={(t) => updateVariant(index, vi, t)}
+                                            placeholder="e.g. 0-45"
+                                            placeholderTextColor="#9CA3AF"
+                                        />
+                                        <TouchableOpacity
+                                            onPress={() => removeVariant(index, vi)}
+                                            disabled={variants.length <= 1}
+                                            style={{ padding: 6, opacity: variants.length <= 1 ? 0.3 : 1 }}
+                                        >
+                                            <Minus size={13} color="#EF4444" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                                {/* Add variant button */}
+                                <TouchableOpacity
+                                    onPress={() => addVariant(index)}
+                                    style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, marginTop: 2 }}
+                                >
+                                    <Plus size={12} color="#374151" />
+                                    <Text style={{ fontSize: 12, color: "#374151" }}>Add Variant</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                );
+            })}
+
+            {error && <Text style={{ fontSize: 12, color: "#EF4444", marginTop: 4 }}>{error}</Text>}
+        </View>
     );
 }
 
@@ -1293,12 +1628,12 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#2563EB",
-        paddingVertical: 12,
+        backgroundColor: "#ac3434",
+        paddingVertical: 13,
         paddingHorizontal: 16,
         borderRadius: 12,
         gap: 6,
-        flex: 1,
+        marginTop: 8,
     },
     actionRow: {
         flexDirection: "row",
@@ -1306,26 +1641,27 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     manageCategoriesButton: {
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#fff",
         borderWidth: 1,
         borderColor: "#D1D5DB",
-        paddingVertical: 12,
-        paddingHorizontal: 14,
+        paddingVertical: 10,
+        paddingHorizontal: 10,
         borderRadius: 12,
-        gap: 6,
+        gap: 5,
     },
     manageCategoriesText: {
         color: "#374151",
         fontWeight: "600",
-        fontSize: 14,
+        fontSize: 13,
     },
     addButtonText: {
         color: "#fff",
-        fontWeight: "600",
-        marginLeft: 6,
+        fontWeight: "700",
+        fontSize: 15,
     },
     card: {
         backgroundColor: "#fff",
