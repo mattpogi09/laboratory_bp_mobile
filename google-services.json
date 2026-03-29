@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1073530379105",
+    "project_id": "bp-diagnostic-laboratory",
+    "storage_bucket": "bp-diagnostic-laboratory.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1073530379105:android:566158a459f407cf930320",
+        "android_client_info": {
+          "package_name": "com.laboratorybp.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFeybtvZkanPqJPzq68KYJD_L3tP38mAU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

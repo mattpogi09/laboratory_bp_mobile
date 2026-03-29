@@ -42,6 +42,5 @@ app-example
 /ios
 /android
 
-# Firebase — contains API keys, never commit
-google-services.json
+# Firebase
 GoogleService-Info.plist
