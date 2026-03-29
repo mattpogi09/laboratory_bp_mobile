@@ -1,9 +1,10 @@
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Animated, Text, View } from "react-native";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 function UpdateBanner() {
     const [message, setMessage] = useState("");
@@ -69,9 +70,23 @@ function UpdateBanner() {
     );
 }
 
+function PushNotificationSetup() {
+    const onResponse = useCallback((response: any) => {
+        // Navigate based on notification data when user taps a notification
+        const data = response.notification.request.content.data ?? {};
+        if (data.transaction_id) {
+            // Future: router.push to transaction detail
+        }
+    }, []);
+
+    usePushNotifications(undefined, onResponse);
+    return null;
+}
+
 export default function RootLayout() {
     return (
         <AuthProvider>
+            <PushNotificationSetup />
             <UpdateBanner />
             <Stack
                 screenOptions={{

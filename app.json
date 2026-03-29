@@ -13,12 +13,16 @@
         },
         "android": {
             "package": "com.laboratorybp.mobile",
+            "googleServicesFile": "./google-services.json",
             "adaptiveIcon": {
                 "backgroundColor": "#ffffff",
                 "foregroundImage": "./assets/images/Icon-Store-1024.png"
             },
             "edgeToEdgeEnabled": true,
-            "predictiveBackGestureEnabled": false
+            "predictiveBackGestureEnabled": false,
+            "permissions": [
+                "android.permission.POST_NOTIFICATIONS"
+            ]
         },
         "web": {
             "output": "static",
@@ -36,6 +40,16 @@
                     "dark": {
                         "backgroundColor": "#ffffff"
                     }
+                }
+            ],
+            [
+                "expo-notifications",
+                {
+                    "icon": "./assets/images/icon.png",
+                    "color": "#1D4ED8",
+                    "defaultChannel": "default",
+                    "sounds": [],
+                    "enableBackgroundRemoteNotifications": false
                 }
             ],
             "expo-secure-store",
