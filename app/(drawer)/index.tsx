@@ -224,7 +224,9 @@ export default function Dashboard() {
 
     const revenueLineData = useMemo(() => {
         if (!data?.revenueChartData?.length) return null;
-        const items = data.revenueChartData.slice(-7);
+        const items = ["month", "year"].includes(period)
+            ? data.revenueChartData
+            : data.revenueChartData.slice(-7);
         const hasData = items.some((d) => d.value > 0);
         return {
             hasData,
@@ -234,7 +236,7 @@ export default function Dashboard() {
                 labelTextStyle: { color: "#9CA3AF", fontSize: 10 },
             })),
         };
-    }, [data]);
+    }, [data, period]);
 
     if (loading && !data) {
         return (
@@ -402,12 +404,11 @@ export default function Dashboard() {
                                 color="#10B981"
                                 thickness={2.5}
                                 dataPointsColor="#10B981"
-                                dataPointsRadius={4}
+                                dataPointsRadius={revenueLineData.chartData.length > 14 ? 2 : 4}
                                 spacing={Math.floor(
                                     (SCREEN_WIDTH - 100) /
                                         Math.max(
-                                            revenueLineData.chartData.length -
-                                                1,
+                                            revenueLineData.chartData.length - 1,
                                             1,
                                         ),
                                 )}
@@ -439,6 +440,11 @@ export default function Dashboard() {
                                 endFillColor="rgba(16,185,129,0.02)"
                                 startOpacity={0.8}
                                 endOpacity={0.1}
+                                hideDataPoints={revenueLineData.chartData.length > 20}
+                                xAxisLabelTextStyle={{
+                                    color: "#9CA3AF",
+                                    fontSize: revenueLineData.chartData.length > 14 ? 8 : 10,
+                                }}
                             />
                         ) : (
                             <View style={styles.chartEmpty}>
