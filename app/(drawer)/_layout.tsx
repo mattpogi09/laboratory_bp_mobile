@@ -19,6 +19,7 @@ import {
     LogOut,
     Package,
     Percent,
+    Ruler,
     Settings2,
     Truck,
     UserCog,
@@ -450,6 +451,15 @@ export default function DrawerLayout() {
                         title: "Inventory Categories",
                         drawerIcon: ({ color }) => (
                             <Layers color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="inventory-units"
+                    options={{
+                        title: "Inventory Units",
+                        drawerIcon: ({ color }) => (
+                            <Ruler color={color} size={20} />
                         ),
                     }}
                 />

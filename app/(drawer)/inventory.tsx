@@ -2,21 +2,25 @@ import { useFocusEffect } from "@react-navigation/native";
 import {
     AlertCircle,
     AlertTriangle,
+    CalendarClock,
     ChevronDown,
     History,
+    Layers,
     PackageSearch,
     Pencil,
     Plus,
     Power,
     PowerOff,
+    Ruler,
     Search,
     Settings2,
+    ShieldAlert,
     SlidersHorizontal,
     TrendingDown,
     TrendingUp,
     X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -41,6 +45,34 @@ import {
     TransactionLogTab,
 } from "@/components";
 
+type InventoryUnit = {
+    id: number;
+    name: string;
+    short_name: string;
+};
+
+type InventoryBatch = {
+    id: number;
+    batch_number: string;
+    item_id: number;
+    item_name?: string;
+    supplier_id: number | null;
+    supplier_name?: string | null;
+    expiry_date: string | null;
+    received_date: string | null;
+    purchase_unit_id: number;
+    purchase_unit?: InventoryUnit | null;
+    purchase_quantity: number;
+    conversion_factor: number;
+    current_quantity: number;
+    status: "active" | "unusable" | "depleted";
+};
+
+type Supplier = {
+    id: number;
+    name: string;
+};
+
 type InventoryItem = {
     id: number;
     name: string;
@@ -48,9 +80,14 @@ type InventoryItem = {
     current_stock: number;
     minimum_stock: number;
     unit: string;
+    base_unit_id: number | null;
+    base_unit?: InventoryUnit | null;
     status: "good" | "low_stock" | "out_of_stock";
     is_active: boolean;
     percentage: number;
+    batches?: InventoryBatch[];
+    available_units?: number;
+    earliest_batch_expiry?: string | null;
 };
 
 type Summary = {
@@ -82,9 +119,9 @@ const filters = [
 ];
 
 export default function InventoryScreen() {
-    const [activeTab, setActiveTab] = useState<"items" | "transactions">(
-        "items",
-    );
+    const [activeTab, setActiveTab] = useState<
+        "items" | "transactions" | "batches" | "batch_issues" | "expiring_soon"
+    >("items");
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [summary, setSummary] = useState<Summary | null>(null);
     const [statusFilter, setStatusFilter] = useState("all");
@@ -200,6 +237,7 @@ export default function InventoryScreen() {
                         item_id: formData.item_id,
                         quantity: formData.quantity,
                         reason: formData.reason,
+                        unit_id: formData.unit_id ?? null,
                     });
                     setSuccessDialog({
                         visible: true,
@@ -229,6 +267,7 @@ export default function InventoryScreen() {
     const handleAdjustStock = async (formData: {
         new_quantity: number;
         reason: string;
+        batch_id?: number | null;
     }) => {
         const response = await api.post(
             `/inventory/${adjustItem!.id}/adjust`,
@@ -376,6 +415,14 @@ export default function InventoryScreen() {
                 <Text style={styles.stockMeta}>
                     Minimum required: {item.minimum_stock} {item.unit}
                 </Text>
+                {item.earliest_batch_expiry && (
+                    <Text style={styles.stockMeta}>
+                        Earliest expiry:{" "}
+                        <Text style={{ color: "#D97706", fontWeight: "600" }}>
+                            {item.earliest_batch_expiry}
+                        </Text>
+                    </Text>
+                )}
                 <View style={styles.cardActions}>
                     <TouchableOpacity
                         style={styles.editBtn}
@@ -460,7 +507,12 @@ export default function InventoryScreen() {
     return (
         <View style={styles.container}>
             {/* Tabs */}
-            <View style={styles.tabContainer}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.tabContainer}
+                contentContainerStyle={{ flexGrow: 1 }}
+            >
                 <TouchableOpacity
                     style={[
                         styles.tab,
@@ -470,7 +522,7 @@ export default function InventoryScreen() {
                 >
                     <PackageSearch
                         color={activeTab === "items" ? "#ac3434" : "#6B7280"}
-                        size={18}
+                        size={16}
                     />
                     <Text
                         style={[
@@ -492,7 +544,7 @@ export default function InventoryScreen() {
                         color={
                             activeTab === "transactions" ? "#ac3434" : "#6B7280"
                         }
-                        size={18}
+                        size={16}
                     />
                     <Text
                         style={[
@@ -501,10 +553,78 @@ export default function InventoryScreen() {
                                 styles.tabLabelActive,
                         ]}
                     >
-                        Transaction Log
+                        Transactions
                     </Text>
                 </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === "batches" && styles.tabActive,
+                    ]}
+                    onPress={() => setActiveTab("batches")}
+                >
+                    <Layers
+                        color={activeTab === "batches" ? "#ac3434" : "#6B7280"}
+                        size={16}
+                    />
+                    <Text
+                        style={[
+                            styles.tabLabel,
+                            activeTab === "batches" && styles.tabLabelActive,
+                        ]}
+                    >
+                        Batches
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === "batch_issues" && styles.tabActive,
+                    ]}
+                    onPress={() => setActiveTab("batch_issues")}
+                >
+                    <ShieldAlert
+                        color={
+                            activeTab === "batch_issues" ? "#ac3434" : "#6B7280"
+                        }
+                        size={16}
+                    />
+                    <Text
+                        style={[
+                            styles.tabLabel,
+                            activeTab === "batch_issues" &&
+                                styles.tabLabelActive,
+                        ]}
+                    >
+                        Batch Issues
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === "expiring_soon" && styles.tabActive,
+                    ]}
+                    onPress={() => setActiveTab("expiring_soon")}
+                >
+                    <CalendarClock
+                        color={
+                            activeTab === "expiring_soon"
+                                ? "#ac3434"
+                                : "#6B7280"
+                        }
+                        size={16}
+                    />
+                    <Text
+                        style={[
+                            styles.tabLabel,
+                            activeTab === "expiring_soon" &&
+                                styles.tabLabelActive,
+                        ]}
+                    >
+                        Expiring Soon
+                    </Text>
+                </TouchableOpacity>
+            </ScrollView>
 
             {activeTab === "items" ? (
                 <FlatList
@@ -513,20 +633,35 @@ export default function InventoryScreen() {
                     renderItem={renderItem}
                     ListHeaderComponent={
                         <>
-                            {/* Manage Categories */}
-                            <TouchableOpacity
-                                style={styles.manageCategoriesButton}
-                                onPress={() =>
-                                    router.push(
-                                        "/(drawer)/inventory-categories",
-                                    )
-                                }
-                            >
-                                <Settings2 color="#374151" size={16} />
-                                <Text style={styles.manageCategoriesText}>
-                                    Manage Categories
-                                </Text>
-                            </TouchableOpacity>
+                            {/* Manage Categories / Units */}
+                            <View style={styles.manageButtonsRow}>
+                                <TouchableOpacity
+                                    style={styles.manageCategoriesButton}
+                                    onPress={() =>
+                                        router.push(
+                                            "/(drawer)/inventory-categories",
+                                        )
+                                    }
+                                >
+                                    <Settings2 color="#374151" size={16} />
+                                    <Text style={styles.manageCategoriesText}>
+                                        Categories
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.manageCategoriesButton}
+                                    onPress={() =>
+                                        router.push(
+                                            "/(drawer)/inventory-units",
+                                        )
+                                    }
+                                >
+                                    <Ruler color="#374151" size={16} />
+                                    <Text style={styles.manageCategoriesText}>
+                                        Units
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
 
                             {/* Action Buttons */}
                             <View style={styles.actionButtonsRow}>
@@ -783,8 +918,14 @@ export default function InventoryScreen() {
                         />
                     }
                 />
-            ) : (
+            ) : activeTab === "transactions" ? (
                 <TransactionLogTab refreshTrigger={transactionRefreshKey} />
+            ) : activeTab === "batches" ? (
+                <BatchesTab />
+            ) : activeTab === "batch_issues" ? (
+                <BatchIssuesTab />
+            ) : (
+                <ExpiringSoonTab />
             )}
 
             {/* Modals */}
@@ -1091,9 +1232,19 @@ function CreateStockModal({
         initial_stock: "",
         unit: "",
         minimum_stock: "",
+        base_unit_id: "",
     });
+    const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    useEffect(() => {
+        if (show) {
+            api.get("/inventory-units")
+                .then((r) => setUnits(r.data.data ?? []))
+                .catch(() => {});
+        }
+    }, [show]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1149,6 +1300,9 @@ function CreateStockModal({
                 ...formData,
                 initial_stock: parseInt(formData.initial_stock),
                 minimum_stock: parseInt(formData.minimum_stock),
+                base_unit_id: formData.base_unit_id
+                    ? parseInt(formData.base_unit_id)
+                    : null,
             });
             setFormData({
                 name: "",
@@ -1156,6 +1310,7 @@ function CreateStockModal({
                 initial_stock: "",
                 unit: "",
                 minimum_stock: "",
+                base_unit_id: "",
             });
             setErrors({});
             onClose();
@@ -1186,7 +1341,7 @@ function CreateStockModal({
                   "Office Supplies",
                   "Other",
               ];
-    const units = [
+    const unitOptions = [
         "pieces",
         "boxes",
         "bottles",
@@ -1298,7 +1453,7 @@ function CreateStockModal({
                             <View style={styles.formGroupHalf}>
                                 <Text style={styles.formLabel}>Unit *</Text>
                                 <PickerSelect
-                                    items={units}
+                                    items={unitOptions}
                                     selectedValue={formData.unit}
                                     onValueChange={(value) => {
                                         setFormData({
@@ -1352,6 +1507,28 @@ function CreateStockModal({
                                 this threshold
                             </Text>
                         </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Base Unit (optional)
+                            </Text>
+                            <UnitPickerSelect
+                                units={units as InventoryUnit[]}
+                                selectedValue={formData.base_unit_id}
+                                onValueChange={(val) => {
+                                    setFormData({
+                                        ...formData,
+                                        base_unit_id: val,
+                                    });
+                                    clearError("base_unit_id");
+                                }}
+                                placeholder="Select base unit"
+                                hasError={!!errors.base_unit_id}
+                            />
+                            <Text style={styles.formHint}>
+                                The base measurement unit for batch tracking
+                            </Text>
+                        </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
@@ -1400,9 +1577,24 @@ function StockInModal({
         item_id: "",
         quantity: "",
         reason: "",
+        supplier_id: "",
+        expiry_date: "",
+        purchased_date: "",
+        purchase_unit_id: "",
+        purchase_quantity: "",
+        conversion_factor: "",
     });
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    useEffect(() => {
+        if (show) {
+            api.get("/suppliers").then((r) => setSuppliers(r.data.data ?? r.data)).catch(() => {});
+            api.get("/inventory-units").then((r) => setUnits(r.data.data ?? [])).catch(() => {});
+        }
+    }, [show]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1418,16 +1610,15 @@ function StockInModal({
         const errs: Record<string, string[]> = {};
         if (!formData.item_id) errs.item_id = ["Please select an item."];
         if (!formData.quantity) errs.quantity = ["Quantity is required."];
-        else if (
-            isNaN(parseInt(formData.quantity)) ||
-            parseInt(formData.quantity) < 1
-        )
+        else if (isNaN(parseInt(formData.quantity)) || parseInt(formData.quantity) < 1)
             errs.quantity = ["Quantity must be at least 1."];
         else if (parseInt(formData.quantity) > 999999)
             errs.quantity = ["Quantity cannot exceed 999,999."];
         if (!formData.reason.trim()) errs.reason = ["Reason is required."];
         else if (formData.reason.length > 500)
             errs.reason = ["Reason cannot exceed 500 characters."];
+        if (formData.conversion_factor && parseFloat(formData.conversion_factor) <= 0)
+            errs.conversion_factor = ["Conversion factor must be greater than 0."];
         return errs;
     };
 
@@ -1440,10 +1631,17 @@ function StockInModal({
         setLoading(true);
         try {
             await onSubmit({
-                ...formData,
+                item_id: parseInt(formData.item_id),
                 quantity: parseInt(formData.quantity),
+                reason: formData.reason,
+                supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
+                expiry_date: formData.expiry_date || null,
+                purchased_date: formData.purchased_date || null,
+                purchase_unit_id: formData.purchase_unit_id ? parseInt(formData.purchase_unit_id) : null,
+                purchase_quantity: formData.purchase_quantity ? parseFloat(formData.purchase_quantity) : null,
+                conversion_factor: formData.conversion_factor ? parseFloat(formData.conversion_factor) : null,
             });
-            setFormData({ item_id: "", quantity: "", reason: "" });
+            setFormData({ item_id: "", quantity: "", reason: "", supplier_id: "", expiry_date: "", purchased_date: "", purchase_unit_id: "", purchase_quantity: "", conversion_factor: "" });
             setErrors({});
             onClose();
         } catch (err: any) {
@@ -1484,36 +1682,116 @@ function StockInModal({
                                 items={items}
                                 selectedValue={formData.item_id}
                                 onValueChange={(value) => {
-                                    setFormData({
-                                        ...formData,
-                                        item_id: value,
-                                    });
+                                    setFormData({ ...formData, item_id: value });
                                     clearError("item_id");
                                 }}
                                 hasError={!!errors.item_id}
                             />
                             {errors.item_id?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.item_id[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.item_id[0]}</Text>
                             )}
                             {selectedItem && (
                                 <View style={styles.stockPreviewBlue}>
-                                    <Text style={styles.stockPreviewLabel}>
-                                        Current Stock:
-                                    </Text>
+                                    <Text style={styles.stockPreviewLabel}>Current Stock:</Text>
                                     <Text style={styles.stockPreviewValueBlue}>
-                                        {selectedItem.current_stock}{" "}
-                                        {selectedItem.unit}
+                                        {selectedItem.current_stock} {selectedItem.unit}
                                     </Text>
                                 </View>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Quantity to Add *
-                            </Text>
+                            <Text style={styles.formLabel}>Supplier (optional)</Text>
+                            <SupplierPickerSelect
+                                suppliers={suppliers}
+                                selectedValue={formData.supplier_id}
+                                onValueChange={(val) => {
+                                    setFormData({ ...formData, supplier_id: val });
+                                    clearError("supplier_id");
+                                }}
+                            />
+                        </View>
+
+                        <View style={styles.formRow}>
+                            <View style={styles.formGroupHalf}>
+                                <Text style={styles.formLabel}>Purchase Date</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={formData.purchased_date}
+                                    onChangeText={(t) => setFormData({ ...formData, purchased_date: t })}
+                                    placeholder="YYYY-MM-DD"
+                                />
+                            </View>
+                            <View style={styles.formGroupHalf}>
+                                <Text style={styles.formLabel}>Expiry Date</Text>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.expiry_date && styles.inputError,
+                                    ]}
+                                    value={formData.expiry_date}
+                                    onChangeText={(t) => {
+                                        setFormData({ ...formData, expiry_date: t });
+                                        clearError("expiry_date");
+                                    }}
+                                    placeholder="YYYY-MM-DD"
+                                />
+                                {errors.expiry_date?.[0] && (
+                                    <Text style={styles.errorText}>{errors.expiry_date[0]}</Text>
+                                )}
+                            </View>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Purchase Unit (optional)</Text>
+                            <UnitPickerSelect
+                                units={units}
+                                selectedValue={formData.purchase_unit_id}
+                                onValueChange={(val) => {
+                                    setFormData({ ...formData, purchase_unit_id: val });
+                                    clearError("purchase_unit_id");
+                                }}
+                                placeholder="Select purchase unit"
+                            />
+                        </View>
+
+                        <View style={styles.formRow}>
+                            <View style={styles.formGroupHalf}>
+                                <Text style={styles.formLabel}>Purchase Qty</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={formData.purchase_quantity}
+                                    onChangeText={(t) => setFormData({ ...formData, purchase_quantity: t.replace(/[^0-9.]/g, "") })}
+                                    placeholder="e.g. 10"
+                                    keyboardType="decimal-pad"
+                                />
+                            </View>
+                            <View style={styles.formGroupHalf}>
+                                <Text style={styles.formLabel}>Conversion Factor</Text>
+                                <TextInput
+                                    style={[
+                                        styles.formInput,
+                                        errors.conversion_factor && styles.inputError,
+                                    ]}
+                                    value={formData.conversion_factor}
+                                    onChangeText={(t) => {
+                                        setFormData({ ...formData, conversion_factor: t.replace(/[^0-9.]/g, "") });
+                                        clearError("conversion_factor");
+                                    }}
+                                    placeholder="e.g. 100"
+                                    keyboardType="decimal-pad"
+                                />
+                                {errors.conversion_factor?.[0] && (
+                                    <Text style={styles.errorText}>{errors.conversion_factor[0]}</Text>
+                                )}
+                            </View>
+                        </View>
+                        <Text style={[styles.formHint, { marginTop: -12, marginBottom: 16 }]}>
+                            Base qty = Purchase qty × Conversion factor
+                        </Text>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Quantity to Add *</Text>
                             <TextInput
                                 style={[
                                     styles.formInput,
@@ -1521,10 +1799,7 @@ function StockInModal({
                                 ]}
                                 value={formData.quantity}
                                 onChangeText={(text) => {
-                                    setFormData({
-                                        ...formData,
-                                        quantity: text.replace(/[^0-9]/g, ""),
-                                    });
+                                    setFormData({ ...formData, quantity: text.replace(/[^0-9]/g, "") });
                                     clearError("quantity");
                                 }}
                                 placeholder="Enter quantity"
@@ -1532,30 +1807,16 @@ function StockInModal({
                                 maxLength={6}
                             />
                             {errors.quantity?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.quantity[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.quantity[0]}</Text>
                             )}
-                            {selectedItem &&
-                                formData.quantity &&
-                                !isNaN(parseInt(formData.quantity)) && (
-                                    <View style={styles.stockPreviewGreen}>
-                                        <Text style={styles.stockPreviewLabel}>
-                                            New Stock After Addition:
-                                        </Text>
-                                        <Text
-                                            style={
-                                                styles.stockPreviewValueGreen
-                                            }
-                                        >
-                                            {selectedItem.current_stock +
-                                                parseInt(
-                                                    formData.quantity,
-                                                )}{" "}
-                                            {selectedItem.unit}
-                                        </Text>
-                                    </View>
-                                )}
+                            {selectedItem && formData.quantity && !isNaN(parseInt(formData.quantity)) && (
+                                <View style={styles.stockPreviewGreen}>
+                                    <Text style={styles.stockPreviewLabel}>New Stock After Addition:</Text>
+                                    <Text style={styles.stockPreviewValueGreen}>
+                                        {selectedItem.current_stock + parseInt(formData.quantity)} {selectedItem.unit}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1571,59 +1832,33 @@ function StockInModal({
                                     setFormData({ ...formData, reason: text });
                                     clearError("reason");
                                 }}
-                                placeholder="e.g., New delivery from supplier, Restocking, Emergency purchase"
+                                placeholder="e.g., New delivery from supplier"
                                 multiline
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    color: "#9CA3AF",
-                                    textAlign: "right",
-                                    marginTop: 2,
-                                }}
-                            >
+                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
                                 {formData.reason.length}/500
                             </Text>
                             {errors.reason?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.reason[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.reason[0]}</Text>
                             )}
-                        </View>
-
-                        <View style={styles.infoNote}>
-                            <Text style={styles.infoNoteText}>
-                                Note: A unique transaction code will be
-                                automatically generated for this stock movement.
-                            </Text>
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity
-                            style={styles.modalButtonSecondary}
-                            onPress={onClose}
-                        >
-                            <Text style={styles.modalButtonTextSecondary}>
-                                Cancel
-                            </Text>
+                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={onClose}>
+                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.modalButtonPrimary,
-                                { backgroundColor: "#10B981" },
-                            ]}
+                            style={[styles.modalButtonPrimary, { backgroundColor: "#10B981" }]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>
-                                    Add Stock
-                                </Text>
+                                <Text style={styles.modalButtonTextPrimary}>Add Stock</Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -1650,9 +1885,17 @@ function StockOutModal({
         item_id: "",
         quantity: "",
         reason: "",
+        unit_id: "",
     });
+    const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    useEffect(() => {
+        if (show) {
+            api.get("/inventory-units").then((r) => setUnits(r.data.data ?? [])).catch(() => {});
+        }
+    }, [show]);
 
     const clearError = (field: string) => {
         if (errors[field]) {
@@ -1668,10 +1911,7 @@ function StockOutModal({
         const errs: Record<string, string[]> = {};
         if (!formData.item_id) errs.item_id = ["Please select an item."];
         if (!formData.quantity) errs.quantity = ["Quantity is required."];
-        else if (
-            isNaN(parseInt(formData.quantity)) ||
-            parseInt(formData.quantity) < 1
-        )
+        else if (isNaN(parseInt(formData.quantity)) || parseInt(formData.quantity) < 1)
             errs.quantity = ["Quantity must be at least 1."];
         else if (parseInt(formData.quantity) > 999999)
             errs.quantity = ["Quantity cannot exceed 999,999."];
@@ -1690,19 +1930,19 @@ function StockOutModal({
         setLoading(true);
         try {
             await onSubmit({
-                ...formData,
+                item_id: parseInt(formData.item_id),
                 quantity: parseInt(formData.quantity),
+                reason: formData.reason,
+                unit_id: formData.unit_id ? parseInt(formData.unit_id) : null,
             });
-            setFormData({ item_id: "", quantity: "", reason: "" });
+            setFormData({ item_id: "", quantity: "", reason: "", unit_id: "" });
             setErrors({});
             onClose();
         } catch (err: any) {
             if (err.response?.data?.errors) {
                 setErrors(err.response.data.errors);
             } else {
-                onError(
-                    err.response?.data?.message || "Failed to remove stock",
-                );
+                onError(err.response?.data?.message || "Failed to remove stock");
             }
         } finally {
             setLoading(false);
@@ -1720,9 +1960,7 @@ function StockOutModal({
             ? selectedItem.current_stock - qty
             : null;
     const willBeLowStock =
-        newStock !== null &&
-        selectedItem &&
-        newStock < selectedItem.minimum_stock;
+        newStock !== null && selectedItem && newStock < selectedItem.minimum_stock;
 
     return (
         <Modal visible={show} animationType="slide" transparent>
@@ -1730,12 +1968,8 @@ function StockOutModal({
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <View>
-                            <Text style={styles.modalTitle}>
-                                Stock Out - Remove Inventory
-                            </Text>
-                            <Text style={styles.modalSubtitle}>
-                                Remove used or consumed stock
-                            </Text>
+                            <Text style={styles.modalTitle}>Stock Out - Remove Inventory</Text>
+                            <Text style={styles.modalSubtitle}>Remove used or consumed stock</Text>
                         </View>
                         <TouchableOpacity onPress={onClose}>
                             <X color="#6B7280" size={24} />
@@ -1749,36 +1983,42 @@ function StockOutModal({
                                 items={items}
                                 selectedValue={formData.item_id}
                                 onValueChange={(value) => {
-                                    setFormData({
-                                        ...formData,
-                                        item_id: value,
-                                    });
+                                    setFormData({ ...formData, item_id: value, unit_id: "" });
                                     clearError("item_id");
                                 }}
                                 hasError={!!errors.item_id}
                             />
                             {errors.item_id?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.item_id[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.item_id[0]}</Text>
                             )}
                             {selectedItem && (
                                 <View style={styles.stockPreviewBlue}>
-                                    <Text style={styles.stockPreviewLabel}>
-                                        Available Stock:
-                                    </Text>
+                                    <Text style={styles.stockPreviewLabel}>Available Stock:</Text>
                                     <Text style={styles.stockPreviewValueBlue}>
-                                        {selectedItem.current_stock}{" "}
-                                        {selectedItem.unit}
+                                        {selectedItem.current_stock} {selectedItem.unit}
                                     </Text>
                                 </View>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Quantity to Remove *
+                            <Text style={styles.formLabel}>Unit (optional)</Text>
+                            <UnitPickerSelect
+                                units={units}
+                                selectedValue={formData.unit_id}
+                                onValueChange={(val) => {
+                                    setFormData({ ...formData, unit_id: val });
+                                    clearError("unit_id");
+                                }}
+                                placeholder="Use base unit (default)"
+                            />
+                            <Text style={styles.formHint}>
+                                Select a purchase unit to deduct by that unit's conversion
                             </Text>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Quantity to Remove *</Text>
                             <TextInput
                                 style={[
                                     styles.formInput,
@@ -1786,10 +2026,7 @@ function StockOutModal({
                                 ]}
                                 value={formData.quantity}
                                 onChangeText={(text) => {
-                                    setFormData({
-                                        ...formData,
-                                        quantity: text.replace(/[^0-9]/g, ""),
-                                    });
+                                    setFormData({ ...formData, quantity: text.replace(/[^0-9]/g, "") });
                                     clearError("quantity");
                                 }}
                                 placeholder="Enter quantity"
@@ -1797,70 +2034,32 @@ function StockOutModal({
                                 maxLength={6}
                             />
                             {errors.quantity?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.quantity[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.quantity[0]}</Text>
                             )}
                             {insufficientStock && (
                                 <View style={styles.stockWarnRed}>
-                                    <AlertTriangle
-                                        size={16}
-                                        color="#DC2626"
-                                        style={{ marginTop: 1 }}
-                                    />
+                                    <AlertTriangle size={16} color="#DC2626" style={{ marginTop: 1 }} />
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.stockWarnRedTitle}>
-                                            Insufficient Stock
-                                        </Text>
+                                        <Text style={styles.stockWarnRedTitle}>Insufficient Stock</Text>
                                         <Text style={styles.stockWarnRedText}>
-                                            Cannot remove {formData.quantity}{" "}
-                                            {selectedItem!.unit}. Only{" "}
-                                            {selectedItem!.current_stock}{" "}
-                                            {selectedItem!.unit} available.
+                                            Only {selectedItem!.current_stock} {selectedItem!.unit} available.
                                         </Text>
                                     </View>
                                 </View>
                             )}
                             {newStock !== null && selectedItem && (
-                                <View
-                                    style={
-                                        willBeLowStock
-                                            ? styles.stockPreviewYellow
-                                            : styles.stockPreviewRed
-                                    }
-                                >
+                                <View style={willBeLowStock ? styles.stockPreviewYellow : styles.stockPreviewRed}>
                                     <View style={styles.stockPreviewRow}>
-                                        <Text style={styles.stockPreviewLabel}>
-                                            Remaining Stock After Removal:
-                                        </Text>
-                                        <Text
-                                            style={
-                                                willBeLowStock
-                                                    ? styles.stockPreviewValueYellow
-                                                    : styles.stockPreviewValueRed
-                                            }
-                                        >
+                                        <Text style={styles.stockPreviewLabel}>Remaining After Removal:</Text>
+                                        <Text style={willBeLowStock ? styles.stockPreviewValueYellow : styles.stockPreviewValueRed}>
                                             {newStock} {selectedItem.unit}
                                         </Text>
                                     </View>
                                     {willBeLowStock && (
-                                        <View
-                                            style={styles.stockWarnYellowInner}
-                                        >
-                                            <AlertTriangle
-                                                size={14}
-                                                color="#92400E"
-                                                style={{ marginTop: 1 }}
-                                            />
-                                            <Text
-                                                style={
-                                                    styles.stockWarnYellowText
-                                                }
-                                            >
-                                                Warning: Stock will be below
-                                                minimum level (
-                                                {selectedItem.minimum_stock}{" "}
-                                                {selectedItem.unit})
+                                        <View style={styles.stockWarnYellowInner}>
+                                            <AlertTriangle size={14} color="#92400E" style={{ marginTop: 1 }} />
+                                            <Text style={styles.stockWarnYellowText}>
+                                                Warning: Stock will be below minimum ({selectedItem.minimum_stock} {selectedItem.unit})
                                             </Text>
                                         </View>
                                     )}
@@ -1869,9 +2068,7 @@ function StockOutModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Reason for Removal *
-                            </Text>
+                            <Text style={styles.formLabel}>Reason for Removal *</Text>
                             <TextInput
                                 style={[
                                     styles.formInput,
@@ -1883,59 +2080,33 @@ function StockOutModal({
                                     setFormData({ ...formData, reason: text });
                                     clearError("reason");
                                 }}
-                                placeholder="e.g., Used for patient testing, Consumed in procedure, Damaged items disposal"
+                                placeholder="e.g., Used for patient testing"
                                 multiline
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    color: "#9CA3AF",
-                                    textAlign: "right",
-                                    marginTop: 2,
-                                }}
-                            >
+                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
                                 {formData.reason.length}/500
                             </Text>
                             {errors.reason?.[0] && (
-                                <Text style={styles.errorText}>
-                                    {errors.reason[0]}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.reason[0]}</Text>
                             )}
-                        </View>
-
-                        <View style={styles.infoNote}>
-                            <Text style={styles.infoNoteText}>
-                                Note: A unique transaction code will be
-                                automatically generated for this stock movement.
-                            </Text>
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity
-                            style={styles.modalButtonSecondary}
-                            onPress={onClose}
-                        >
-                            <Text style={styles.modalButtonTextSecondary}>
-                                Cancel
-                            </Text>
+                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={onClose}>
+                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.modalButtonPrimary,
-                                { backgroundColor: "#DC2626" },
-                            ]}
+                            style={[styles.modalButtonPrimary, { backgroundColor: "#DC2626" }]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>
-                                    Remove Stock
-                                </Text>
+                                <Text style={styles.modalButtonTextPrimary}>Remove Stock</Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -2134,17 +2305,29 @@ function AdjustStockModal({
     show: boolean;
     item: InventoryItem | null;
     onClose: () => void;
-    onSubmit: (data: { new_quantity: number; reason: string }) => Promise<void>;
+    onSubmit: (data: { new_quantity: number; reason: string; batch_id?: number | null }) => Promise<void>;
     onError: (message: string) => void;
 }) {
     const [newQuantity, setNewQuantity] = useState("");
     const [reason, setReason] = useState("");
+    const [batchId, setBatchId] = useState("");
+    const [batches, setBatches] = useState<InventoryBatch[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (show && item) {
+            api.get(`/inventory/${item.id}/batches`)
+                .then((r) => setBatches((r.data.data ?? []).filter((b: InventoryBatch) => b.status === "active")))
+                .catch(() => setBatches([]));
+        }
+    }, [show, item?.id]);
 
     const reset = () => {
         setNewQuantity("");
         setReason("");
+        setBatchId("");
+        setBatches([]);
         setErrors({});
     };
 
@@ -2155,41 +2338,36 @@ function AdjustStockModal({
 
     const validate = () => {
         const errs: Record<string, string> = {};
-        if (!newQuantity.trim())
-            errs.new_quantity = "New quantity is required.";
+        if (!newQuantity.trim()) errs.new_quantity = "New quantity is required.";
         else if (isNaN(parseInt(newQuantity)) || parseInt(newQuantity) < 0)
             errs.new_quantity = "Enter a valid non-negative number.";
         else if (parseInt(newQuantity) > 999999)
             errs.new_quantity = "Quantity cannot exceed 999,999.";
         if (!reason.trim()) errs.reason = "Reason for adjustment is required.";
-        else if (reason.length > 500)
-            errs.reason = "Reason cannot exceed 500 characters.";
+        else if (reason.length > 500) errs.reason = "Reason cannot exceed 500 characters.";
         return errs;
     };
 
     const handleSubmit = async () => {
         const errs = validate();
-        if (Object.keys(errs).length > 0) {
-            setErrors(errs);
-            return;
-        }
+        if (Object.keys(errs).length > 0) { setErrors(errs); return; }
         setLoading(true);
         try {
             await onSubmit({
                 new_quantity: parseInt(newQuantity),
                 reason: reason.trim(),
+                batch_id: batchId ? parseInt(batchId) : null,
             });
             reset();
             onClose();
         } catch (err: any) {
-            onError(
-                err.response?.data?.message ||
-                    getApiErrorMessage(err, "Failed to adjust stock."),
-            );
+            onError(err.response?.data?.message || getApiErrorMessage(err, "Failed to adjust stock."));
         } finally {
             setLoading(false);
         }
     };
+
+    const selectedBatch = batches.find((b) => String(b.id) === batchId);
 
     if (!item) return null;
 
@@ -2199,12 +2377,8 @@ function AdjustStockModal({
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <View>
-                            <Text style={styles.modalTitle}>
-                                Adjust Stock Level
-                            </Text>
-                            <Text style={styles.modalSubtitle}>
-                                Manual adjustment for {item.name}
-                            </Text>
+                            <Text style={styles.modalTitle}>Adjust Stock Level</Text>
+                            <Text style={styles.modalSubtitle}>Manual adjustment for {item.name}</Text>
                         </View>
                         <TouchableOpacity onPress={handleClose}>
                             <X color="#6B7280" size={24} />
@@ -2212,155 +2386,113 @@ function AdjustStockModal({
                     </View>
 
                     <ScrollView style={styles.modalBody}>
-                        {/* Item Info */}
                         <View style={styles.adjustInfoBox}>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>
-                                    Item:
-                                </Text>
-                                <Text style={styles.adjustInfoValue}>
-                                    {item.name}
-                                </Text>
+                                <Text style={styles.adjustInfoLabel}>Item:</Text>
+                                <Text style={styles.adjustInfoValue}>{item.name}</Text>
                             </View>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>
-                                    Category:
-                                </Text>
-                                <Text style={styles.adjustInfoValue}>
-                                    {item.category}
-                                </Text>
-                            </View>
-                            <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>
-                                    Current Stock:
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.adjustInfoValue,
-                                        { color: "#2563EB", fontWeight: "700" },
-                                    ]}
-                                >
+                                <Text style={styles.adjustInfoLabel}>Current Stock:</Text>
+                                <Text style={[styles.adjustInfoValue, { color: "#2563EB", fontWeight: "700" }]}>
                                     {item.current_stock} {item.unit}
                                 </Text>
                             </View>
                             <View style={styles.adjustInfoRow}>
-                                <Text style={styles.adjustInfoLabel}>
-                                    Minimum Stock:
-                                </Text>
-                                <Text style={styles.adjustInfoValue}>
-                                    {item.minimum_stock} {item.unit}
-                                </Text>
+                                <Text style={styles.adjustInfoLabel}>Minimum Stock:</Text>
+                                <Text style={styles.adjustInfoValue}>{item.minimum_stock} {item.unit}</Text>
                             </View>
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                New Stock Quantity *
+                            <Text style={styles.formLabel}>Batch (optional)</Text>
+                            <BatchPickerSelect
+                                batches={batches}
+                                selectedValue={batchId}
+                                onValueChange={(val) => {
+                                    setBatchId(val);
+                                    if (val) {
+                                        const b = batches.find((b) => String(b.id) === val);
+                                        if (b) setNewQuantity(String(Math.floor(b.current_quantity)));
+                                    }
+                                }}
+                            />
+                            {selectedBatch && (
+                                <View style={styles.stockPreviewBlue}>
+                                    <Text style={styles.stockPreviewLabel}>Batch current qty:</Text>
+                                    <Text style={styles.stockPreviewValueBlue}>
+                                        {selectedBatch.current_quantity} {item.unit}
+                                    </Text>
+                                </View>
+                            )}
+                            <Text style={styles.formHint}>
+                                Select a batch to adjust that batch's quantity specifically
                             </Text>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>New Stock Quantity *</Text>
                             <TextInput
-                                style={[
-                                    styles.formInput,
-                                    errors.new_quantity && styles.inputError,
-                                ]}
+                                style={[styles.formInput, errors.new_quantity && styles.inputError]}
                                 value={newQuantity}
                                 onChangeText={(t) => {
                                     setNewQuantity(t.replace(/[^0-9]/g, ""));
-                                    if (errors.new_quantity)
-                                        setErrors((e) => ({
-                                            ...e,
-                                            new_quantity: "",
-                                        }));
+                                    if (errors.new_quantity) setErrors((e) => ({ ...e, new_quantity: "" }));
                                 }}
                                 placeholder="Enter new quantity"
                                 keyboardType="number-pad"
                                 maxLength={6}
                             />
                             {!!errors.new_quantity && (
-                                <Text style={styles.errorText}>
-                                    {errors.new_quantity}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.new_quantity}</Text>
                             )}
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>
-                                Reason for Adjustment *
-                            </Text>
+                            <Text style={styles.formLabel}>Reason for Adjustment *</Text>
                             <TextInput
-                                style={[
-                                    styles.formInput,
-                                    styles.textArea,
-                                    errors.reason && styles.inputError,
-                                ]}
+                                style={[styles.formInput, styles.textArea, errors.reason && styles.inputError]}
                                 value={reason}
                                 onChangeText={(t) => {
                                     setReason(t);
-                                    if (errors.reason)
-                                        setErrors((e) => ({
-                                            ...e,
-                                            reason: "",
-                                        }));
+                                    if (errors.reason) setErrors((e) => ({ ...e, reason: "" }));
                                 }}
-                                placeholder="e.g., Physical inventory count correction, Expired items removed, Found additional stock"
+                                placeholder="e.g., Physical inventory count correction"
                                 multiline
                                 numberOfLines={3}
                                 maxLength={500}
                             />
-                            <Text
-                                style={{
-                                    fontSize: 12,
-                                    color: "#9CA3AF",
-                                    textAlign: "right",
-                                    marginTop: 2,
-                                }}
-                            >
+                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
                                 {reason.length}/500
                             </Text>
                             {!!errors.reason && (
-                                <Text style={styles.errorText}>
-                                    {errors.reason}
-                                </Text>
+                                <Text style={styles.errorText}>{errors.reason}</Text>
                             )}
                         </View>
 
                         <View style={styles.warningNote}>
                             <AlertCircle size={16} color="#D97706" />
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.warningNoteTitle}>
-                                    Manual Adjustment
-                                </Text>
+                                <Text style={styles.warningNoteTitle}>Manual Adjustment</Text>
                                 <Text style={styles.warningNoteText}>
-                                    This will directly update the stock level.
-                                    For normal stock movements, use Stock In/Out
-                                    instead.
+                                    This will directly update the stock level. For normal stock movements, use Stock In/Out instead.
                                 </Text>
                             </View>
                         </View>
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity
-                            style={styles.modalButtonSecondary}
-                            onPress={handleClose}
-                        >
-                            <Text style={styles.modalButtonTextSecondary}>
-                                Cancel
-                            </Text>
+                        <TouchableOpacity style={styles.modalButtonSecondary} onPress={handleClose}>
+                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.modalButtonPrimary,
-                                { backgroundColor: "#2563EB" },
-                            ]}
+                            style={[styles.modalButtonPrimary, { backgroundColor: "#2563EB" }]}
                             onPress={handleSubmit}
                             disabled={loading}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.modalButtonTextPrimary}>
-                                    Adjust Stock
-                                </Text>
+                                <Text style={styles.modalButtonTextPrimary}>Adjust Stock</Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -2679,6 +2811,411 @@ function EditItemModal({
     );
 }
 
+function UnitPickerSelect({
+    units,
+    selectedValue,
+    onValueChange,
+    placeholder = "Select unit",
+    hasError = false,
+}: {
+    units: InventoryUnit[];
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+    placeholder?: string;
+    hasError?: boolean;
+}) {
+    const [showPicker, setShowPicker] = useState(false);
+    const selected = units.find((u) => String(u.id) === selectedValue);
+    return (
+        <>
+            <TouchableOpacity
+                style={[styles.pickerButton, hasError && styles.pickerButtonError]}
+                onPress={() => setShowPicker(true)}
+            >
+                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+                    {selected ? `${selected.name} (${selected.short_name})` : placeholder}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+            <Modal visible={showPicker} transparent animationType="fade">
+                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>{placeholder}</Text>
+                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerList}>
+                            <TouchableOpacity
+                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
+                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                            >
+                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>
+                                    — None —
+                                </Text>
+                            </TouchableOpacity>
+                            {units.map((u) => (
+                                <TouchableOpacity
+                                    key={u.id}
+                                    style={[styles.pickerOption, selectedValue === String(u.id) && styles.pickerOptionSelected]}
+                                    onPress={() => { onValueChange(String(u.id)); setShowPicker(false); }}
+                                >
+                                    <Text style={[styles.pickerOptionText, selectedValue === String(u.id) && styles.pickerOptionTextSelected]}>
+                                        {u.name} ({u.short_name})
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
+function SupplierPickerSelect({
+    suppliers,
+    selectedValue,
+    onValueChange,
+}: {
+    suppliers: Supplier[];
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+}) {
+    const [showPicker, setShowPicker] = useState(false);
+    const selected = suppliers.find((s) => String(s.id) === selectedValue);
+    return (
+        <>
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
+                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+                    {selected ? selected.name : "Select supplier (optional)"}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+            <Modal visible={showPicker} transparent animationType="fade">
+                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>Select Supplier</Text>
+                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerList}>
+                            <TouchableOpacity
+                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
+                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                            >
+                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>— None —</Text>
+                            </TouchableOpacity>
+                            {suppliers.map((s) => (
+                                <TouchableOpacity
+                                    key={s.id}
+                                    style={[styles.pickerOption, selectedValue === String(s.id) && styles.pickerOptionSelected]}
+                                    onPress={() => { onValueChange(String(s.id)); setShowPicker(false); }}
+                                >
+                                    <Text style={[styles.pickerOptionText, selectedValue === String(s.id) && styles.pickerOptionTextSelected]}>
+                                        {s.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
+function BatchPickerSelect({
+    batches,
+    selectedValue,
+    onValueChange,
+}: {
+    batches: InventoryBatch[];
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+}) {
+    const [showPicker, setShowPicker] = useState(false);
+    const selected = batches.find((b) => String(b.id) === selectedValue);
+    return (
+        <>
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
+                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+                    {selected ? `${selected.batch_number} (qty: ${selected.current_quantity})` : "Select batch (optional)"}
+                </Text>
+                <ChevronDown color="#6B7280" size={20} />
+            </TouchableOpacity>
+            <Modal visible={showPicker} transparent animationType="fade">
+                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>Select Batch</Text>
+                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.pickerList}>
+                            <TouchableOpacity
+                                style={[styles.pickerOption, !selectedValue && styles.pickerOptionSelected]}
+                                onPress={() => { onValueChange(""); setShowPicker(false); }}
+                            >
+                                <Text style={[styles.pickerOptionText, !selectedValue && styles.pickerOptionTextSelected]}>— Adjust item total —</Text>
+                            </TouchableOpacity>
+                            {batches.map((b) => (
+                                <TouchableOpacity
+                                    key={b.id}
+                                    style={[styles.pickerOption, selectedValue === String(b.id) && styles.pickerOptionSelected]}
+                                    onPress={() => { onValueChange(String(b.id)); setShowPicker(false); }}
+                                >
+                                    <Text style={[styles.pickerOptionText, selectedValue === String(b.id) && styles.pickerOptionTextSelected]}>
+                                        {b.batch_number}
+                                    </Text>
+                                    <Text style={styles.pickerOptionSubtext}>
+                                        Qty: {b.current_quantity} • Exp: {b.expiry_date ?? "N/A"}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </>
+    );
+}
+
+function BatchCard({ batch, onFlag }: { batch: InventoryBatch; onFlag?: (b: InventoryBatch) => void }) {
+    const statusColor = batch.status === "active" ? "#10B981" : batch.status === "unusable" ? "#EF4444" : "#9CA3AF";
+    return (
+        <View style={styles.card}>
+            <View style={styles.cardHeader}>
+                <Text style={styles.itemName}>{batch.batch_number}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: statusColor + "22" }]}>
+                    <Text style={[styles.statusText, { color: statusColor }]}>{batch.status}</Text>
+                </View>
+            </View>
+            {batch.item_name && <Text style={styles.itemCategory}>{batch.item_name}</Text>}
+            <View style={styles.row}>
+                <Text style={styles.label}>Current Qty</Text>
+                <Text style={styles.value}>{batch.current_quantity}</Text>
+            </View>
+            <View style={styles.row}>
+                <Text style={styles.label}>Expiry</Text>
+                <Text style={[styles.value, !batch.expiry_date && { color: "#9CA3AF" }]}>
+                    {batch.expiry_date ?? "No expiry"}
+                </Text>
+            </View>
+            <View style={styles.row}>
+                <Text style={styles.label}>Received</Text>
+                <Text style={styles.value}>{batch.received_date ?? "—"}</Text>
+            </View>
+            {batch.supplier_name && (
+                <View style={styles.row}>
+                    <Text style={styles.label}>Supplier</Text>
+                    <Text style={styles.value}>{batch.supplier_name}</Text>
+                </View>
+            )}
+            {onFlag && batch.status === "active" && (
+                <View style={styles.cardActions}>
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, { borderColor: "#FECACA" }]}
+                        onPress={() => onFlag(batch)}
+                    >
+                        <ShieldAlert size={14} color="#EF4444" />
+                        <Text style={[styles.toggleBtnText, { color: "#EF4444" }]}>Flag Unusable</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        </View>
+    );
+}
+
+function BatchesTab() {
+    const [items, setItems] = useState<InventoryItem[]>([]);
+    const [selectedItemId, setSelectedItemId] = useState("");
+    const [batches, setBatches] = useState<InventoryBatch[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        api.get("/inventory").then((r) => setItems(r.data.items ?? [])).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (!selectedItemId) { setBatches([]); return; }
+        setLoading(true);
+        api.get(`/inventory/${selectedItemId}/batches`)
+            .then((r) => setBatches(r.data.data ?? []))
+            .catch(() => setBatches([]))
+            .finally(() => setLoading(false));
+    }, [selectedItemId]);
+
+    return (
+        <FlatList
+            data={batches}
+            keyExtractor={(b) => String(b.id)}
+            renderItem={({ item }) => <BatchCard batch={item} />}
+            ListHeaderComponent={
+                <View style={{ padding: 20, paddingBottom: 0 }}>
+                    <Text style={styles.formLabel}>Select Item</Text>
+                    <ItemPickerSelect
+                        items={items}
+                        selectedValue={selectedItemId}
+                        onValueChange={setSelectedItemId}
+                        hasError={false}
+                    />
+                </View>
+            }
+            ListEmptyComponent={
+                <View style={styles.emptyState}>
+                    {loading ? (
+                        <ActivityIndicator color="#ac3434" />
+                    ) : (
+                        <>
+                            <Layers color="#D1D5DB" size={42} />
+                            <Text style={styles.emptyTitle}>
+                                {selectedItemId ? "No batches found" : "Select an item to view batches"}
+                            </Text>
+                        </>
+                    )}
+                </View>
+            }
+            contentContainerStyle={{ padding: 20, paddingTop: 12, paddingBottom: 64 }}
+        />
+    );
+}
+
+function BatchIssuesTab() {
+    const [batches, setBatches] = useState<InventoryBatch[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [successDialog, setSuccessDialog] = useState({ visible: false, title: "", message: "", type: "success" as "success" | "error" });
+    const [flagReason, setFlagReason] = useState("");
+    const [flagBatch, setFlagBatch] = useState<InventoryBatch | null>(null);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const r = await api.get("/inventory/batch-issues");
+            setBatches(r.data.data ?? []);
+        } catch { } finally { setLoading(false); }
+    }, []);
+
+    useFocusEffect(useCallback(() => { load(); }, [load]));
+
+    const handleFlag = (batch: InventoryBatch) => {
+        setFlagBatch(batch);
+        setFlagReason("");
+    };
+
+    const submitFlag = async () => {
+        if (!flagBatch || !flagReason.trim()) return;
+        try {
+            await api.post(`/inventory/batches/${flagBatch.id}/flag`, { reason: flagReason });
+            setFlagBatch(null);
+            setSuccessDialog({ visible: true, title: "Success", message: "Batch flagged as unusable", type: "success" });
+            load();
+        } catch (e: any) {
+            setSuccessDialog({ visible: true, title: "Error", message: e.response?.data?.message || "Failed to flag batch", type: "error" });
+        }
+    };
+
+    if (loading) return <View style={styles.emptyState}><ActivityIndicator color="#ac3434" /></View>;
+
+    return (
+        <>
+            <FlatList
+                data={batches}
+                keyExtractor={(b) => String(b.id)}
+                renderItem={({ item }) => <BatchCard batch={item} onFlag={handleFlag} />}
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <ShieldAlert color="#D1D5DB" size={42} />
+                        <Text style={styles.emptyTitle}>No batch issues</Text>
+                        <Text style={styles.emptySubtitle}>No expired or unusable batches found.</Text>
+                    </View>
+                }
+                contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
+            />
+            {/* Flag reason modal */}
+            <Modal visible={!!flagBatch} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { borderRadius: 16 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Flag as Unusable</Text>
+                            <TouchableOpacity onPress={() => setFlagBatch(null)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={{ padding: 20 }}>
+                            <Text style={styles.formLabel}>Reason *</Text>
+                            <TextInput
+                                style={[styles.formInput, styles.textArea]}
+                                value={flagReason}
+                                onChangeText={setFlagReason}
+                                placeholder="e.g., Contaminated, damaged packaging"
+                                multiline
+                                numberOfLines={3}
+                            />
+                        </View>
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setFlagBatch(null)}>
+                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButtonPrimary, { backgroundColor: "#EF4444" }]}
+                                onPress={submitFlag}
+                            >
+                                <Text style={styles.modalButtonTextPrimary}>Flag Unusable</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+            <SuccessDialog
+                visible={successDialog.visible}
+                title={successDialog.title}
+                message={successDialog.message}
+                type={successDialog.type}
+                autoClose={successDialog.type === "success"}
+                onClose={() => setSuccessDialog({ ...successDialog, visible: false })}
+            />
+        </>
+    );
+}
+
+function ExpiringSoonTab() {
+    const [batches, setBatches] = useState<InventoryBatch[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const r = await api.get("/inventory/expiring-soon", { params: { days: 30 } });
+            setBatches(r.data.data ?? []);
+        } catch { } finally { setLoading(false); }
+    }, []);
+
+    useFocusEffect(useCallback(() => { load(); }, [load]));
+
+    if (loading) return <View style={styles.emptyState}><ActivityIndicator color="#ac3434" /></View>;
+
+    return (
+        <FlatList
+            data={batches}
+            keyExtractor={(b) => String(b.id)}
+            renderItem={({ item }) => <BatchCard batch={item} />}
+            ListEmptyComponent={
+                <View style={styles.emptyState}>
+                    <CalendarClock color="#D1D5DB" size={42} />
+                    <Text style={styles.emptyTitle}>No expiring batches</Text>
+                    <Text style={styles.emptySubtitle}>No batches expiring within 30 days.</Text>
+                </View>
+            }
+            contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
+        />
+    );
+}
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F3F4F6" },
     loading: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -2707,7 +3244,13 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         fontSize: 13,
     },
+    manageButtonsRow: {
+        flexDirection: "row",
+        gap: 8,
+        marginBottom: 12,
+    },
     manageCategoriesButton: {
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
@@ -2718,7 +3261,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         borderRadius: 12,
         gap: 6,
-        marginBottom: 12,
     },
     manageCategoriesText: {
         color: "#374151",
@@ -3002,17 +3544,16 @@ const styles = StyleSheet.create({
     },
 
     tabContainer: {
-        flexDirection: "row",
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
     tab: {
-        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         paddingVertical: 12,
+        paddingHorizontal: 16,
         gap: 6,
         borderBottomWidth: 2,
         borderBottomColor: "transparent",
@@ -3390,6 +3931,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#6B7280",
         marginTop: 8,
+    },
+    // Tab styles
+    tabScrollContent: {
+        flexDirection: "row",
+        alignItems: "stretch",
     },
     // AdjustStockModal styles
     adjustInfoBox: {
