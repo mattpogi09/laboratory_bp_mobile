@@ -32,7 +32,7 @@ import {
 } from "react-native";
 import { Image } from "react-native";
 
-import api from "@/app/services/api";
+import api, { API_BASE_URL } from "@/app/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
@@ -186,7 +186,6 @@ function PriorityBadge({ level }: { level?: string | null }) {
 }
 
 export default function AppointmentsScreen() {
-    const { token } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [stats, setStats] = useState<AppointmentStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -786,7 +785,9 @@ export default function AppointmentsScreen() {
                         {idViewerUrl && (
                             <Image
                                 source={{
-                                    uri: idViewerUrl + (token ? `?token=${token}` : ""),
+                                    uri: idViewerUrl.startsWith('http')
+                                        ? idViewerUrl
+                                        : `${API_BASE_URL}/${idViewerUrl}`,
                                 }}
                                 style={styles.idViewerImage}
                                 resizeMode="contain"

@@ -25,8 +25,7 @@ import {
 } from "react-native";
 import { Image } from "react-native";
 
-import api from "@/app/services/api";
-import { useAuth } from "@/contexts/AuthContext";
+import api, { API_BASE_URL } from "@/app/services/api";
 import { ConfirmDialog } from "@/components";
 import { getApiErrorMessage } from "@/utils";
 
@@ -72,7 +71,6 @@ const PRIORITY_COLORS: Record<string, { color: string; bg: string }> = {
 };
 
 export default function WalkInScreen() {
-    const { token } = useAuth();
     const [walkIns, setWalkIns] = useState<WalkIn[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -435,7 +433,9 @@ export default function WalkInScreen() {
                         {idViewer.url && (
                             <Image
                                 source={{
-                                    uri: idViewer.url + (token ? `?token=${token}` : ""),
+                                    uri: idViewer.url.startsWith('http')
+                                        ? idViewer.url
+                                        : `${API_BASE_URL}/${idViewer.url}`,
                                 }}
                                 style={styles.idViewerImage}
                                 resizeMode="contain"
