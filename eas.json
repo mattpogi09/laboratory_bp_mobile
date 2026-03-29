@@ -5,15 +5,15 @@
     "build": {
         "preview": {
             "channel": "preview",
+            "environment": "preview",
             "android": {
-                "buildType": "apk",
-                "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+                "buildType": "apk"
             }
         },
         "production": {
+            "environment": "production",
             "android": {
-                "buildType": "app-bundle",
-                "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+                "buildType": "app-bundle"
             }
         }
     }

@@ -13,7 +13,7 @@
         },
         "android": {
             "package": "com.laboratorybp.mobile",
-            "googleServicesFile": "./google-services.json",
+            "googleServicesFile": "$GOOGLE_SERVICES_JSON",
             "adaptiveIcon": {
                 "backgroundColor": "#ffffff",
                 "foregroundImage": "./assets/images/Icon-Store-1024.png"
