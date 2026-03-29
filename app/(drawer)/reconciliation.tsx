@@ -767,6 +767,15 @@ export default function ReconciliationScreen() {
                 }
             />
 
+            {/* FAB — Create Reconciliation */}
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={fetchCreateData}
+                activeOpacity={0.8}
+            >
+                <Text style={{ color: '#fff', fontSize: 28, lineHeight: 30 }}>+</Text>
+            </TouchableOpacity>
+
             {/* Create Modal */}
             {showCreateModal && (
                 <View style={styles.modal}>

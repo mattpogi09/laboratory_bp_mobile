@@ -79,6 +79,7 @@ export default function SettingsScreen() {
         try {
             setSaving(true);
             await api.post("/settings", {
+                patient_portal_enabled: settings.patient_portal_enabled,
                 email_sending_enabled: settings.email_sending_enabled,
                 email_notification_enabled: settings.email_notification_enabled,
                 notification_enabled: settings.notification_enabled,
@@ -207,12 +208,12 @@ export default function SettingsScreen() {
         );
     }
 
-    if (loadError && !settings) {
+    if (loadError || !settings) {
         return (
             <View style={styles.errorContainer}>
                 <AlertCircle color="#EF4444" size={36} />
                 <Text style={styles.errorTitle}>Unable to load settings</Text>
-                <Text style={styles.errorMessage}>{loadError}</Text>
+                <Text style={styles.errorMessage}>{loadError ?? "Settings could not be loaded."}</Text>
                 <TouchableOpacity
                     style={styles.retryBtn}
                     onPress={() => {
@@ -241,6 +242,11 @@ export default function SettingsScreen() {
                 {/* Toggles */}
                 <View style={styles.card}>
                     {[
+                        {
+                            key: "patient_portal_enabled" as const,
+                            label: "Patient Portal",
+                            desc: "Enable/disable public booking, walk-in & results tracking",
+                        },
                         {
                             key: "email_sending_enabled" as const,
                             label: "Email Sending",

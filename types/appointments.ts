@@ -133,6 +133,7 @@ export interface NotificationsResponse {
 
 // Settings types
 export interface ClinicSettings {
+    patient_portal_enabled: boolean;
     email_sending_enabled: boolean;
     email_notification_enabled: boolean;
     notification_enabled: boolean;

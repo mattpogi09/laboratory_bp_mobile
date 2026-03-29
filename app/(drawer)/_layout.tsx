@@ -20,9 +20,11 @@ import {
     Package,
     Percent,
     Settings2,
+    Truck,
     UserCog,
     UsersRound,
     Wallet,
+    WalletCards,
 } from "lucide-react-native";
 import {
     Image,
@@ -81,6 +83,12 @@ function CustomDrawerContent(props: any) {
             section: "APPOINTMENTS",
         },
         {
+            name: "walk-in",
+            title: "Walk-In Management",
+            icon: WalletCards,
+            section: "WALK-IN",
+        },
+        {
             name: "inventory",
             title: "Inventory Management",
             icon: Package,
@@ -96,6 +104,12 @@ function CustomDrawerContent(props: any) {
             name: "reconciliation",
             title: "Cash Reconciliation",
             icon: Wallet,
+            section: "CONFIGURATION",
+        },
+        {
+            name: "suppliers",
+            title: "Supplier Management",
+            icon: Truck,
             section: "CONFIGURATION",
         },
         {
@@ -368,6 +382,15 @@ export default function DrawerLayout() {
                     }}
                 />
                 <Drawer.Screen
+                    name="suppliers"
+                    options={{
+                        title: "Supplier Management",
+                        drawerIcon: ({ color }) => (
+                            <Truck color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
                     name="reports"
                     options={{
                         title: "Reports & Logs",
@@ -391,6 +414,15 @@ export default function DrawerLayout() {
                         title: "Appointment Management",
                         drawerIcon: ({ color }) => (
                             <ClipboardList color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="walk-in"
+                    options={{
+                        title: "Walk-In Management",
+                        drawerIcon: ({ color }) => (
+                            <WalletCards color={color} size={20} />
                         ),
                     }}
                 />

@@ -63,7 +63,8 @@ type Tab =
     | "audit"
     | "lab"
     | "reconciliation"
-    | "lab-worksheets";
+    | "lab-worksheets"
+    | "appointments";
 
 const WORKSHEET_TYPES = [
     {
@@ -139,16 +140,38 @@ export default function ReportsScreen() {
         string | null
     >(null);
 
-    const [financialData, setFinancialData] = useState<FinancialData | null>(
-        null,
-    );
-    const [inventoryData, setInventoryData] = useState<InventoryData | null>(
-        null,
-    );
+    const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+    const [inventoryData, setInventoryData] = useState<InventoryData | null>(null);
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [labData, setLabData] = useState<LabReportData | null>(null);
     const [reconciliationData, setReconciliationData] =
         useState<ReconciliationData | null>(null);
+    const [appointmentData, setAppointmentData] = useState<{
+        stats: {
+            total: number;
+            noShow: number;
+            cancelled: number;
+            confirmed: number;
+            pending: number;
+            checkedIn: number;
+            noShowRate: number;
+            cancellationRate: number;
+        };
+        peakDays: { day: string; count: number }[];
+        peakTimes: { hour: number; count: number }[];
+        byCategory: { category: string; count: number }[];
+        rows: {
+            id: number;
+            reference_number: string;
+            patient: string;
+            appointment_date: string;
+            appointment_time: string;
+            status: string;
+            priority_category: string;
+            tests: string[];
+            total_amount: number;
+        }[];
+    } | null>(null);
 
     const loadFinancial = useCallback(async () => {
         try {
@@ -268,6 +291,26 @@ export default function ReportsScreen() {
         }
     };
 
+    const loadAppointmentReport = useCallback(async () => {
+        try {
+            setLoading(true);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
+            const response = await api.get("/reports/appointments", {
+                params: { from, to },
+            });
+            setAppointmentData(response.data);
+            setLoadError(null);
+        } catch (error: any) {
+            setLoadError(
+                getApiErrorMessage(error, "Failed to load appointment report."),
+            );
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [dateFrom, dateTo]);
+
     const loadData = useCallback(() => {
         switch (activeTab) {
             case "financial":
@@ -285,6 +328,9 @@ export default function ReportsScreen() {
             case "reconciliation":
                 loadReconciliation();
                 break;
+            case "appointments":
+                loadAppointmentReport();
+                break;
             case "lab-worksheets":
                 // No API data needed — static download UI
                 setLoading(false);
@@ -297,6 +343,7 @@ export default function ReportsScreen() {
         loadAuditLog,
         loadLabReport,
         loadReconciliation,
+        loadAppointmentReport,
     ]);
 
     useEffect(() => {
@@ -355,6 +402,11 @@ export default function ReportsScreen() {
             id: "reconciliation" as Tab,
             label: "Cash Reconciliation",
             icon: Wallet,
+        },
+        {
+            id: "appointments" as Tab,
+            label: "Appointments",
+            icon: Calendar,
         },
         {
             id: "lab-worksheets" as Tab,
@@ -695,6 +747,20 @@ export default function ReportsScreen() {
                         <View
                             style={[
                                 styles.tabContentWrapper,
+                                activeTab === "appointments"
+                                    ? styles.tabVisible
+                                    : styles.tabHidden,
+                            ]}
+                        >
+                            <AppointmentTab
+                                data={appointmentData}
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                            />
+                        </View>
+                        <View
+                            style={[
+                                styles.tabContentWrapper,
                                 activeTab === "lab-worksheets"
                                     ? styles.tabVisible
                                     : styles.tabHidden,
@@ -829,7 +895,7 @@ function FinancialTab({
     refreshing,
     onRefresh,
 }: {
-    data: { rows: FinancialRow[]; totals: any } | null;
+    data: { rows: FinancialRow[]; totals: any; analytics?: any } | null;
     refreshing: boolean;
     onRefresh: () => void;
 }) {
@@ -857,51 +923,64 @@ function FinancialTab({
             ListHeaderComponent={
                 <>
                     <View style={styles.cardsRow}>
-                        <StatCard
-                            label="Total Revenue"
-                            value={formatCurrency(data.totals.revenue)}
-                            accent="#10B981"
-                        />
-                        <StatCard
-                            label="Total Discounts"
-                            value={formatCurrency(data.totals.discounts)}
-                            accent="#F59E0B"
-                        />
+                        <StatCard label="Total Revenue" value={formatCurrency(data.totals.revenue)} accent="#10B981" />
+                        <StatCard label="Total Discounts" value={formatCurrency(data.totals.discounts)} accent="#F59E0B" />
                     </View>
                     <View style={styles.cardsRow}>
-                        <StatCard
-                            label="Transactions"
-                            value={data.totals.transactions.toString()}
-                            accent="#1D4ED8"
-                        />
+                        <StatCard label="Transactions" value={data.totals.transactions.toString()} accent="#1D4ED8" />
+                        <StatCard label="Paid" value={(data.totals.paid_count ?? 0).toString()} accent="#10B981" />
                     </View>
+                    {(data.totals.refunded_amount ?? 0) > 0 && (
+                        <View style={styles.cardsRow}>
+                            <StatCard label="Refunded" value={formatCurrency(data.totals.refunded_amount)} accent="#EF4444" />
+                        </View>
+                    )}
+                    {/* Payment Method Breakdown */}
+                    {data.analytics?.by_payment_method?.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>By Payment Method</Text>
+                            {data.analytics.by_payment_method.map((m: any, i: number) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151", textTransform: "capitalize" }}>{m.method}</Text>
+                                    <View style={{ alignItems: "flex-end" }}>
+                                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#111827" }}>{formatCurrency(m.revenue)}</Text>
+                                        <Text style={{ fontSize: 11, color: "#6B7280" }}>{m.count} transactions</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {/* Top Tests */}
+                    {data.analytics?.top_tests?.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Top Tests by Revenue</Text>
+                            {data.analytics.top_tests.slice(0, 5).map((t: any, i: number) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151", flex: 1, marginRight: 8 }}>{t.name}</Text>
+                                    <View style={{ alignItems: "flex-end" }}>
+                                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#10B981" }}>{formatCurrency(t.revenue)}</Text>
+                                        <Text style={{ fontSize: 11, color: "#6B7280" }}>{t.count}x</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
                     {(() => {
                         if (!data.rows.length) return null;
                         const map = new Map<string, number>();
                         data.rows.forEach((r) => {
                             const k = r.date.split("-").slice(1).join("/");
-                            map.set(
-                                k,
-                                (map.get(k) ?? 0) + Number(r.net_amount),
-                            );
+                            map.set(k, (map.get(k) ?? 0) + Number(r.net_amount));
                         });
                         const entries = Array.from(map.entries()).slice(-6);
                         if (!entries.length) return null;
                         return (
                             <View style={styles.chartCard}>
-                                <Text style={styles.chartTitle}>
-                                    Revenue by Date
-                                </Text>
+                                <Text style={styles.chartTitle}>Revenue by Date</Text>
                                 <BarChart
                                     data={{
                                         labels: entries.map(([l]) => l),
-                                        datasets: [
-                                            {
-                                                data: entries.map(([, v]) =>
-                                                    Math.max(0, v),
-                                                ),
-                                            },
-                                        ],
+                                        datasets: [{ data: entries.map(([, v]) => Math.max(0, v)) }],
                                     }}
                                     width={SCREEN_W - 32}
                                     height={180}
@@ -912,15 +991,10 @@ function FinancialTab({
                                         backgroundGradientFrom: "#fff",
                                         backgroundGradientTo: "#fff",
                                         decimalPlaces: 0,
-                                        color: (o = 1) =>
-                                            `rgba(16, 185, 129, ${o})`,
-                                        labelColor: (o = 1) =>
-                                            `rgba(107, 114, 128, ${o})`,
+                                        color: (o = 1) => `rgba(16, 185, 129, ${o})`,
+                                        labelColor: (o = 1) => `rgba(107, 114, 128, ${o})`,
                                         barPercentage: 0.7,
-                                        propsForBackgroundLines: {
-                                            strokeDasharray: "",
-                                            stroke: "#F3F4F6",
-                                        },
+                                        propsForBackgroundLines: { strokeDasharray: "", stroke: "#F3F4F6" },
                                     }}
                                     style={styles.chart}
                                     showValuesOnTopOfBars={false}
@@ -937,40 +1011,19 @@ function FinancialTab({
                 <View style={styles.reportCard}>
                     <View style={styles.reportHeader}>
                         <Text style={styles.reportDate}>{item.date}</Text>
-                        <Text style={styles.reportAmount}>
-                            {formatCurrency(item.net_amount)}
-                        </Text>
+                        <Text style={styles.reportAmount}>{formatCurrency(item.net_amount)}</Text>
                     </View>
                     <Text style={styles.reportPatient}>{item.patient}</Text>
                     <Text style={styles.reportTests}>{item.tests}</Text>
                     <View style={styles.reportMeta}>
-                        <Text style={styles.reportMetaText}>
-                            Gross: {formatCurrency(item.amount)}
-                        </Text>
+                        <Text style={styles.reportMetaText}>Gross: {formatCurrency(item.amount)}</Text>
                         {item.discount_amount > 0 && (
-                            <Text style={styles.reportMetaText}>
-                                Discount: -
-                                {formatCurrency(item.discount_amount)}
-                            </Text>
+                            <Text style={styles.reportMetaText}>Discount: -{formatCurrency(item.discount_amount)}</Text>
                         )}
                     </View>
                     <View style={styles.badgeRow}>
-                        <View
-                            style={[
-                                styles.badge,
-                                item.payment_status === "paid"
-                                    ? styles.badgePaid
-                                    : styles.badgePending,
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.badgeText,
-                                    item.payment_status === "paid"
-                                        ? { color: "#065F46" }
-                                        : { color: "#991B1B" },
-                                ]}
-                            >
+                        <View style={[styles.badge, item.payment_status === "paid" ? styles.badgePaid : styles.badgePending]}>
+                            <Text style={[styles.badgeText, item.payment_status === "paid" ? { color: "#065F46" } : { color: "#991B1B" }]}>
                                 {item.payment_method}
                             </Text>
                         </View>
@@ -983,9 +1036,7 @@ function FinancialTab({
                     <Text style={styles.emptyTitle}>No transactions found</Text>
                 </View>
             }
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
     );
 }
@@ -995,7 +1046,7 @@ function InventoryTab({
     refreshing,
     onRefresh,
 }: {
-    data: { data: InventoryLogRow[] } | null;
+    data: { data: InventoryLogRow[]; analytics?: any } | null;
     refreshing: boolean;
     onRefresh: () => void;
 }) {
@@ -1007,6 +1058,8 @@ function InventoryTab({
             </View>
         );
     }
+
+    const analytics = data.analytics;
 
     return (
         <FlatList
@@ -1021,69 +1074,96 @@ function InventoryTab({
             nestedScrollEnabled={false}
             removeClippedSubviews={true}
             ListHeaderComponent={
-                <Text style={styles.sectionTitle}>Inventory Log</Text>
+                <>
+                    {analytics?.summary && (
+                        <>
+                            <View style={styles.cardsRow}>
+                                <StatCard label="Stock In" value={analytics.summary.total_stock_in.toString()} accent="#10B981" />
+                                <StatCard label="Stock Out" value={analytics.summary.total_stock_out.toString()} accent="#EF4444" />
+                            </View>
+                            <View style={styles.cardsRow}>
+                                <StatCard label="Low Stock" value={analytics.summary.low_stock_count.toString()} accent="#F59E0B" />
+                                <StatCard label="Out of Stock" value={analytics.summary.out_of_stock_count.toString()} accent="#DC2626" />
+                            </View>
+                            {analytics.summary.expiring_soon_count > 0 && (
+                                <View style={styles.cardsRow}>
+                                    <StatCard label="Expiring Soon" value={analytics.summary.expiring_soon_count.toString()} accent="#D97706" />
+                                </View>
+                            )}
+                        </>
+                    )}
+                    {analytics?.most_consumed?.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Most Consumed Items</Text>
+                            {analytics.most_consumed.slice(0, 5).map((item: any, i: number) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151", flex: 1 }}>{item.name}</Text>
+                                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#EF4444" }}>{item.total_used} {item.unit}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {analytics?.expiring_soon?.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Expiring Within 30 Days</Text>
+                            {analytics.expiring_soon.map((item: any, i: number) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 13, color: "#374151" }}>{item.item_name}</Text>
+                                        <Text style={{ fontSize: 11, color: "#6B7280" }}>Batch: {item.batch_number} • {item.days_left}d left</Text>
+                                    </View>
+                                    <Text style={{ fontSize: 13, fontWeight: "700", color: item.days_left <= 7 ? "#DC2626" : "#D97706" }}>{item.expiry_date}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {analytics?.low_stock?.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Low / Out of Stock Items</Text>
+                            {analytics.low_stock.map((item: any, i: number) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151", flex: 1 }}>{item.name}</Text>
+                                    <View style={[styles.typeBadge, { backgroundColor: item.status === "out_of_stock" ? "#FEE2E2" : "#FEF3C7" }]}>
+                                        <Text style={{ fontSize: 12, fontWeight: "600", color: item.status === "out_of_stock" ? "#991B1B" : "#92400E" }}>
+                                            {item.current_stock}/{item.minimum_stock} {item.unit}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    <Text style={styles.sectionTitle}>Inventory Log</Text>
+                </>
             }
             renderItem={({ item }) => (
                 <View style={styles.reportCard}>
                     <View style={styles.reportHeader}>
                         <Text style={styles.reportDate}>{item.date}</Text>
-                        <View
-                            style={[
-                                styles.typeBadge,
-                                item.type === "IN"
-                                    ? { backgroundColor: "#D1FAE5" }
-                                    : { backgroundColor: "#FEE2E2" },
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.typeBadgeText,
-                                    item.type === "IN"
-                                        ? { color: "#065F46" }
-                                        : { color: "#991B1B" },
-                                ]}
-                            >
-                                {item.type}
-                            </Text>
+                        <View style={[styles.typeBadge, item.type === "IN" ? { backgroundColor: "#D1FAE5" } : { backgroundColor: "#FEE2E2" }]}>
+                            <Text style={[styles.typeBadgeText, item.type === "IN" ? { color: "#065F46" } : { color: "#991B1B" }]}>{item.type}</Text>
                         </View>
                     </View>
                     <Text style={styles.reportItemName}>{item.item}</Text>
-                    <Text style={styles.reportMetaText}>
-                        Transaction: {item.transaction_code}
-                    </Text>
+                    <Text style={styles.reportMetaText}>Transaction: {item.transaction_code}</Text>
                     <View style={styles.stockRow}>
                         <Text style={styles.stockLabel}>Quantity:</Text>
-                        <Text style={styles.stockValue}>
-                            {item.type === "IN" ? "+" : "-"}
-                            {item.quantity}
-                        </Text>
+                        <Text style={styles.stockValue}>{item.type === "IN" ? "+" : "-"}{item.quantity}</Text>
                     </View>
                     <View style={styles.stockRow}>
                         <Text style={styles.stockLabel}>Stock:</Text>
-                        <Text style={styles.stockValue}>
-                            {item.previous_stock ?? "—"} →{" "}
-                            {item.new_stock ?? "—"}
-                        </Text>
+                        <Text style={styles.stockValue}>{item.previous_stock ?? "—"} → {item.new_stock ?? "—"}</Text>
                     </View>
-                    <Text style={styles.reportMetaText}>
-                        Reason: {item.reason}
-                    </Text>
-                    <Text style={styles.performedBy}>
-                        Performed by: {item.performed_by}
-                    </Text>
+                    <Text style={styles.reportMetaText}>Reason: {item.reason}</Text>
+                    <Text style={styles.performedBy}>Performed by: {item.performed_by}</Text>
                 </View>
             )}
             ListEmptyComponent={
                 <View style={styles.emptyWrapper}>
                     <Package color="#D1D5DB" size={42} />
-                    <Text style={styles.emptyTitle}>
-                        No inventory transactions found
-                    </Text>
+                    <Text style={styles.emptyTitle}>No inventory transactions found</Text>
                 </View>
             }
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
     );
 }
@@ -1569,6 +1649,158 @@ function ReconciliationTab({
                     <Text style={styles.emptyTitle}>
                         No reconciliations found
                     </Text>
+                </View>
+            }
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        />
+    );
+}
+
+function AppointmentTab({
+    data,
+    refreshing,
+    onRefresh,
+}: {
+    data: {
+        stats: {
+            total: number;
+            noShow: number;
+            cancelled: number;
+            confirmed: number;
+            pending: number;
+            checkedIn: number;
+            noShowRate: number;
+            cancellationRate: number;
+        };
+        peakDays: { day: string; count: number }[];
+        byCategory: { category: string; count: number }[];
+        rows: {
+            id: number;
+            reference_number: string;
+            patient: string;
+            appointment_date: string;
+            appointment_time: string;
+            status: string;
+            priority_category: string;
+            tests: string[];
+            total_amount: number;
+        }[];
+    } | null;
+    refreshing: boolean;
+    onRefresh: () => void;
+}) {
+    if (!data) {
+        return (
+            <View style={styles.emptyWrapper}>
+                <Calendar color="#D1D5DB" size={42} />
+                <Text style={styles.emptyTitle}>No data available</Text>
+            </View>
+        );
+    }
+
+    const { stats } = data;
+
+    const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+        CONFIRMED: { bg: "#D1FAE5", text: "#065F46" },
+        CHECKED_IN: { bg: "#DBEAFE", text: "#1E40AF" },
+        PENDING: { bg: "#FEF3C7", text: "#92400E" },
+        CANCELLED: { bg: "#FEE2E2", text: "#991B1B" },
+        NO_SHOW: { bg: "#F3F4F6", text: "#374151" },
+    };
+
+    return (
+        <FlatList
+            style={styles.tabContent}
+            data={data.rows}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={
+                data.rows.length === 0
+                    ? { flex: 1, padding: 8, paddingBottom: 64 }
+                    : { padding: 8, paddingBottom: 64 }
+            }
+            nestedScrollEnabled={false}
+            removeClippedSubviews={true}
+            ListHeaderComponent={
+                <>
+                    <View style={styles.cardsRow}>
+                        <StatCard label="Total" value={stats.total.toString()} accent="#6B7280" />
+                        <StatCard label="Confirmed" value={stats.confirmed.toString()} accent="#10B981" />
+                    </View>
+                    <View style={styles.cardsRow}>
+                        <StatCard label="Checked In" value={stats.checkedIn.toString()} accent="#3B82F6" />
+                        <StatCard label="Pending" value={stats.pending.toString()} accent="#F59E0B" />
+                    </View>
+                    <View style={styles.cardsRow}>
+                        <StatCard label="Cancelled" value={stats.cancelled.toString()} accent="#EF4444" />
+                        <StatCard label="No Shows" value={stats.noShow.toString()} accent="#6B7280" />
+                    </View>
+                    <View style={styles.cardsRow}>
+                        <StatCard
+                            label="No-Show Rate"
+                            value={`${stats.noShowRate}%`}
+                            accent={stats.noShowRate > 20 ? "#DC2626" : "#374151"}
+                        />
+                        <StatCard
+                            label="Cancel Rate"
+                            value={`${stats.cancellationRate}%`}
+                            accent={stats.cancellationRate > 20 ? "#DC2626" : "#374151"}
+                        />
+                    </View>
+                    {data.byCategory.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>By Priority Category</Text>
+                            {data.byCategory.map((c, i) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151", textTransform: "capitalize" }}>{c.category?.toLowerCase() ?? "Regular"}</Text>
+                                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#2563EB" }}>{c.count}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {data.peakDays.length > 0 && (
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Peak Booking Days</Text>
+                            {data.peakDays.map((d, i) => (
+                                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                                    <Text style={{ fontSize: 13, color: "#374151" }}>{d.day}</Text>
+                                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#374151" }}>{d.count}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    <Text style={styles.sectionTitle}>Appointment Records</Text>
+                </>
+            }
+            renderItem={({ item }) => {
+                const sc = STATUS_COLORS[item.status] ?? { bg: "#F3F4F6", text: "#374151" };
+                return (
+                    <View style={styles.reportCard}>
+                        <View style={styles.reportHeader}>
+                            <Text style={styles.reportDate}>{item.appointment_date} {item.appointment_time}</Text>
+                            <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
+                                <Text style={[styles.statusBadgeText, { color: sc.text }]}>
+                                    {item.status === "NO_SHOW" ? "No Show" :
+                                     item.status === "CHECKED_IN" ? "Checked In" :
+                                     item.status.charAt(0) + item.status.slice(1).toLowerCase()}
+                                </Text>
+                            </View>
+                        </View>
+                        <Text style={styles.reportPatient}>{item.patient}</Text>
+                        <Text style={styles.reportTests}>{item.tests.length > 0 ? item.tests.join(", ") : "No tests"}</Text>
+                        <View style={styles.reportMeta}>
+                            <Text style={styles.reportMetaText}>Ref: {item.reference_number}</Text>
+                            <Text style={styles.reportMetaText}>Priority: {item.priority_category}</Text>
+                        </View>
+                        <Text style={[styles.reportAmount, { fontSize: 14, marginTop: 4 }]}>₱{Number(item.total_amount).toLocaleString()}</Text>
+                    </View>
+                );
+            }}
+            ListEmptyComponent={
+                <View style={styles.emptyWrapper}>
+                    <Calendar color="#D1D5DB" size={42} />
+                    <Text style={styles.emptyTitle}>No appointments found</Text>
                 </View>
             }
             refreshControl={
