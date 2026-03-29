@@ -20,7 +20,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Image,
     Modal,
     Platform,
     RefreshControl,
@@ -31,8 +30,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { Image } from "expo-image";
 
 import api from "@/app/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
@@ -185,6 +186,7 @@ function PriorityBadge({ level }: { level?: string | null }) {
 }
 
 export default function AppointmentsScreen() {
+    const { token } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [stats, setStats] = useState<AppointmentStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -783,9 +785,12 @@ export default function AppointmentsScreen() {
                         </View>
                         {idViewerUrl && (
                             <Image
-                                source={{ uri: idViewerUrl }}
+                                source={{
+                                    uri: idViewerUrl,
+                                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                                }}
                                 style={styles.idViewerImage}
-                                resizeMode="contain"
+                                contentFit="contain"
                             />
                         )}
                     </View>

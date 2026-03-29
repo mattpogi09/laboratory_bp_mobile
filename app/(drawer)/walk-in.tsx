@@ -15,7 +15,6 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Image,
     Modal,
     Platform,
     RefreshControl,
@@ -24,8 +23,10 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { Image } from "expo-image";
 
 import api from "@/app/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmDialog } from "@/components";
 import { getApiErrorMessage } from "@/utils";
 
@@ -71,6 +72,7 @@ const PRIORITY_COLORS: Record<string, { color: string; bg: string }> = {
 };
 
 export default function WalkInScreen() {
+    const { token } = useAuth();
     const [walkIns, setWalkIns] = useState<WalkIn[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -432,9 +434,12 @@ export default function WalkInScreen() {
                         </View>
                         {idViewer.url && (
                             <Image
-                                source={{ uri: idViewer.url }}
+                                source={{
+                                    uri: idViewer.url,
+                                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                                }}
                                 style={styles.idViewerImage}
-                                resizeMode="contain"
+                                contentFit="contain"
                             />
                         )}
                     </View>
