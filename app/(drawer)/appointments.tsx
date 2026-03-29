@@ -7,6 +7,7 @@ import {
     CalendarX,
     ChevronDown,
     Clock,
+    Eye,
     FileText,
     Mail,
     Phone,
@@ -19,6 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Linking,
     Modal,
     Platform,
     RefreshControl,
@@ -145,12 +147,41 @@ function fmtDateDisplay(d: Date): string {
 function formatAppointmentDate(val: string | undefined | null): string {
     if (!val) return "—";
     const s = String(val);
-    // Extract YYYY-MM-DD from either plain date or ISO timestamp
     const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (!m) return s;
-    // Build Date at local noon to avoid any off-by-one from timezone
     const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
     return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+}
+
+function DemographicBadge({ category }: { category?: string | null }) {
+    const cfg: Record<string, { color: string; bg: string }> = {
+        PWD:              { color: "#1E40AF", bg: "#DBEAFE" },
+        "Senior Citizen": { color: "#5B21B6", bg: "#EDE9FE" },
+        Pregnant:         { color: "#9D174D", bg: "#FCE7F3" },
+        Regular:          { color: "#374151", bg: "#F3F4F6" },
+    };
+    const c = cfg[category ?? "Regular"] ?? cfg.Regular;
+    return (
+        <View style={{ backgroundColor: c.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>{category ?? "Regular"}</Text>
+        </View>
+    );
+}
+
+function PriorityBadge({ level }: { level?: string | null }) {
+    if (!level) return null;
+    const cfg: Record<string, { label: string; color: string; bg: string }> = {
+        HIGH:   { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
+        MEDIUM: { label: "Grace",   color: "#92400E", bg: "#FEF3C7" },
+        NONE:   { label: "Late",    color: "#991B1B", bg: "#FEE2E2" },
+    };
+    const c = cfg[level];
+    if (!c) return null;
+    return (
+        <View style={{ backgroundColor: c.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>{c.label}</Text>
+        </View>
+    );
 }
 
 export default function AppointmentsScreen() {
@@ -172,6 +203,7 @@ export default function AppointmentsScreen() {
     const [selected, setSelected] = useState<Appointment | null>(null);
     const [showDetail, setShowDetail] = useState(false);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [idViewerUrl, setIdViewerUrl] = useState<string | null>(null);
 
     // Cancel modal
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -429,36 +461,6 @@ export default function AppointmentsScreen() {
         return `${h % 12 || 12}:${m} ${h >= 12 ? "PM" : "AM"}`;
     }
 
-    function PriorityBadge({ level }: { level?: string | null }) {
-        if (!level) return null;
-        const cfg: Record<
-            string,
-            { label: string; color: string; bg: string }
-        > = {
-            HIGH: { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
-            MEDIUM: { label: "Grace", color: "#92400E", bg: "#FEF3C7" },
-            NONE: { label: "Late", color: "#991B1B", bg: "#FEE2E2" },
-        };
-        const c = cfg[level];
-        if (!c) return null;
-        return (
-            <View
-                style={{
-                    backgroundColor: c.bg,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 99,
-                }}
-            >
-                <Text
-                    style={{ fontSize: 11, fontWeight: "700", color: c.color }}
-                >
-                    {c.label}
-                </Text>
-            </View>
-        );
-    }
-
     const renderItem = ({ item }: { item: Appointment }) => (
         <TouchableOpacity
             style={styles.card}
@@ -510,6 +512,7 @@ export default function AppointmentsScreen() {
                 {/* Priority + Amount */}
                 <View style={styles.cardRow}>
                     <PriorityBadge level={item.priority_level} />
+                    <DemographicBadge category={(item as any).priority_category} />
                     <View style={{ flex: 1 }} />
                     <Text style={styles.cardAmount}>
                         ₱
@@ -529,6 +532,21 @@ export default function AppointmentsScreen() {
                         Ref: {item.reference_number}
                     </Text>
                 </View>
+                {/* ID picture — shown on card for quick verification */}
+                {(item as any).id_picture_url ? (
+                    <TouchableOpacity
+                        style={styles.idBtn}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            Linking.openURL((item as any).id_picture_url);
+                        }}
+                    >
+                        <Eye size={13} color="#2563EB" />
+                        <Text style={styles.idBtnText}>View Uploaded ID</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <Text style={styles.noIdText}>No ID uploaded</Text>
+                )}
             </View>
         </TouchableOpacity>
     );
@@ -844,11 +862,35 @@ export default function AppointmentsScreen() {
                                     </View>
                                 </View>
 
+                                {/* Queue type legend */}
+                                <View style={[styles.detailCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+                                    <Text style={[styles.detailCardTitle, { color: "#92400E", marginBottom: 6 }]}>Queue Type Legend</Text>
+                                    <View style={{ flexDirection: "row", gap: 8 }}>
+                                        <View style={{ flex: 1, backgroundColor: "#FEF3C7", borderRadius: 8, borderWidth: 1, borderColor: "#FDE68A", padding: 8 }}>
+                                            <Text style={{ fontSize: 12, fontWeight: "700", color: "#92400E" }}>PA — Priority + Appointment</Text>
+                                            <Text style={{ fontSize: 11, color: "#78350F", marginTop: 2 }}>Verified demographic priority with appointment</Text>
+                                        </View>
+                                        <View style={{ flex: 1, backgroundColor: "#EFF6FF", borderRadius: 8, borderWidth: 1, borderColor: "#BFDBFE", padding: 8 }}>
+                                            <Text style={{ fontSize: 12, fontWeight: "700", color: "#1E40AF" }}>A — Regular Appointment</Text>
+                                            <Text style={{ fontSize: 11, color: "#1E3A8A", marginTop: 2 }}>Standard appointment without priority</Text>
+                                        </View>
+                                    </View>
+                                </View>
+
                                 {/* Patient info card */}
                                 <View style={styles.detailCard}>
                                     <Text style={styles.detailCardTitle}>
                                         Patient Information
                                     </Text>
+                                    {(selected as any).age ? (
+                                        <View style={styles.detailCardRow}>
+                                            <User size={14} color="#6B7280" />
+                                            <Text style={styles.detailCardLabel}>Age</Text>
+                                            <Text style={styles.detailCardValue}>
+                                                {(selected as any).age} yrs • {(selected as any).gender ?? "—"}
+                                            </Text>
+                                        </View>
+                                    ) : null}
                                     {selected.patient_email ? (
                                         <View style={styles.detailCardRow}>
                                             <Mail size={14} color="#6B7280" />
@@ -904,6 +946,51 @@ export default function AppointmentsScreen() {
                                         </View>
                                     ) : null}
                                 </View>
+
+                                {/* Demographic priority + ID */}
+                                {((selected as any).priority_category && (selected as any).priority_category !== "Regular") || (selected as any).id_picture_url ? (
+                                    <View style={styles.detailCard}>
+                                        <Text style={styles.detailCardTitle}>Identification</Text>
+                                        {(selected as any).priority_category && (selected as any).priority_category !== "Regular" && (
+                                            <View style={styles.detailCardRow}>
+                                                <Text style={styles.detailCardLabel}>Priority</Text>
+                                                <DemographicBadge category={(selected as any).priority_category} />
+                                            </View>
+                                        )}
+                                        {/* Demographic priority — always show */}
+                                        <View style={styles.detailCardRow}>
+                                            <Text style={styles.detailCardLabel}>Priority</Text>
+                                            <View style={{
+                                                backgroundColor: (selected as any).priority_category === "PWD" ? "#DBEAFE"
+                                                    : (selected as any).priority_category === "Senior Citizen" ? "#EDE9FE"
+                                                    : (selected as any).priority_category === "Pregnant" ? "#FCE7F3"
+                                                    : "#F3F4F6",
+                                                paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99
+                                            }}>
+                                                <Text style={{
+                                                    fontSize: 11, fontWeight: "700",
+                                                    color: (selected as any).priority_category === "PWD" ? "#1E40AF"
+                                                        : (selected as any).priority_category === "Senior Citizen" ? "#5B21B6"
+                                                        : (selected as any).priority_category === "Pregnant" ? "#9D174D"
+                                                        : "#374151"
+                                                }}>
+                                                    {(selected as any).priority_category ?? "Regular"}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        {(selected as any).id_picture_url ? (
+                                            <TouchableOpacity
+                                                style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, backgroundColor: "#EFF6FF", borderRadius: 8, padding: 10 }}
+                                                onPress={() => Linking.openURL((selected as any).id_picture_url)}
+                                            >
+                                                <Eye size={16} color="#2563EB" />
+                                                <Text style={{ fontSize: 13, fontWeight: "600", color: "#2563EB" }}>View Uploaded ID</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 4 }}>No ID uploaded</Text>
+                                        )}
+                                    </View>
+                                ) : null}
 
                                 {/* Priority card */}
                                 {selected.priority_level ? (
@@ -1605,6 +1692,19 @@ const styles = StyleSheet.create({
     badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 },
     badgeText: { fontSize: 11, fontWeight: "700" },
     refNum: { fontSize: 11, color: "#9CA3AF", marginTop: 2 },
+    idBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "#EFF6FF",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        marginTop: 4,
+        alignSelf: "flex-start",
+    },
+    idBtnText: { fontSize: 12, fontWeight: "600", color: "#2563EB" },
+    noIdText: { fontSize: 11, color: "#9CA3AF", marginTop: 4 },
     empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
     emptyText: { fontSize: 15, color: "#9CA3AF" },
     overlay: {

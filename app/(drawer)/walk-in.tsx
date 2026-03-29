@@ -3,9 +3,11 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import {
     AlertCircle,
     Calendar,
+    CalendarX,
     CheckCircle,
     ChevronDown,
     Clock,
+    Eye,
     User,
     X,
 } from "lucide-react-native";
@@ -13,6 +15,7 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Linking,
     Modal,
     Platform,
     RefreshControl,
@@ -24,7 +27,6 @@ import {
 
 import api from "@/app/services/api";
 import { ConfirmDialog } from "@/components";
-import { EmptyState } from "@/components";
 import { getApiErrorMessage } from "@/utils";
 
 type WalkIn = {
@@ -40,6 +42,7 @@ type WalkIn = {
     registered_at: string;
     tests: { name: string; price: number }[];
     total_amount: number;
+    id_picture_url?: string | null;
 };
 
 type Stats = {
@@ -53,18 +56,18 @@ type Stats = {
 
 const PRIORITY_OPTIONS = ["Regular", "PWD", "Senior Citizen", "Pregnant"];
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-    pending:    { bg: "#FEF3C7", text: "#92400E" },
-    checked_in: { bg: "#DBEAFE", text: "#1E40AF" },
-    confirmed:  { bg: "#D1FAE5", text: "#065F46" },
-    cancelled:  { bg: "#FEE2E2", text: "#991B1B" },
+const STATUS_COLORS: Record<string, string> = {
+    pending:    "#EAB308",
+    checked_in: "#3B82F6",
+    confirmed:  "#22C55E",
+    cancelled:  "#EF4444",
 };
 
-const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
-    PWD:            { bg: "#EDE9FE", text: "#5B21B6" },
-    Pregnant:       { bg: "#FCE7F3", text: "#9D174D" },
-    "Senior Citizen": { bg: "#FEF3C7", text: "#92400E" },
-    Regular:        { bg: "#F3F4F6", text: "#374151" },
+const PRIORITY_COLORS: Record<string, { color: string; bg: string }> = {
+    PWD:              { color: "#1E40AF", bg: "#DBEAFE" },
+    "Senior Citizen": { color: "#5B21B6", bg: "#EDE9FE" },
+    Pregnant:         { color: "#9D174D", bg: "#FCE7F3" },
+    Regular:          { color: "#374151", bg: "#F3F4F6" },
 };
 
 export default function WalkInScreen() {
@@ -79,9 +82,9 @@ export default function WalkInScreen() {
 
     const [confirmCheckIn, setConfirmCheckIn] = useState<WalkIn | null>(null);
     const [confirmCancel, setConfirmCancel] = useState<WalkIn | null>(null);
-    const [cancelReason, setCancelReason] = useState("");
 
     const [priorityModal, setPriorityModal] = useState<WalkIn | null>(null);
+    const [pendingPriority, setPendingPriority] = useState<{ walkIn: WalkIn; newPriority: string } | null>(null);
     const [updatingPriority, setUpdatingPriority] = useState(false);
 
     const fetchWalkIns = useCallback(
@@ -135,111 +138,148 @@ export default function WalkInScreen() {
 
     const handleCancel = async (w: WalkIn) => {
         try {
-            await api.post(`/walk-ins/${w.id}/cancel`, { reason: cancelReason });
+            await api.post(`/walk-ins/${w.id}/cancel`);
             fetchWalkIns(selectedDate);
         } catch (e: any) {
             setError(getApiErrorMessage(e, "Failed to cancel walk-in."));
         } finally {
             setConfirmCancel(null);
-            setCancelReason("");
         }
     };
 
-    const handlePriorityUpdate = async (priority: string) => {
-        if (!priorityModal) return;
+    const handlePriorityUpdate = async () => {
+        if (!pendingPriority) return;
         setUpdatingPriority(true);
         try {
-            await api.patch(`/walk-ins/${priorityModal.id}/update-priority`, {
-                priority_category: priority,
+            await api.patch(`/walk-ins/${pendingPriority.walkIn.id}/update-priority`, {
+                priority_category: pendingPriority.newPriority,
             });
             fetchWalkIns(selectedDate);
         } catch (e: any) {
             setError(getApiErrorMessage(e, "Failed to update priority."));
         } finally {
             setUpdatingPriority(false);
-            setPriorityModal(null);
+            setPendingPriority(null);
         }
     };
 
+    const pc = (category: string) => PRIORITY_COLORS[category] ?? PRIORITY_COLORS.Regular;
+    const isQueuePriority = (category: string) => category !== "Regular";
+
     const renderItem = ({ item }: { item: WalkIn }) => {
-        const sc = STATUS_COLORS[item.status] ?? { bg: "#F3F4F6", text: "#374151" };
-        const pc = PRIORITY_COLORS[item.priority_category] ?? PRIORITY_COLORS.Regular;
+        const statusColor = STATUS_COLORS[item.status] ?? "#6B7280";
+        const demoBadge = pc(item.priority_category);
 
         return (
             <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <View style={{ flex: 1 }}>
+                {/* Left status bar — same as appointments */}
+                <View style={[styles.statusBar, { backgroundColor: statusColor }]} />
+                <View style={styles.cardBody}>
+                    {/* Row 1: Name + status badge */}
+                    <View style={styles.cardRow}>
+                        <User size={14} color="#6B7280" />
                         <Text style={styles.cardName}>{item.patient_name}</Text>
-                        <Text style={styles.cardRef}>{item.reference_number}</Text>
-                    </View>
-                    <View style={[styles.badge, { backgroundColor: sc.bg }]}>
-                        <Text style={[styles.badgeText, { color: sc.text }]}>
-                            {item.status.replace("_", " ")}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={styles.infoRow}>
-                    <User color="#6B7280" size={13} />
-                    <Text style={styles.infoText}>
-                        {item.age} yrs • {item.gender}
-                    </Text>
-                    <View style={[styles.priorityBadge, { backgroundColor: pc.bg }]}>
-                        <Text style={[styles.priorityText, { color: pc.text }]}>
-                            {item.priority_category}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={styles.infoRow}>
-                    <Clock color="#6B7280" size={13} />
-                    <Text style={styles.infoText}>
-                        Registered: {item.registered_at}
-                        {item.checked_in_at ? ` • Checked in: ${item.checked_in_at}` : ""}
-                    </Text>
-                </View>
-
-                <View style={styles.testsRow}>
-                    {item.tests.map((t, i) => (
-                        <View key={i} style={styles.testChip}>
-                            <Text style={styles.testChipText}>{t.name}</Text>
+                        <View style={[styles.badge, { backgroundColor: statusColor + "22" }]}>
+                            <Text style={[styles.badgeText, { color: statusColor }]}>
+                                {item.status.replace("_", " ")}
+                            </Text>
                         </View>
-                    ))}
-                </View>
+                    </View>
 
-                <Text style={styles.totalAmount}>
-                    ₱{item.total_amount.toLocaleString()}
-                </Text>
+                    {/* Row 2: Ref + registered time */}
+                    <View style={styles.cardRow}>
+                        <Clock size={13} color="#9CA3AF" />
+                        <Text style={styles.cardSub}>Registered: {item.registered_at}</Text>
+                        {item.checked_in_at && (
+                            <>
+                                <Text style={styles.cardSub}>•</Text>
+                                <Text style={styles.cardSub}>In: {item.checked_in_at}</Text>
+                            </>
+                        )}
+                    </View>
 
-                <View style={styles.actions}>
-                    {item.status === "pending" && (
+                    {/* Row 3: Age/gender + demographic + queue type */}
+                    <View style={styles.cardRow}>
+                        <Text style={styles.cardSub}>{item.age} yrs • {item.gender}</Text>
+                        <View style={{ flex: 1 }} />
+                        <View style={[styles.demoBadge, { backgroundColor: demoBadge.bg }]}>
+                            <Text style={[styles.demoBadgeText, { color: demoBadge.color }]}>
+                                {item.priority_category}
+                            </Text>
+                        </View>
+                        <View style={[
+                            styles.queueBadge,
+                            isQueuePriority(item.priority_category)
+                                ? { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }
+                                : { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" },
+                        ]}>
+                            <Text style={[
+                                styles.queueBadgeText,
+                                { color: isQueuePriority(item.priority_category) ? "#065F46" : "#374151" },
+                            ]}>
+                                {isQueuePriority(item.priority_category) ? "P" : "W"}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Row 4: Tests + amount */}
+                    <View style={styles.cardRow}>
+                        <Text style={styles.cardSub}>
+                            {item.tests.length} test{item.tests.length !== 1 ? "s" : ""}
+                        </Text>
+                        <View style={{ flex: 1 }} />
+                        <Text style={styles.cardAmount}>
+                            ₱{Number(item.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                        </Text>
+                    </View>
+
+                    {/* Row 5: Ref number */}
+                    <View style={styles.cardRow}>
+                        <View style={{ flex: 1 }} />
+                        <Text style={styles.refNum}>Ref: {item.reference_number}</Text>
+                    </View>
+
+                    {/* ID picture */}
+                    {item.id_picture_url ? (
                         <TouchableOpacity
-                            style={styles.btnCheckIn}
-                            onPress={() => setConfirmCheckIn(item)}
+                            style={styles.idBtn}
+                            onPress={() => Linking.openURL(item.id_picture_url!)}
                         >
-                            <CheckCircle color="#fff" size={14} />
-                            <Text style={styles.btnCheckInText}>Check In</Text>
+                            <Eye size={13} color="#2563EB" />
+                            <Text style={styles.idBtnText}>View Uploaded ID</Text>
                         </TouchableOpacity>
+                    ) : (
+                        <Text style={styles.noId}>No ID uploaded</Text>
                     )}
-                    <TouchableOpacity
-                        style={styles.btnPriority}
-                        onPress={() => setPriorityModal(item)}
-                    >
-                        <ChevronDown color="#374151" size={14} />
-                        <Text style={styles.btnPriorityText}>Priority</Text>
-                    </TouchableOpacity>
-                    {item.status !== "confirmed" && item.status !== "cancelled" && (
+
+                    {/* Action buttons */}
+                    <View style={styles.actionRow}>
+                        {item.status === "pending" && (
+                            <TouchableOpacity
+                                style={[styles.actionBtn, { backgroundColor: "#ac3434" }]}
+                                onPress={() => setConfirmCheckIn(item)}
+                            >
+                                <CheckCircle size={14} color="#fff" />
+                                <Text style={[styles.actionBtnText, { color: "#fff" }]}>Check In</Text>
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity
-                            style={styles.btnCancel}
-                            onPress={() => {
-                                setCancelReason("");
-                                setConfirmCancel(item);
-                            }}
+                            style={[styles.actionBtn, { borderWidth: 1, borderColor: "#D1D5DB" }]}
+                            onPress={() => setPriorityModal(item)}
                         >
-                            <X color="#991B1B" size={14} />
-                            <Text style={styles.btnCancelText}>Cancel</Text>
+                            <ChevronDown size={14} color="#374151" />
+                            <Text style={[styles.actionBtnText, { color: "#374151" }]}>Priority</Text>
                         </TouchableOpacity>
-                    )}
+                        {item.status !== "confirmed" && item.status !== "cancelled" && (
+                            <TouchableOpacity
+                                style={[styles.actionBtn, { backgroundColor: "#FEE2E2" }]}
+                                onPress={() => setConfirmCancel(item)}
+                            >
+                                <X size={14} color="#991B1B" />
+                                <Text style={[styles.actionBtnText, { color: "#991B1B" }]}>Cancel</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             </View>
         );
@@ -247,21 +287,57 @@ export default function WalkInScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Date Selector */}
-            <View style={styles.dateBar}>
-                <Calendar color="#6B7280" size={16} />
-                <Text style={styles.dateBarLabel}>Date:</Text>
+            {/* Header */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <User size={22} color="#ac3434" />
+                    <Text style={styles.headerTitle}>Walk-In Management</Text>
+                </View>
+            </View>
+
+            {/* Stats */}
+            {stats && (
+                <View style={styles.statsGrid}>
+                    <View style={[styles.statCard, styles.statCardTotal]}>
+                        <Text style={styles.statValue}>{stats.total}</Text>
+                        <Text style={styles.statLabel}>Total</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardPending]}>
+                        <Text style={[styles.statValue, { color: "#92400E" }]}>{stats.pending}</Text>
+                        <Text style={[styles.statLabel, { color: "#78350F" }]}>Pending</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardCheckedIn]}>
+                        <Text style={[styles.statValue, { color: "#1E3A8A" }]}>{stats.checked_in}</Text>
+                        <Text style={[styles.statLabel, { color: "#1E40AF" }]}>Checked In</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardConfirmed]}>
+                        <Text style={[styles.statValue, { color: "#065F46" }]}>{stats.confirmed}</Text>
+                        <Text style={[styles.statLabel, { color: "#047857" }]}>Confirmed</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardCancelled]}>
+                        <Text style={[styles.statValue, { color: "#991B1B" }]}>{stats.cancelled}</Text>
+                        <Text style={[styles.statLabel, { color: "#B91C1C" }]}>Cancelled</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardPriority]}>
+                        <Text style={[styles.statValue, { color: "#5B21B6" }]}>{stats.priority}</Text>
+                        <Text style={[styles.statLabel, { color: "#6D28D9" }]}>Priority</Text>
+                    </View>
+                </View>
+            )}
+
+            {/* Date filter row */}
+            <View style={styles.filterRow}>
                 <TouchableOpacity
-                    style={styles.datePill}
+                    style={styles.pickerButton}
                     onPress={() => setShowDatePicker(true)}
                 >
-                    <Text style={styles.datePillText}>
+                    <Calendar size={14} color="#6B7280" style={{ marginRight: 6 }} />
+                    <Text style={styles.pickerButtonText} numberOfLines={1}>
                         {selectedDate.toLocaleDateString("en-US", {
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
+                            month: "short", day: "numeric", year: "numeric",
                         })}
                     </Text>
+                    <ChevronDown color="#6B7280" size={16} />
                 </TouchableOpacity>
             </View>
 
@@ -269,111 +345,158 @@ export default function WalkInScreen() {
                 <DateTimePicker
                     value={selectedDate}
                     mode="date"
-                    display="default"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
                     onChange={handleDateChange}
                 />
             )}
 
-            {/* Stats */}
-            {stats && (
-                <View style={styles.statsRow}>
-                    {[
-                        { label: "Total", value: stats.total, color: "#6B7280" },
-                        { label: "Pending", value: stats.pending, color: "#D97706" },
-                        { label: "Checked In", value: stats.checked_in, color: "#2563EB" },
-                        { label: "Priority", value: stats.priority, color: "#7C3AED" },
-                    ].map((s) => (
-                        <View key={s.label} style={styles.statCard}>
-                            <Text style={[styles.statValue, { color: s.color }]}>
-                                {s.value}
-                            </Text>
-                            <Text style={styles.statLabel}>{s.label}</Text>
-                        </View>
-                    ))}
+            {/* Queue type legend */}
+            <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                    <View style={[styles.queueBadge, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
+                        <Text style={[styles.queueBadgeText, { color: "#065F46" }]}>P</Text>
+                    </View>
+                    <Text style={styles.legendText}>Priority Walk-in</Text>
                 </View>
-            )}
+                <View style={styles.legendItem}>
+                    <View style={[styles.queueBadge, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
+                        <Text style={[styles.queueBadgeText, { color: "#374151" }]}>W</Text>
+                    </View>
+                    <Text style={styles.legendText}>Regular Walk-in</Text>
+                </View>
+            </View>
 
             {error && (
-                <View style={styles.errorBanner}>
-                    <AlertCircle color="#991B1B" size={16} />
-                    <Text style={styles.errorText}>{error}</Text>
+                <View style={styles.errorContainer}>
+                    <AlertCircle color="#EF4444" size={36} />
+                    <Text style={styles.errorTitle}>Unable to load walk-ins</Text>
+                    <Text style={styles.errorMessage}>{error}</Text>
+                    <TouchableOpacity
+                        style={styles.retryBtn}
+                        onPress={() => { setError(null); fetchWalkIns(selectedDate); }}
+                    >
+                        <Text style={styles.retryBtnText}>Retry</Text>
+                    </TouchableOpacity>
                 </View>
             )}
 
-            {loading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#ac3434" />
+            {!error && (loading ? (
+                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
+                    <ActivityIndicator size="large" color="#ac3434" style={{ marginTop: 40 }} />
                 </View>
             ) : (
                 <FlatList
+                    style={{ flex: 1 }}
                     data={walkIns}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={renderItem}
-                    contentContainerStyle={styles.list}
                     refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                        />
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#ac3434"]} />
                     }
+                    contentContainerStyle={styles.list}
                     ListEmptyComponent={
-                        <EmptyState
-                            icon={Calendar}
-                            title="No walk-ins today"
-                            message="No walk-in registrations found for this date."
-                        />
+                        <View style={styles.empty}>
+                            <CalendarX size={40} color="#D1D5DB" />
+                            <Text style={styles.emptyText}>No walk-ins found</Text>
+                            <Text style={{ fontSize: 13, color: "#9CA3AF", textAlign: "center", marginTop: 4 }}>
+                                No walk-in registrations for this date
+                            </Text>
+                        </View>
                     }
                 />
-            )}
+            ))}
 
-            {/* Priority Modal */}
+            {/* Priority selection modal */}
             <Modal
                 visible={!!priorityModal}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setPriorityModal(null)}
             >
                 <TouchableOpacity
-                    style={styles.modalOverlay}
+                    style={styles.overlay}
                     activeOpacity={1}
                     onPress={() => setPriorityModal(null)}
                 >
-                    <View style={styles.priorityBox}>
-                        <Text style={styles.priorityBoxTitle}>
-                            Change Priority
-                        </Text>
-                        {PRIORITY_OPTIONS.map((p) => (
-                            <TouchableOpacity
-                                key={p}
-                                style={[
-                                    styles.priorityOption,
-                                    priorityModal?.priority_category === p &&
-                                        styles.priorityOptionActive,
-                                ]}
-                                onPress={() => handlePriorityUpdate(p)}
-                                disabled={updatingPriority}
-                            >
-                                <Text
-                                    style={[
-                                        styles.priorityOptionText,
-                                        priorityModal?.priority_category === p && {
-                                            color: "#ac3434",
-                                            fontWeight: "700",
-                                        },
-                                    ]}
+                    <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+                        <View style={styles.priorityBox}>
+                            <View style={styles.modalHeader}>
+                                <View>
+                                    <Text style={styles.modalTitle}>Change Priority</Text>
+                                    <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                        {priorityModal?.patient_name}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={{ padding: 4 }}
+                                    onPress={() => setPriorityModal(null)}
                                 >
-                                    {p}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                                    <X size={22} color="#6B7280" />
+                                </TouchableOpacity>
+                            </View>
+                            {PRIORITY_OPTIONS.map((p) => {
+                                const isActive = priorityModal?.priority_category === p;
+                                const badge = pc(p);
+                                const descriptions: Record<string, string> = {
+                                    Regular: "Standard walk-in, served by arrival order",
+                                    PWD: "Person with disability — served first",
+                                    "Senior Citizen": "60 years old and above — served first",
+                                    Pregnant: "Pregnant patient — served first",
+                                };
+                                return (
+                                    <TouchableOpacity
+                                        key={p}
+                                        style={[
+                                            styles.priorityOption,
+                                            isActive && styles.priorityOptionActive,
+                                        ]}
+                                        onPress={() => {
+                                            if (isActive) return;
+                                            setPendingPriority({ walkIn: priorityModal!, newPriority: p });
+                                            setPriorityModal(null);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={[styles.priorityOptionDot, { backgroundColor: badge.bg, borderColor: badge.color }]} />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[
+                                                styles.priorityOptionLabel,
+                                                isActive && { color: "#ac3434", fontWeight: "700" },
+                                            ]}>
+                                                {p}
+                                            </Text>
+                                            <Text style={styles.priorityOptionDesc}>
+                                                {descriptions[p]}
+                                            </Text>
+                                        </View>
+                                        {isActive && (
+                                            <View style={styles.priorityCheckmark}>
+                                                <Text style={styles.priorityCheckmarkText}>✓</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            {/* Walk-in detail bottom sheet — shown on card tap */}
+            <ConfirmDialog
+                visible={!!pendingPriority}
+                title="Update Priority"
+                message={`Change priority for ${pendingPriority?.walkIn.patient_name} from "${pendingPriority?.walkIn.priority_category}" to "${pendingPriority?.newPriority}"?\n\nThis updates their position in the queue.`}
+                confirmText={updatingPriority ? "Updating..." : "Update"}
+                type="info"
+                onConfirm={handlePriorityUpdate}
+                onCancel={() => setPendingPriority(null)}
+            />
 
             <ConfirmDialog
                 visible={!!confirmCheckIn}
                 title="Check In Walk-In"
-                message={`Check in ${confirmCheckIn?.patient_name}?`}
+                message={`Check in ${confirmCheckIn?.patient_name}?\n\nRef: ${confirmCheckIn?.reference_number}`}
                 confirmText="Check In"
                 type="info"
                 onConfirm={() => confirmCheckIn && handleCheckIn(confirmCheckIn)}
@@ -383,146 +506,135 @@ export default function WalkInScreen() {
             <ConfirmDialog
                 visible={!!confirmCancel}
                 title="Cancel Walk-In"
-                message={`Cancel registration for ${confirmCancel?.patient_name}?`}
+                message={`Cancel registration for ${confirmCancel?.patient_name}?\n\nThis will permanently remove them from the queue.`}
                 confirmText="Cancel Registration"
                 type="danger"
                 onConfirm={() => confirmCancel && handleCancel(confirmCancel)}
-                onCancel={() => {
-                    setConfirmCancel(null);
-                    setCancelReason("");
-                }}
+                onCancel={() => setConfirmCancel(null)}
             />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F3F4F6" },
-    dateBar: {
+    container: { flex: 1, backgroundColor: "#F9FAFB" },
+    // Header — matches appointments
+    header: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
-        padding: 12,
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
-    },
-    dateBarLabel: { fontSize: 14, color: "#374151", fontWeight: "600" },
-    datePill: {
-        backgroundColor: "#F9FAFB",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    datePillText: { fontSize: 14, color: "#111827", fontWeight: "500" },
-    statsRow: {
-        flexDirection: "row",
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
-        paddingVertical: 10,
-        paddingHorizontal: 8,
-        gap: 4,
-    },
-    statCard: {
-        flex: 1,
-        alignItems: "center",
-        paddingVertical: 6,
-        borderRadius: 8,
-        backgroundColor: "#F9FAFB",
-        marginHorizontal: 2,
-    },
-    statValue: { fontSize: 18, fontWeight: "700" },
-    statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
-    errorBanner: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        backgroundColor: "#FEE2E2",
-        padding: 12,
-        margin: 12,
-        borderRadius: 8,
-    },
-    errorText: { color: "#991B1B", fontSize: 13, flex: 1 },
-    center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    list: { padding: 12, paddingBottom: 40 },
-    card: {
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-    },
-    cardHeader: {
-        flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
     },
-    cardName: { fontSize: 16, fontWeight: "700", color: "#111827" },
-    cardRef: { fontSize: 12, color: "#6B7280", marginTop: 2 },
-    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-    badgeText: { fontSize: 12, fontWeight: "600", textTransform: "capitalize" },
-    infoRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        marginBottom: 6,
-    },
-    infoText: { fontSize: 13, color: "#374151", flex: 1 },
-    priorityBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 999,
-    },
-    priorityText: { fontSize: 11, fontWeight: "600" },
-    testsRow: {
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+    headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+    // Stats grid — matches appointments
+    statsGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
-        gap: 6,
-        marginBottom: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        gap: 8,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
     },
-    testChip: {
-        backgroundColor: "#EFF6FF",
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
+    statCard: {
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        width: "30%",
+        flexGrow: 1,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
     },
-    testChipText: { fontSize: 12, color: "#1D4ED8", fontWeight: "500" },
-    totalAmount: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#10B981",
-        marginBottom: 10,
+    statCardTotal:     { backgroundColor: "#fff",    borderWidth: 1, borderColor: "#E5E7EB" },
+    statCardPending:   { backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A" },
+    statCardCheckedIn: { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE" },
+    statCardConfirmed: { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" },
+    statCardCancelled: { backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" },
+    statCardPriority:  { backgroundColor: "#F5F3FF", borderWidth: 1, borderColor: "#DDD6FE" },
+    statValue: { fontSize: 22, fontWeight: "700", color: "#111827" },
+    statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
+    // Filter row — matches appointments
+    filterRow: {
+        flexDirection: "row",
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
     },
-    actions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-    btnCheckIn: {
+    pickerButton: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        paddingVertical: 8,
-        borderRadius: 8,
-        backgroundColor: "#ac3434",
-    },
-    btnCheckInText: { fontSize: 13, fontWeight: "600", color: "#fff" },
-    btnPriority: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        paddingVertical: 8,
-        borderRadius: 8,
+        justifyContent: "space-between",
         borderWidth: 1,
         borderColor: "#D1D5DB",
+        borderRadius: 8,
+        paddingVertical: 9,
+        paddingHorizontal: 12,
+        backgroundColor: "#F9FAFB",
     },
-    btnPriorityText: { fontSize: 13, fontWeight: "600", color: "#374151" },
-    btnCancel: {
+    pickerButtonText: { fontSize: 14, color: "#111827", flex: 1 },
+    // Legend row
+    legendRow: {
+        flexDirection: "row",
+        gap: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+    },
+    legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    legendText: { fontSize: 12, color: "#374151", fontWeight: "500" },
+    // Card — matches appointments
+    list: { padding: 16, gap: 10 },
+    card: {
+        flexDirection: "row",
+        backgroundColor: "#fff",
+        borderRadius: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+        overflow: "hidden",
+    },
+    statusBar: { width: 5 },
+    cardBody: { flex: 1, padding: 12, gap: 4 },
+    cardRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    cardName: { flex: 1, fontSize: 15, fontWeight: "600", color: "#111827" },
+    cardSub: { fontSize: 12, color: "#6B7280" },
+    cardAmount: { fontSize: 13, fontWeight: "700", color: "#111827" },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 },
+    badgeText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+    refNum: { fontSize: 11, color: "#9CA3AF" },
+    demoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 },
+    demoBadgeText: { fontSize: 11, fontWeight: "600" },
+    queueBadge: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 99,
+        borderWidth: 1,
+    },
+    queueBadgeText: { fontSize: 11, fontWeight: "700" },
+    // Action buttons
+    actionRow: {
+        flexDirection: "row",
+        gap: 8,
+        marginTop: 10,
+        flexWrap: "wrap",
+    },
+    actionBtn: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
@@ -530,36 +642,88 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingVertical: 8,
         borderRadius: 8,
-        backgroundColor: "#FEE2E2",
     },
-    btnCancelText: { fontSize: 13, fontWeight: "600", color: "#991B1B" },
-    modalOverlay: {
+    actionBtnText: { fontSize: 13, fontWeight: "600" },
+    idBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "#EFF6FF",
+        borderRadius: 8,
+        padding: 8,
+        marginTop: 8,
+    },
+    idBtnText: { fontSize: 12, fontWeight: "600", color: "#2563EB" },
+    noId: { fontSize: 11, color: "#9CA3AF", marginTop: 8 },
+    // Error
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 32,
+        gap: 12,
+    },
+    errorTitle: { fontSize: 17, fontWeight: "600", color: "#111827", textAlign: "center" },
+    errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+    retryBtn: {
+        marginTop: 4,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        backgroundColor: "#ac3434",
+        borderRadius: 10,
+    },
+    retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+    // Empty
+    empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
+    emptyText: { fontSize: 15, color: "#9CA3AF" },
+    // Priority modal — bottom sheet style
+    overlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
+        justifyContent: "flex-end",
     },
     priorityBox: {
         backgroundColor: "#fff",
-        borderRadius: 12,
-        width: "100%",
-        maxWidth: 300,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 32,
         overflow: "hidden",
     },
-    priorityBoxTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#111827",
-        padding: 16,
+    modalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
+    modalTitle: { fontSize: 17, fontWeight: "700", color: "#111827" },
     priorityOption: {
-        padding: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 14,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
         borderBottomWidth: 1,
         borderBottomColor: "#F3F4F6",
     },
     priorityOptionActive: { backgroundColor: "#FEF2F2" },
-    priorityOptionText: { fontSize: 15, color: "#374151" },
+    priorityOptionDot: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 2,
+    },
+    priorityOptionLabel: { fontSize: 15, fontWeight: "600", color: "#111827" },
+    priorityOptionDesc: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+    priorityCheckmark: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: "#ac3434",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    priorityCheckmarkText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });
