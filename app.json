@@ -49,7 +49,7 @@
                     "color": "#1D4ED8",
                     "defaultChannel": "default",
                     "sounds": [],
-                    "enableBackgroundRemoteNotifications": false
+                    "enableBackgroundRemoteNotifications": true
                 }
             ],
             "expo-secure-store",
