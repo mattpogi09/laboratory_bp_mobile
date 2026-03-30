@@ -706,6 +706,7 @@ export default function SettingsScreen() {
                                         placeholderTextColor="#9CA3AF"
                                         autoCapitalize="none"
                                         autoCorrect={false}
+                                        secureTextEntry={true}
                                     />
                                     <Text style={styles.toggleDesc}>Password-protect your PDFs with this before uploading. Share it with staff so they can open the file.</Text>
                                 </View>
