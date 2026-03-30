@@ -23,12 +23,11 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SuccessDialog } from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/app/services/api";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function Login() {
-    const { login } = useAuth();
+    const { login, loginWithToken } = useAuth();
 
     // View: "selector" = two-button screen, "manual" = login form
     const [view, setView] = useState<"selector" | "manual">("selector");
@@ -93,8 +92,7 @@ export default function Login() {
         if (result.success) {
             const token = await SecureStore.getItemAsync("auth_token");
             if (token) {
-                api.defaults.headers.common["Authorization"] =
-                    "Bearer " + token;
+                await loginWithToken(token);
                 router.replace("/(drawer)");
             } else {
                 await SecureStore.deleteItemAsync("biometric_enabled");

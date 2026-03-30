@@ -32,6 +32,7 @@ type AuthContextValue = {
         password: string;
         remember?: boolean;
     }) => Promise<void>;
+    loginWithToken: (token: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 };
@@ -101,6 +102,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setToken(null);
             router.replace("/login");
         });
+    }, []);
+
+    const loginWithToken = useCallback(async (storedToken: string) => {
+        setAuthToken(storedToken);
+        setToken(storedToken);
+        // Restore cached user immediately
+        const storedUser = await SecureStore.getItemAsync(USER_STORAGE_KEY);
+        if (storedUser) setUser(JSON.parse(storedUser));
+        // Refresh from server in background
+        try {
+            const profile = await api.get("/user");
+            setUser(profile.data);
+            await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(profile.data));
+        } catch {
+            // keep cached user if network fails
+        }
     }, []);
 
     const login = useCallback(
@@ -175,10 +192,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
             initializing,
             isAuthenticated: Boolean(token),
             login,
+            loginWithToken,
             logout,
             refreshProfile,
         }),
-        [initializing, login, logout, refreshProfile, token, user],
+        [initializing, login, loginWithToken, logout, refreshProfile, token, user],
     );
 
     return (
