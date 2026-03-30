@@ -357,9 +357,9 @@ export default function WalkInScreen() {
             {/* Queue type legend — matches appointments */}
             <View style={styles.legendCard}>
                 <View style={styles.legendRow}>
-                    <View style={[styles.legendItem, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
-                        <Text style={[styles.legendTitle, { color: "#92400E" }]}>PW — Priority Walk-in</Text>
-                        <Text style={[styles.legendSub, { color: "#78350F" }]}>Verified demographic priority walk-in</Text>
+                    <View style={[styles.legendItem, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
+                        <Text style={[styles.legendTitle, { color: "#065F46" }]}>PW — Priority Walk-in</Text>
+                        <Text style={[styles.legendSub, { color: "#047857" }]}>Verified demographic priority walk-in</Text>
                     </View>
                     <View style={[styles.legendItem, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
                         <Text style={[styles.legendTitle, { color: "#374151" }]}>W — Regular Walk-in</Text>
