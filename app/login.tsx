@@ -51,15 +51,60 @@ export default function Login() {
 
     const isFormValid = username.trim() !== "" && password.trim() !== "";
 
-    // Check biometric_enabled on mount, auto-trigger if enabled
+    const handleBiometricLogin = useCallback(async () => {
+        if (isNavigating.current || isBioRunning.current) return;
+        isBioRunning.current = true;
+        setBioError("");
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Scan your fingerprint to login",
+            cancelLabel: "Cancel",
+            disableDeviceFallback: true,
+        });
+
+        if (result.success) {
+            const token = await SecureStore.getItemAsync("auth_token");
+            if (token) {
+                try {
+                    isNavigating.current = true;
+                    await loginWithToken(token);
+                    router.replace("/(drawer)");
+                } catch {
+                    isNavigating.current = false;
+                    isBioRunning.current = false;
+                    setBiometricEnabled(false);
+                    setBioError(
+                        "Session expired. Please use Manual Login and re-enable fingerprint in Settings",
+                    );
+                }
+            } else {
+                isBioRunning.current = false;
+                await SecureStore.deleteItemAsync("biometric_enabled");
+                setBiometricEnabled(false);
+                setBioError(
+                    "Session expired. Please use Manual Login and re-enable fingerprint in Settings",
+                );
+            }
+        } else {
+            isBioRunning.current = false;
+            setBioError(
+                "Fingerprint not recognized. Try again or use Manual Login",
+            );
+        }
+    }, [loginWithToken]);
+
+    const isNavigating = useRef(false);
+    const isBioRunning = useRef(false);
+    const hasTriggered = useRef(false);
     useEffect(() => {
+        if (hasTriggered.current) return;
         SecureStore.getItemAsync("biometric_enabled").then((val) => {
             if (val === "true") {
+                hasTriggered.current = true;
                 setBiometricEnabled(true);
                 handleBiometricLogin();
             }
         });
-    }, []);
+    }, [handleBiometricLogin]);
 
     const goToManual = useCallback(() => {
         setView("manual");
@@ -80,33 +125,6 @@ export default function Login() {
             useNativeDriver: true,
         }).start();
     }, [slideAnim]);
-
-    const handleBiometricLogin = useCallback(async () => {
-        setBioError("");
-        const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: "Scan your fingerprint to login",
-            cancelLabel: "Cancel",
-            disableDeviceFallback: true,
-        });
-
-        if (result.success) {
-            const token = await SecureStore.getItemAsync("auth_token");
-            if (token) {
-                await loginWithToken(token);
-                router.replace("/(drawer)");
-            } else {
-                await SecureStore.deleteItemAsync("biometric_enabled");
-                setBiometricEnabled(false);
-                setBioError(
-                    "Session expired. Please use Manual Login and re-enable fingerprint in Settings",
-                );
-            }
-        } else {
-            setBioError(
-                "Fingerprint not recognized. Try again or use Manual Login",
-            );
-        }
-    }, []);
 
     const handleBiometricPress = useCallback(() => {
         if (biometricEnabled) {

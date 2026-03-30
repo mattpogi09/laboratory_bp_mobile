@@ -107,17 +107,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const loginWithToken = useCallback(async (storedToken: string) => {
         setAuthToken(storedToken);
         setToken(storedToken);
-        // Restore cached user immediately
-        const storedUser = await SecureStore.getItemAsync(USER_STORAGE_KEY);
-        if (storedUser) setUser(JSON.parse(storedUser));
-        // Refresh from server in background
-        try {
-            const profile = await api.get("/user");
-            setUser(profile.data);
-            await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(profile.data));
-        } catch {
-            // keep cached user if network fails
-        }
+        // Await fresh profile — do NOT restore cached user first to avoid
+        // briefly setting a stale/wrong user before the real one arrives
+        const profile = await api.get("/user");
+        setUser(profile.data);
+        await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(profile.data));
     }, []);
 
     const login = useCallback(
@@ -169,9 +163,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setToken(null);
             setAuthToken(null);
             await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
-            await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
-            // auth_token (biometric) is intentionally kept so fingerprint login stays active after logout
-            // biometric_enabled is intentionally kept so the button stays active
+            await SecureStore.deleteItemAsync(USER_STORAGE_KEY); // clear stale cached user
+            // auth_token + biometric_enabled kept so fingerprint prompt still works after logout
         }
     }, []);
 

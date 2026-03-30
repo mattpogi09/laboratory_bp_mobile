@@ -40,7 +40,7 @@ const PDF_OPTIONS = [
 ];
 
 export default function SettingsScreen() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [labStaff, setLabStaff] = useState<LabStaffUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -150,10 +150,9 @@ export default function SettingsScreen() {
         });
 
         if (result.success) {
-            const currentToken = await SecureStore.getItemAsync("bp_mobile_token");
             await SecureStore.setItemAsync("biometric_enabled", "true");
-            if (currentToken) {
-                await SecureStore.setItemAsync("auth_token", currentToken);
+            if (token) {
+                await SecureStore.setItemAsync("auth_token", token);
             }
             setBiometricEnabled(true);
             setSuccessDialog({
