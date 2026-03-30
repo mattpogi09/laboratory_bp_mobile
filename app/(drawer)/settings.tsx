@@ -1,7 +1,11 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
 import {
+    Fingerprint,
     AlertCircle,
     BookOpen,
     CheckCircle2,
@@ -65,6 +69,8 @@ export default function SettingsScreen() {
     const [userManuals, setUserManuals] = useState<{ role: string; original_filename: string | null; file_url: string | null }[]>([]);
     const [uploadingManual, setUploadingManual] = useState<string | null>(null);
 
+    const [biometricEnabled, setBiometricEnabled] = useState(false);
+
     const loadSettings = useCallback(async () => {
         try {
             setLoading(true);
@@ -84,8 +90,87 @@ export default function SettingsScreen() {
     useFocusEffect(
         useCallback(() => {
             loadSettings();
+            SecureStore.getItemAsync("biometric_enabled").then((val) =>
+                setBiometricEnabled(val === "true")
+            );
         }, [loadSettings]),
     );
+
+    const handleBiometricToggle = useCallback(async (value: boolean) => {
+        if (!value) {
+            await SecureStore.deleteItemAsync("biometric_enabled");
+            await SecureStore.deleteItemAsync("auth_token");
+            setBiometricEnabled(false);
+            setSuccessDialog({
+                visible: true,
+                title: "Disabled",
+                message: "Fingerprint login has been disabled.",
+                type: "info",
+            });
+            return;
+        }
+
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        if (!hasHardware) {
+            setSuccessDialog({
+                visible: true,
+                title: "Not Supported",
+                message: "Your device does not support fingerprint login",
+                type: "error",
+            });
+            return;
+        }
+
+        const supported = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (!supported.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+            setSuccessDialog({
+                visible: true,
+                title: "Not Supported",
+                message: "This app only supports fingerprint. Your device does not have a fingerprint sensor.",
+                type: "error",
+            });
+            return;
+        }
+
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!enrolled) {
+            setSuccessDialog({
+                visible: true,
+                title: "No Fingerprint Enrolled",
+                message: "No fingerprint enrolled on your device. Please go to Phone Settings > Biometrics > Fingerprint and add your fingerprint first.",
+                type: "warning",
+            });
+            return;
+        }
+
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Scan your fingerprint to enable biometric login",
+            cancelLabel: "Cancel",
+            disableDeviceFallback: true,
+        });
+
+        if (result.success) {
+            const currentToken = await SecureStore.getItemAsync("bp_mobile_token");
+            await SecureStore.setItemAsync("biometric_enabled", "true");
+            if (currentToken) {
+                await SecureStore.setItemAsync("auth_token", currentToken);
+            }
+            setBiometricEnabled(true);
+            setSuccessDialog({
+                visible: true,
+                title: "Success",
+                message: "Fingerprint login has been enabled!",
+                type: "success",
+            });
+        } else {
+            setSuccessDialog({
+                visible: true,
+                title: "Failed",
+                message: "Fingerprint scan failed. Please try again.",
+                type: "error",
+            });
+        }
+    }, []);
 
     const handleSave = async () => {
         if (!settings) return;
@@ -715,6 +800,34 @@ export default function SettingsScreen() {
                         </View>
                     </>
                 )}
+
+                {/* Security — Fingerprint Login (all roles) */}
+                <View style={styles.sectionHeader}>
+                    <Fingerprint size={18} color="#ac3434" />
+                    <Text style={styles.sectionTitle}>Security</Text>
+                </View>
+                <View style={styles.card}>
+                    <View style={styles.toggleRow}>
+                        <MaterialCommunityIcons
+                            name="fingerprint"
+                            size={24}
+                            color="#ac3434"
+                            style={{ marginRight: 12 }}
+                        />
+                        <View style={styles.toggleInfo}>
+                            <Text style={styles.toggleLabel}>Fingerprint Login</Text>
+                            <Text style={styles.toggleDesc}>
+                                Use your fingerprint to login quickly
+                            </Text>
+                        </View>
+                        <Switch
+                            value={biometricEnabled}
+                            onValueChange={handleBiometricToggle}
+                            trackColor={{ false: "#E5E7EB", true: "#ac3434" }}
+                            thumbColor={biometricEnabled ? "#fff" : "#9CA3AF"}
+                        />
+                    </View>
+                </View>
 
                 {/* Save button — admin only */}
                 {user?.role === "admin" && (

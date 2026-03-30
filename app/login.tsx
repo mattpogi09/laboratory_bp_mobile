@@ -1,9 +1,12 @@
-import Checkbox from "expo-checkbox";
+import * as LocalAuthentication from "expo-local-authentication";
 import { Stack, router } from "expo-router";
-import { Eye, EyeOff } from "lucide-react-native";
-import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { Eye, EyeOff, Lock } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    Animated,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -16,19 +19,23 @@ import {
     View,
 } from "react-native";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SuccessDialog } from "@/components";
+import { useAuth } from "@/contexts/AuthContext";
+import api from "@/app/services/api";
 
 export default function Login() {
-    // State Management
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState(false);
     const { login } = useAuth();
 
-    // UI State
-    const [isLoading, setIsLoading] = useState(false);
+    // Biometric state
+    const [biometricEnabled, setBiometricEnabled] = useState(false);
+    const [bioError, setBioError] = useState("");
+
+    // Form state
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({ username: "", password: "" });
     const [errorDialog, setErrorDialog] = useState({
         visible: false,
@@ -36,41 +43,83 @@ export default function Login() {
         message: "",
     });
 
-    // Validation
+    // Form reveal animation
+    const [formVisible, setFormVisible] = useState(false);
+    const formAnim = useRef(new Animated.Value(0)).current;
+
     const isFormValid = username.trim() !== "" && password.trim() !== "";
 
-    // Handle Login Logic
-    const handleLogin = async () => {
-        if (!isFormValid) return;
+    // Check biometric_enabled on mount
+    useEffect(() => {
+        SecureStore.getItemAsync("biometric_enabled").then((val) => {
+            setBiometricEnabled(val === "true");
+        });
+    }, []);
 
+    const revealForm = useCallback(() => {
+        setFormVisible(true);
+        Animated.timing(formAnim, {
+            toValue: 1,
+            duration: 280,
+            useNativeDriver: true,
+        }).start();
+    }, [formAnim]);
+
+    const handleBiometricLogin = useCallback(async () => {
+        setBioError("");
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Scan your fingerprint to login",
+            cancelLabel: "Cancel",
+            disableDeviceFallback: true,
+        });
+
+        if (result.success) {
+            const token = await SecureStore.getItemAsync("auth_token");
+            if (token) {
+                api.defaults.headers.common["Authorization"] = "Bearer " + token;
+                router.replace("/(drawer)");
+            } else {
+                await SecureStore.deleteItemAsync("biometric_enabled");
+                setBiometricEnabled(false);
+                setBioError(
+                    "Session expired. Please use Manual Login and re-enable fingerprint in Settings"
+                );
+            }
+        } else {
+            setBioError("Fingerprint not recognized. Try again or use Manual Login");
+        }
+    }, []);
+
+    const handleBiometricPress = useCallback(() => {
+        if (biometricEnabled) {
+            handleBiometricLogin();
+        } else {
+            Alert.alert("", "Please enable fingerprint login in Settings first");
+        }
+    }, [biometricEnabled, handleBiometricLogin]);
+
+    const handleLogin = useCallback(async () => {
+        if (!isFormValid) return;
         setIsLoading(true);
         setErrors({ username: "", password: "" });
 
         try {
-            await login({ username, password, remember });
+            await login({ username, password });
             router.replace("/(drawer)");
         } catch (error: any) {
-            console.log("Login Error:", error);
-
-            // No response = network/connectivity issue
             const isNetworkError =
                 !error?.response &&
                 (error?.request ||
                     error?.code === "ECONNABORTED" ||
                     error?.message === "Network Error");
 
-            const title = isNetworkError
-                ? "No Internet Connection"
-                : "Login Failed";
-            const message = isNetworkError
-                ? "No internet connection. Please check your network and try again."
-                : error?.response?.data?.message ||
-                  "Unable to log in. Please double-check your credentials.";
-
             setErrorDialog({
                 visible: true,
-                title,
-                message,
+                title: isNetworkError ? "No Internet Connection" : "Login Failed",
+                message: isNetworkError
+                    ? "No internet connection. Please check your network and try again."
+                    : error?.response?.data?.message ??
+                      "Unable to log in. Please double-check your credentials.",
             });
 
             const fieldErrors = error?.response?.data?.errors;
@@ -83,44 +132,98 @@ export default function Login() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [isFormValid, login, username, password]);
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F8F8" }}>
+        <SafeAreaView style={styles.safeArea}>
+            <Stack.Screen options={{ headerShown: false }} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.container}
+                style={{ flex: 1 }}
             >
-                {/* Hide the default header */}
-                <Stack.Screen options={{ headerShown: false }} />
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* TOP SECTION */}
+                    <View style={styles.topSection}>
+                        <Image
+                            source={require("../assets/images/logo12.png")}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.greeting}>Good Day, Admin!</Text>
+                        <Text style={styles.subtitle}>Laboratory Information System</Text>
+                    </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    <View style={styles.glassPanel}>
-                        {/* LOGO SECTION */}
-                        <View style={styles.header}>
-                            <Image
-                                source={require("../assets/images/logo12.png")}
-                                style={styles.logo}
-                                resizeMode="contain"
+                    {/* WHITE CARD */}
+                    <View style={styles.card}>
+                        {/* Biometric button */}
+                        <TouchableOpacity
+                            style={styles.cardBtn}
+                            onPress={handleBiometricPress}
+                            activeOpacity={0.7}
+                        >
+                            <MaterialCommunityIcons
+                                name="fingerprint"
+                                size={52}
+                                color={biometricEnabled ? "#ac3434" : "#9CA3AF"}
                             />
-                            <Text style={styles.brandTitle}>BP Diagnostic</Text>
-                        </View>
+                            <Text
+                                style={[
+                                    styles.cardBtnLabel,
+                                    { color: biometricEnabled ? "#ac3434" : "#9CA3AF" },
+                                    !biometricEnabled && { opacity: 0.5 },
+                                ]}
+                            >
+                                {biometricEnabled ? "Biometric Login" : "Enable in Settings"}
+                            </Text>
+                        </TouchableOpacity>
 
-                        {/* STATUS MESSAGE (Like your web version) */}
-                        {/* You can add a state for 'status' if needed, similar to errors */}
+                        {/* Divider */}
+                        <View style={styles.divider} />
 
-                        {/* FORM SECTION */}
-                        <View style={styles.form}>
-                            {/* Username Input */}
+                        {/* Manual login button */}
+                        <TouchableOpacity
+                            style={styles.cardBtn}
+                            onPress={revealForm}
+                            activeOpacity={0.7}
+                        >
+                            <Lock size={52} color="#ac3434" />
+                            <Text style={[styles.cardBtnLabel, { color: "#ac3434" }]}>
+                                Manual Login
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Bio error text */}
+                    {bioError !== "" && (
+                        <Text style={styles.bioError}>{bioError}</Text>
+                    )}
+
+                    {/* Animated form */}
+                    {formVisible && (
+                        <Animated.View
+                            style={[
+                                styles.formCard,
+                                {
+                                    opacity: formAnim,
+                                    transform: [
+                                        {
+                                            translateY: formAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [20, 0],
+                                            }),
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            {/* Username */}
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Username</Text>
                                 <TextInput
-                                    style={[
-                                        styles.input,
-                                        errors.username
-                                            ? styles.inputError
-                                            : null,
-                                    ]}
+                                    style={[styles.input, errors.username ? styles.inputError : null]}
                                     value={username}
                                     onChangeText={setUsername}
                                     placeholder="Enter your Username"
@@ -128,21 +231,17 @@ export default function Login() {
                                     autoCapitalize="none"
                                 />
                                 {errors.username ? (
-                                    <Text style={styles.errorText}>
-                                        {errors.username}
-                                    </Text>
+                                    <Text style={styles.fieldError}>{errors.username}</Text>
                                 ) : null}
                             </View>
 
-                            {/* Password Input */}
+                            {/* Password */}
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Password</Text>
                                 <View
                                     style={[
                                         styles.passwordContainer,
-                                        errors.password
-                                            ? styles.inputError
-                                            : null,
+                                        errors.password ? styles.inputError : null,
                                     ]}
                                 >
                                     <TextInput
@@ -155,9 +254,7 @@ export default function Login() {
                                         autoCapitalize="none"
                                     />
                                     <TouchableOpacity
-                                        onPress={() =>
-                                            setShowPassword(!showPassword)
-                                        }
+                                        onPress={() => setShowPassword((v) => !v)}
                                         style={styles.eyeIcon}
                                     >
                                         {showPassword ? (
@@ -168,64 +265,30 @@ export default function Login() {
                                     </TouchableOpacity>
                                 </View>
                                 {errors.password ? (
-                                    <Text style={styles.errorText}>
-                                        {errors.password}
-                                    </Text>
+                                    <Text style={styles.fieldError}>{errors.password}</Text>
                                 ) : null}
                             </View>
 
-                            {/* Remember Me & Forgot PW */}
-                            <View style={styles.rowBetween}>
-                                <View style={styles.checkboxContainer}>
-                                    <Checkbox
-                                        value={remember}
-                                        onValueChange={setRemember}
-                                        color={remember ? "#ac3434" : undefined}
-                                        style={styles.checkbox}
-                                    />
-                                    <Text style={styles.rememberText}>
-                                        Remember me
-                                    </Text>
-                                </View>
-
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        router.push("/forgot-password")
-                                    }
-                                >
-                                    <Text style={styles.forgotText}>
-                                        Forgot password?
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Login Button */}
+                            {/* Login button */}
                             <TouchableOpacity
                                 style={[
-                                    styles.button,
-                                    (!isFormValid || isLoading) &&
-                                        styles.buttonDisabled,
+                                    styles.loginBtn,
+                                    (!isFormValid || isLoading) && styles.loginBtnDisabled,
                                 ]}
                                 onPress={handleLogin}
                                 disabled={!isFormValid || isLoading}
                             >
                                 {isLoading ? (
                                     <View style={styles.loadingRow}>
-                                        <ActivityIndicator
-                                            color="white"
-                                            size="small"
-                                        />
-                                        <Text style={styles.buttonText}>
-                                            {" "}
-                                            Logging in...
-                                        </Text>
+                                        <ActivityIndicator color="white" size="small" />
+                                        <Text style={styles.loginBtnText}> Logging in...</Text>
                                     </View>
                                 ) : (
-                                    <Text style={styles.buttonText}>LOGIN</Text>
+                                    <Text style={styles.loginBtnText}>LOGIN</Text>
                                 )}
                             </TouchableOpacity>
-                        </View>
-                    </View>
+                        </Animated.View>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -235,141 +298,109 @@ export default function Login() {
                 message={errorDialog.message}
                 type="error"
                 onClose={() =>
-                    setErrorDialog({
-                        visible: false,
-                        title: "Login Failed",
-                        message: "",
-                    })
+                    setErrorDialog({ visible: false, title: "Login Failed", message: "" })
                 }
             />
         </SafeAreaView>
     );
 }
 
-// STYLES (Converted from your Tailwind/CSS)
 const styles = StyleSheet.create({
-    container: {
+    safeArea: { flex: 1, backgroundColor: "#ac3434" },
+    scroll: { flexGrow: 1, paddingBottom: 40 },
+    topSection: { alignItems: "center", paddingTop: 56, paddingBottom: 32 },
+    logo: { width: 72, height: 72, marginBottom: 16 },
+    greeting: {
+        fontSize: 26,
+        fontWeight: "700",
+        color: "#fff",
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: "#fff",
+        opacity: 0.85,
+    },
+    card: {
+        flexDirection: "row",
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        marginHorizontal: 24,
+        padding: 8,
+        elevation: 6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+    },
+    cardBtn: {
         flex: 1,
+        paddingVertical: 24,
+        alignItems: "center",
+        gap: 8,
     },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: "center",
-        padding: 24,
+    cardBtnLabel: {
+        fontSize: 13,
+        fontWeight: "700",
+        textAlign: "center",
     },
-    glassPanel: {
-        backgroundColor: "white",
+    divider: {
+        width: 1,
+        backgroundColor: "#E5E7EB",
+        height: "70%",
+        alignSelf: "center",
+    },
+    bioError: {
+        color: "#fff",
+        fontSize: 13,
+        textAlign: "center",
+        marginTop: 12,
+        marginHorizontal: 24,
+    },
+    formCard: {
+        backgroundColor: "#fff",
         borderRadius: 16,
-        padding: 24,
-        paddingTop: 32,
-        // Shadow Elevation
+        marginHorizontal: 24,
+        marginTop: 20,
+        padding: 20,
+        gap: 16,
+        elevation: 4,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowRadius: 4,
     },
-    header: {
-        alignItems: "center",
-        marginBottom: 32,
-    },
-    logo: {
-        height: 64,
-        width: 64,
-        marginBottom: 16,
-    },
-    brandTitle: {
-        fontSize: 20,
-        fontWeight: "600",
-        color: "black",
-    },
-    form: {
-        gap: 20,
-    },
-    inputGroup: {
-        gap: 6,
-    },
-    label: {
-        color: "#374151",
-        fontWeight: "500",
-        fontSize: 14,
-        marginBottom: 4,
-    },
+    inputGroup: { gap: 6 },
+    label: { color: "#374151", fontWeight: "500", fontSize: 14 },
     input: {
-        backgroundColor: "white",
-        borderWidth: 1, // slightly thinner than web usually looks better on mobile
+        backgroundColor: "#fff",
+        borderWidth: 1,
         borderColor: "#D1D5DB",
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
         color: "#111827",
     },
-    inputError: {
-        borderColor: "#DC2626",
-        borderWidth: 1.5,
-    },
-    errorText: {
-        color: "#DC2626",
-        fontSize: 12,
-        marginTop: 4,
-    },
+    inputError: { borderColor: "#DC2626", borderWidth: 1.5 },
+    fieldError: { color: "#DC2626", fontSize: 12, marginTop: 2 },
     passwordContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "white",
+        backgroundColor: "#fff",
         borderWidth: 1,
         borderColor: "#D1D5DB",
         borderRadius: 8,
     },
-    passwordInput: {
-        flex: 1,
-        padding: 12,
-        fontSize: 16,
-        color: "#111827",
-    },
-    eyeIcon: {
-        padding: 10,
-    },
-    rowBetween: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginTop: 4,
-    },
-    checkboxContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    checkbox: {
-        borderRadius: 4,
-        marginRight: 8,
-        borderColor: "#D1D5DB",
-    },
-    rememberText: {
-        fontSize: 14,
-        color: "#374151",
-    },
-    forgotText: {
-        fontSize: 14,
-        color: "#ac3434",
-    },
-    button: {
+    passwordInput: { flex: 1, padding: 12, fontSize: 16, color: "#111827" },
+    eyeIcon: { padding: 10 },
+    loginBtn: {
         backgroundColor: "#ac3434",
         padding: 16,
         borderRadius: 8,
         alignItems: "center",
-        marginTop: 10,
+        marginTop: 4,
     },
-    buttonDisabled: {
-        backgroundColor: "#e57373", // Lighter red
-        opacity: 0.8,
-    },
-    buttonText: {
-        color: "white",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
-    loadingRow: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+    loginBtnDisabled: { backgroundColor: "#e57373", opacity: 0.8 },
+    loginBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+    loadingRow: { flexDirection: "row", alignItems: "center" },
 });

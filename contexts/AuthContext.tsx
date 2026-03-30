@@ -127,9 +127,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 setToken(receivedToken);
                 setUser(receivedUser);
                 setAuthToken(receivedToken);
-                // Token and user are intentionally NOT persisted to SecureStore.
-                // When the app is closed and reopened, the in-memory state is
-                // lost and the user must log in again.
+                await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, receivedToken);
+                await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(receivedUser));
             } catch (error: any) {
                 console.error("[Auth] Login error:", error.message);
                 console.error("[Auth] Error details:", {
@@ -154,6 +153,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setAuthToken(null);
             await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
             await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
+            await SecureStore.deleteItemAsync("auth_token");
+            // biometric_enabled is intentionally kept so the button stays active
         }
     }, []);
 
