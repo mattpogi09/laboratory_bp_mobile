@@ -1,28 +1,33 @@
 import { useFocusEffect } from "@react-navigation/native";
+import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import {
     AlertCircle,
+    BookOpen,
     CheckCircle2,
     ChevronDown,
+    Download,
     Image as ImageIcon,
     Settings2,
     Upload,
-    X,
     XCircle,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Linking,
     Modal,
     ScrollView,
     StyleSheet,
     Switch,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 
 import api from "@/app/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ClinicSettings, LabStaffUser } from "@/types";
 import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
@@ -34,6 +39,7 @@ const PDF_OPTIONS = [
 ];
 
 export default function SettingsScreen() {
+    const { user } = useAuth();
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [labStaff, setLabStaff] = useState<LabStaffUser[]>([]);
     const [loading, setLoading] = useState(true);
@@ -59,18 +65,30 @@ export default function SettingsScreen() {
         onConfirm: async () => {},
     });
 
+    const [userManuals, setUserManuals] = useState<{ role: string; original_filename: string | null; file_url: string | null }[]>([]);
+    const [uploadingManual, setUploadingManual] = useState<string | null>(null);
+    const [manualPassword, setManualPassword] = useState("");
+
     const loadSettings = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await api.get("/settings");
-            setSettings(res.data.settings);
-            setLabStaff(res.data.lab_staff ?? []);
+            if (user?.role === "admin") {
+                const res = await api.get("/settings");
+                setSettings(res.data.settings);
+                setLabStaff(res.data.lab_staff ?? []);
+                setUserManuals(res.data.user_manuals ?? []);
+                setManualPassword(res.data.settings?.manual_password ?? "");
+            } else {
+                const manualRes = await api.get("/user-manuals");
+                const m = manualRes.data;
+                setUserManuals(m?.file_url ? [{ role: m.role, original_filename: m.original_filename, file_url: m.file_url }] : []);
+            }
         } catch (err: any) {
             setLoadError(getApiErrorMessage(err, "Failed to load settings."));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user?.role]);
 
     useFocusEffect(
         useCallback(() => {
@@ -90,6 +108,7 @@ export default function SettingsScreen() {
                 pdf_password_format:        settings.pdf_password_format,
                 pathologist_user_id:        settings.pathologist_user_id ?? null,
                 chief_med_tech_user_id:     settings.chief_med_tech_user_id ?? null,
+                manual_password:            manualPassword,
             });
             setSuccessDialog({
                 visible: true,
@@ -106,6 +125,25 @@ export default function SettingsScreen() {
             });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleUploadManual = async (role: string) => {
+        const result = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
+        if (result.canceled) return;
+        const asset = result.assets[0];
+        const formData = new FormData();
+        formData.append("role", role);
+        formData.append("file", { uri: asset.uri, type: "application/pdf", name: asset.name } as any);
+        setUploadingManual(role);
+        try {
+            await api.post("/user-manuals/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+            setSuccessDialog({ visible: true, title: "Uploaded", message: "Manual uploaded successfully.", type: "success" });
+            loadSettings();
+        } catch (err: any) {
+            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to upload manual."), type: "error" });
+        } finally {
+            setUploadingManual(null);
         }
     };
 
@@ -263,7 +301,7 @@ export default function SettingsScreen() {
         );
     }
 
-    if (loadError || !settings) {
+    if (loadError || (user?.role === "admin" && !settings)) {
         return (
             <View style={styles.errorContainer}>
                 <AlertCircle color="#EF4444" size={36} />
@@ -288,6 +326,9 @@ export default function SettingsScreen() {
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Admin-only: System Settings, PDF format, signatures */}
+                {user?.role === "admin" && settings && (<>
+
                 {/* Header */}
                 <View style={styles.sectionHeader}>
                     <Settings2 size={18} color="#ac3434" />
@@ -644,18 +685,108 @@ export default function SettingsScreen() {
                     </>
                 )}
 
-                {/* Save button */}
-                <TouchableOpacity
-                    style={styles.saveBtn}
-                    onPress={handleSave}
-                    disabled={saving}
-                >
-                    {saving ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                        <Text style={styles.saveBtnText}>Save Settings</Text>
-                    )}
-                </TouchableOpacity>
+                </>)}
+
+                {/* User Manuals — admin: upload + download all 3; non-admin: download own */}
+                <>
+                    <View style={styles.sectionHeader}>
+                        <BookOpen size={18} color="#EA580C" />
+                        <Text style={styles.sectionTitle}>User Manuals</Text>
+                    </View>
+                    <View style={styles.card}>
+                        {user?.role === "admin" ? (
+                            <>
+                                <View style={[styles.toggleRow, { flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
+                                    <Text style={styles.toggleLabel}>Manual PDF Password</Text>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        value={manualPassword}
+                                        onChangeText={setManualPassword}
+                                        placeholder="e.g. clinic2024 (leave blank for none)"
+                                        placeholderTextColor="#9CA3AF"
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                    />
+                                    <Text style={styles.toggleDesc}>Password-protect your PDFs with this before uploading. Share it with staff so they can open the file.</Text>
+                                </View>
+                                {(["admin", "cashier", "lab_staff"] as const).map((role, idx) => {
+                                    const label = role === "lab_staff" ? "Lab Staff" : role.charAt(0).toUpperCase() + role.slice(1);
+                                    const existing = userManuals.find((m) => m.role === role);
+                                    const uploading = uploadingManual === role;
+                                    return (
+                                        <View key={role} style={[styles.toggleRow, idx > 0 && styles.rowBorder]}>
+                                            <View style={styles.toggleInfo}>
+                                                <Text style={styles.toggleLabel}>{label} Manual</Text>
+                                                <Text style={styles.toggleDesc} numberOfLines={1}>
+                                                    {existing?.original_filename ?? "No manual uploaded"}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.sigActions}>
+                                                {existing?.file_url && (
+                                                    <TouchableOpacity
+                                                        style={[styles.uploadBtn, { backgroundColor: "#059669" }]}
+                                                        onPress={() => Linking.openURL(existing.file_url!)}
+                                                    >
+                                                        <Download size={13} color="#fff" />
+                                                        <Text style={styles.uploadBtnText}>Open</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                <TouchableOpacity
+                                                    style={[styles.uploadBtn, { backgroundColor: "#EA580C" }, uploading && styles.uploadBtnDisabled]}
+                                                    onPress={() => handleUploadManual(role)}
+                                                    disabled={uploading}
+                                                >
+                                                    {uploading
+                                                        ? <ActivityIndicator size="small" color="#fff" />
+                                                        : <Upload size={13} color="#fff" />}
+                                                    <Text style={styles.uploadBtnText}>
+                                                        {existing?.original_filename ? "Replace" : "Upload"}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </>
+                        ) : (() => {
+                            const own = userManuals.find((m) => m.role === user?.role);
+                            return (
+                                <View style={styles.toggleRow}>
+                                    <View style={styles.toggleInfo}>
+                                        <Text style={styles.toggleLabel}>My Manual</Text>
+                                        <Text style={styles.toggleDesc} numberOfLines={1}>
+                                            {own?.original_filename ?? "No manual available"}
+                                        </Text>
+                                    </View>
+                                    {own?.file_url && (
+                                        <TouchableOpacity
+                                            style={[styles.uploadBtn, { backgroundColor: "#059669" }]}
+                                            onPress={() => Linking.openURL(own.file_url!)}
+                                        >
+                                            <Download size={13} color="#fff" />
+                                            <Text style={styles.uploadBtnText}>Open</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        })()}
+                    </View>
+                </>
+
+                {/* Save button — admin only */}
+                {user?.role === "admin" && (
+                    <TouchableOpacity
+                        style={styles.saveBtn}
+                        onPress={handleSave}
+                        disabled={saving}
+                    >
+                        {saving ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                            <Text style={styles.saveBtnText}>Save Settings</Text>
+                        )}
+                    </TouchableOpacity>
+                )}
             </ScrollView>
 
             <SuccessDialog
@@ -920,4 +1051,15 @@ const styles = StyleSheet.create({
         borderBottomColor: "#F3F4F6",
     },
     pickerOptionText: { fontSize: 14, color: "#111827" },
+    passwordInput: {
+        width: "100%",
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        fontSize: 14,
+        color: "#111827",
+        backgroundColor: "#F9FAFB",
+    },
 });
