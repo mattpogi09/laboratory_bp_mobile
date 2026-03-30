@@ -197,7 +197,11 @@ export default function AppointmentsScreen() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [filterDate, setFilterDate] = useState<Date | null>(null);
+    const [filterDate, setFilterDate] = useState<Date | null>(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+    });
     const [showFilterDatePicker, setShowFilterDatePicker] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -719,6 +723,20 @@ export default function AppointmentsScreen() {
                 </View>
             )}
 
+            {/* Queue Type Legend */}
+            <View style={styles.legendCard}>
+                <View style={styles.legendRow}>
+                    <View style={[styles.legendItem, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+                        <Text style={[styles.legendTitle, { color: "#92400E" }]}>PA — Priority + Appointment</Text>
+                        <Text style={[styles.legendSub, { color: "#78350F" }]}>Verified demographic priority with appointment</Text>
+                    </View>
+                    <View style={[styles.legendItem, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
+                        <Text style={[styles.legendTitle, { color: "#1E40AF" }]}>A — Regular Appointment</Text>
+                        <Text style={[styles.legendSub, { color: "#1E3A8A" }]}>Standard appointment without priority</Text>
+                    </View>
+                </View>
+            </View>
+
             {/* Search */}
             <View style={styles.searchRow}>
                 <View style={styles.searchBox}>
@@ -759,29 +777,21 @@ export default function AppointmentsScreen() {
                         <Text
                             style={[
                                 styles.pickerButtonText,
-                                !filterDate && { color: "#9CA3AF" },
                             ]}
                             numberOfLines={1}
                         >
-                            {filterDate
-                                ? fmtDateDisplay(filterDate)
-                                : "Select Date"}
+                            {fmtDateDisplay(filterDate)}
                         </Text>
-                        {filterDate ? (
-                            <TouchableOpacity
-                                hitSlop={{
-                                    top: 8,
-                                    bottom: 8,
-                                    left: 8,
-                                    right: 8,
-                                }}
-                                onPress={() => setFilterDate(null)}
-                            >
-                                <X size={14} color="#9CA3AF" />
-                            </TouchableOpacity>
-                        ) : (
-                            <ChevronDown color="#6B7280" size={16} />
-                        )}
+                        <TouchableOpacity
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            onPress={() => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                setFilterDate(today);
+                            }}
+                        >
+                            <X size={14} color="#9CA3AF" />
+                        </TouchableOpacity>
                     </TouchableOpacity>
 
                     {showFilterDatePicker && (
@@ -1927,6 +1937,31 @@ const styles = StyleSheet.create({
     capacityRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
     capacityLabel: { fontSize: 12, color: "#3B82F6" },
     capacityValue: { fontSize: 12, fontWeight: "600", color: "#1E3A8A" },
+    legendCard: {
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E5E7EB",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    legendRow: {
+        flexDirection: "row",
+        gap: 8,
+    },
+    legendItem: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 8,
+    },
+    legendTitle: {
+        fontSize: 11,
+        fontWeight: "700",
+        marginBottom: 2,
+    },
+    legendSub: {
+        fontSize: 10,
+    },
     errorContainer: {
         flex: 1,
         alignItems: "center",

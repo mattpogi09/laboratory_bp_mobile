@@ -221,7 +221,7 @@ export default function WalkInScreen() {
                                 styles.queueBadgeText,
                                 { color: isQueuePriority(item.priority_category) ? "#065F46" : "#374151" },
                             ]}>
-                                {isQueuePriority(item.priority_category) ? "P" : "W"}
+                                {isQueuePriority(item.priority_category) ? "PW" : "W"}
                             </Text>
                         </View>
                     </View>
@@ -354,19 +354,17 @@ export default function WalkInScreen() {
                 />
             )}
 
-            {/* Queue type legend */}
-            <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.queueBadge, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
-                        <Text style={[styles.queueBadgeText, { color: "#065F46" }]}>P</Text>
+            {/* Queue type legend — matches appointments */}
+            <View style={styles.legendCard}>
+                <View style={styles.legendRow}>
+                    <View style={[styles.legendItem, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+                        <Text style={[styles.legendTitle, { color: "#92400E" }]}>PW — Priority Walk-in</Text>
+                        <Text style={[styles.legendSub, { color: "#78350F" }]}>Verified demographic priority walk-in</Text>
                     </View>
-                    <Text style={styles.legendText}>Priority Walk-in</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.queueBadge, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
-                        <Text style={[styles.queueBadgeText, { color: "#374151" }]}>W</Text>
+                    <View style={[styles.legendItem, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
+                        <Text style={[styles.legendTitle, { color: "#374151" }]}>W — Regular Walk-in</Text>
+                        <Text style={[styles.legendSub, { color: "#4B5563" }]}>Standard walk-in without priority</Text>
                     </View>
-                    <Text style={styles.legendText}>Regular Walk-in</Text>
                 </View>
             </View>
 
@@ -623,18 +621,31 @@ const styles = StyleSheet.create({
         backgroundColor: "#F9FAFB",
     },
     pickerButtonText: { fontSize: 14, color: "#111827", flex: 1 },
-    // Legend row
-    legendRow: {
-        flexDirection: "row",
-        gap: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+    legendCard: {
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
     },
-    legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-    legendText: { fontSize: 12, color: "#374151", fontWeight: "500" },
+    legendRow: {
+        flexDirection: "row",
+        gap: 8,
+    },
+    legendItem: {
+        flex: 1,
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 8,
+    },
+    legendTitle: {
+        fontSize: 11,
+        fontWeight: "700",
+        marginBottom: 2,
+    },
+    legendSub: {
+        fontSize: 10,
+    },
     // Card — matches appointments
     list: { padding: 16, gap: 10 },
     card: {
