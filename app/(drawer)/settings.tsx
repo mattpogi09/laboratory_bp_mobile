@@ -19,7 +19,6 @@ import {
     StyleSheet,
     Switch,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -65,7 +64,6 @@ export default function SettingsScreen() {
 
     const [userManuals, setUserManuals] = useState<{ role: string; original_filename: string | null; file_url: string | null }[]>([]);
     const [uploadingManual, setUploadingManual] = useState<string | null>(null);
-    const [manualPassword, setManualPassword] = useState("");
 
     const loadSettings = useCallback(async () => {
         try {
@@ -75,7 +73,6 @@ export default function SettingsScreen() {
                 setSettings(res.data.settings);
                 setLabStaff(res.data.lab_staff ?? []);
                 setUserManuals(res.data.user_manuals ?? []);
-                setManualPassword(res.data.settings?.manual_password ?? "");
             }
         } catch (err: any) {
             setLoadError(getApiErrorMessage(err, "Failed to load settings."));
@@ -102,7 +99,6 @@ export default function SettingsScreen() {
                 pdf_password_format:        settings.pdf_password_format,
                 pathologist_user_id:        settings.pathologist_user_id ?? null,
                 chief_med_tech_user_id:     settings.chief_med_tech_user_id ?? null,
-                manual_password:            manualPassword,
             });
             setSuccessDialog({
                 visible: true,
@@ -689,20 +685,6 @@ export default function SettingsScreen() {
                             <Text style={styles.sectionTitle}>User Manuals</Text>
                         </View>
                         <View style={styles.card}>
-                            <View style={[styles.toggleRow, { flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
-                                <Text style={styles.toggleLabel}>Manual PDF Password</Text>
-                                <TextInput
-                                    style={styles.passwordInput}
-                                    value={manualPassword}
-                                    onChangeText={setManualPassword}
-                                    placeholder="e.g. clinic2024 (leave blank for none)"
-                                    placeholderTextColor="#9CA3AF"
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    secureTextEntry={true}
-                                />
-                                <Text style={styles.toggleDesc}>Password-protect your PDFs with this before uploading. Share it with staff so they can open the file.</Text>
-                            </View>
                             {(["admin", "cashier", "lab_staff"] as const).map((role, idx) => {
                                 const label = role === "lab_staff" ? "Lab Staff" : role.charAt(0).toUpperCase() + role.slice(1);
                                 const existing = userManuals.find((m) => m.role === role);
@@ -1012,15 +994,4 @@ const styles = StyleSheet.create({
         borderBottomColor: "#F3F4F6",
     },
     pickerOptionText: { fontSize: 14, color: "#111827" },
-    passwordInput: {
-        width: "100%",
-        borderWidth: 1,
-        borderColor: "#D1D5DB",
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        fontSize: 14,
-        color: "#111827",
-        backgroundColor: "#F9FAFB",
-    },
 });
