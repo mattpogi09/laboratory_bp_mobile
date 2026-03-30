@@ -151,8 +151,16 @@ export default function SettingsScreen() {
 
         if (result.success) {
             await SecureStore.setItemAsync("biometric_enabled", "true");
-            if (token) {
-                await SecureStore.setItemAsync("auth_token", token);
+            // Get a dedicated biometric token from the server
+            // This token survives logout unlike the session token
+            try {
+                const res = await api.post("/biometric-token");
+                await SecureStore.setItemAsync("auth_token", res.data.biometric_token);
+            } catch {
+                // Fallback to context token if endpoint fails
+                if (token) {
+                    await SecureStore.setItemAsync("auth_token", token);
+                }
             }
             setBiometricEnabled(true);
             setSuccessDialog({

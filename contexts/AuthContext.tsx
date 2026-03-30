@@ -140,10 +140,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 setAuthToken(receivedToken);
                 await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, receivedToken);
                 await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(receivedUser));
-                // Always refresh auth_token so biometric login stays valid after token rotation
+                // Refresh biometric token after login so it stays valid
                 const bioEnabled = await SecureStore.getItemAsync("biometric_enabled");
                 if (bioEnabled === "true") {
-                    await SecureStore.setItemAsync("auth_token", receivedToken);
+                    try {
+                        const bioRes = await api.post("/biometric-token");
+                        await SecureStore.setItemAsync("auth_token", bioRes.data.biometric_token);
+                    } catch {
+                        // non-critical, keep existing auth_token
+                    }
                 }
             } catch (error: any) {
                 console.error("[Auth] Login error:", error.message);
