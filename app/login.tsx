@@ -52,11 +52,12 @@ export default function Login() {
 
     const isFormValid = username.trim() !== "" && password.trim() !== "";
 
-    // Check biometric_enabled on mount
+    // Check biometric_enabled on mount, auto-trigger if enabled
     useEffect(() => {
         SecureStore.getItemAsync("biometric_enabled").then((val) => {
             if (val === "true") {
                 setBiometricEnabled(true);
+                handleBiometricLogin();
             }
         });
     }, []);
@@ -71,11 +72,14 @@ export default function Login() {
     }, [slideAnim]);
 
     const goToSelector = useCallback(() => {
+        // Set view to selector immediately so pointerEvents on selector
+        // are re-enabled during the slide-back animation
+        setView("selector");
         Animated.timing(slideAnim, {
             toValue: 0,
             duration: 280,
             useNativeDriver: true,
-        }).start(() => setView("selector"));
+        }).start();
     }, [slideAnim]);
 
     const handleBiometricLogin = useCallback(async () => {
