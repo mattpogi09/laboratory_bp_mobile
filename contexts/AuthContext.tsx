@@ -153,7 +153,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setAuthToken(null);
             await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
             await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
-            await SecureStore.deleteItemAsync("auth_token");
+            // auth_token (biometric) is intentionally kept so fingerprint login stays active after logout
             // biometric_enabled is intentionally kept so the button stays active
         }
     }, []);

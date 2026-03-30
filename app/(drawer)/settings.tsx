@@ -177,10 +177,10 @@ export default function SettingsScreen() {
         try {
             setSaving(true);
             await api.post("/settings", {
-                patient_portal_enabled:     settings.patient_portal_enabled,
-                email_sending_enabled:      settings.email_sending_enabled,
-                email_notification_enabled: settings.email_notification_enabled,
-                notification_enabled:       settings.notification_enabled,
+                patient_portal_enabled:     settings.patient_portal_enabled     ? 1 : 0,
+                email_sending_enabled:      settings.email_sending_enabled      ? 1 : 0,
+                email_notification_enabled: settings.email_notification_enabled ? 1 : 0,
+                notification_enabled:       settings.notification_enabled       ? 1 : 0,
                 pdf_password_format:        settings.pdf_password_format,
                 pathologist_user_id:        settings.pathologist_user_id ?? null,
                 chief_med_tech_user_id:     settings.chief_med_tech_user_id ?? null,

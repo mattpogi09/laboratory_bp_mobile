@@ -1,12 +1,13 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import { Stack, router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Eye, EyeOff, Lock } from "lucide-react-native";
+import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     Animated,
+    Dimensions,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -24,8 +25,14 @@ import { SuccessDialog } from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/app/services/api";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 export default function Login() {
     const { login } = useAuth();
+
+    // View: "selector" = two-button screen, "manual" = login form
+    const [view, setView] = useState<"selector" | "manual">("selector");
+    const slideAnim = useRef(new Animated.Value(0)).current;
 
     // Biometric state
     const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -43,10 +50,6 @@ export default function Login() {
         message: "",
     });
 
-    // Form reveal animation
-    const [formVisible, setFormVisible] = useState(false);
-    const formAnim = useRef(new Animated.Value(0)).current;
-
     const isFormValid = username.trim() !== "" && password.trim() !== "";
 
     // Check biometric_enabled on mount, auto-trigger if enabled
@@ -59,14 +62,22 @@ export default function Login() {
         });
     }, []);
 
-    const revealForm = useCallback(() => {
-        setFormVisible(true);
-        Animated.timing(formAnim, {
+    const goToManual = useCallback(() => {
+        setView("manual");
+        Animated.timing(slideAnim, {
             toValue: 1,
-            duration: 280,
+            duration: 320,
             useNativeDriver: true,
         }).start();
-    }, [formAnim]);
+    }, [slideAnim]);
+
+    const goToSelector = useCallback(() => {
+        Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 280,
+            useNativeDriver: true,
+        }).start(() => setView("selector"));
+    }, [slideAnim]);
 
     const handleBiometricLogin = useCallback(async () => {
         setBioError("");
@@ -137,163 +148,210 @@ export default function Login() {
         }
     }, [isFormValid, login, username, password]);
 
+    // Slide transforms
+    const selectorTranslate = slideAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -SCREEN_WIDTH],
+    });
+    const manualTranslate = slideAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [SCREEN_WIDTH, 0],
+    });
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <Stack.Screen options={{ headerShown: false }} />
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
-            >
-                <ScrollView
-                    contentContainerStyle={styles.scroll}
-                    keyboardShouldPersistTaps="handled"
+
+            <View style={styles.container}>
+
+                {/* ── SELECTOR VIEW ── */}
+                <Animated.View
+                    style={[
+                        styles.screen,
+                        { transform: [{ translateX: selectorTranslate }] },
+                    ]}
+                    pointerEvents={view === "selector" ? "auto" : "none"}
                 >
-                    {/* TOP SECTION */}
-                    <View style={styles.topSection}>
-                        <Image
-                            source={require("../assets/images/logo12.png")}
-                            style={styles.logo}
-                            resizeMode="contain"
-                        />
-                        <Text style={styles.greeting}>Good Day, Admin!</Text>
-                        <Text style={styles.subtitle}>Laboratory Information System</Text>
-                    </View>
-
-                    {/* WHITE CARD */}
-                    <View style={styles.card}>
-                        {/* Biometric button */}
-                        <TouchableOpacity
-                            style={styles.cardBtn}
-                            onPress={handleBiometricPress}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="fingerprint"
-                                size={52}
-                                color={biometricEnabled ? "#ac3434" : "#9CA3AF"}
+                    <ScrollView
+                        contentContainerStyle={styles.selectorScroll}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Logo + greeting */}
+                        <View style={styles.topSection}>
+                            <Image
+                                source={require("../assets/images/logo12.png")}
+                                style={styles.logo}
+                                resizeMode="contain"
                             />
-                            <Text
-                                style={[
-                                    styles.cardBtnLabel,
-                                    { color: biometricEnabled ? "#ac3434" : "#9CA3AF" },
-                                    !biometricEnabled && { opacity: 0.5 },
-                                ]}
+                            <Text style={styles.greeting}>Good Day, Admin!</Text>
+                            <Text style={styles.subtitle}>Laboratory Information System</Text>
+                        </View>
+
+                        {/* Two-button card */}
+                        <View style={styles.card}>
+                            <TouchableOpacity
+                                style={styles.cardBtn}
+                                onPress={handleBiometricPress}
+                                activeOpacity={0.7}
                             >
-                                {biometricEnabled ? "Biometric Login" : "Enable in Settings"}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* Divider */}
-                        <View style={styles.divider} />
-
-                        {/* Manual login button */}
-                        <TouchableOpacity
-                            style={styles.cardBtn}
-                            onPress={revealForm}
-                            activeOpacity={0.7}
-                        >
-                            <Lock size={52} color="#ac3434" />
-                            <Text style={[styles.cardBtnLabel, { color: "#ac3434" }]}>
-                                Manual Login
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Bio error text */}
-                    {bioError !== "" && (
-                        <Text style={styles.bioError}>{bioError}</Text>
-                    )}
-
-                    {/* Animated form */}
-                    {formVisible && (
-                        <Animated.View
-                            style={[
-                                styles.formCard,
-                                {
-                                    opacity: formAnim,
-                                    transform: [
-                                        {
-                                            translateY: formAnim.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [20, 0],
-                                            }),
-                                        },
-                                    ],
-                                },
-                            ]}
-                        >
-                            {/* Username */}
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Username</Text>
-                                <TextInput
-                                    style={[styles.input, errors.username ? styles.inputError : null]}
-                                    value={username}
-                                    onChangeText={setUsername}
-                                    placeholder="Enter your Username"
-                                    placeholderTextColor="#9CA3AF"
-                                    autoCapitalize="none"
+                                <MaterialCommunityIcons
+                                    name="fingerprint"
+                                    size={52}
+                                    color={biometricEnabled ? "#ac3434" : "#9CA3AF"}
                                 />
-                                {errors.username ? (
-                                    <Text style={styles.fieldError}>{errors.username}</Text>
-                                ) : null}
-                            </View>
-
-                            {/* Password */}
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Password</Text>
-                                <View
+                                <Text
                                     style={[
-                                        styles.passwordContainer,
-                                        errors.password ? styles.inputError : null,
+                                        styles.cardBtnLabel,
+                                        { color: biometricEnabled ? "#ac3434" : "#9CA3AF" },
+                                        !biometricEnabled && { opacity: 0.5 },
                                     ]}
                                 >
-                                    <TextInput
-                                        style={styles.passwordInput}
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        placeholder="Enter your Password"
-                                        placeholderTextColor="#9CA3AF"
-                                        secureTextEntry={!showPassword}
-                                        autoCapitalize="none"
+                                    {biometricEnabled ? "Biometric Login" : "Enable in Settings"}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.divider} />
+
+                            <TouchableOpacity
+                                style={styles.cardBtn}
+                                onPress={goToManual}
+                                activeOpacity={0.7}
+                            >
+                                <Lock size={52} color="#ac3434" />
+                                <Text style={[styles.cardBtnLabel, { color: "#ac3434" }]}>
+                                    Manual Login
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Bio error */}
+                        {bioError !== "" && (
+                            <Text style={styles.bioError}>{bioError}</Text>
+                        )}
+                    </ScrollView>
+                </Animated.View>
+
+                {/* ── MANUAL LOGIN VIEW ── */}
+                <Animated.View
+                    style={[
+                        styles.screen,
+                        { transform: [{ translateX: manualTranslate }] },
+                    ]}
+                    pointerEvents={view === "manual" ? "auto" : "none"}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        style={{ flex: 1 }}
+                    >
+                        <ScrollView
+                            contentContainerStyle={styles.manualScroll}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {/* Back button */}
+                            <TouchableOpacity
+                                style={styles.backBtn}
+                                onPress={goToSelector}
+                                activeOpacity={0.7}
+                            >
+                                <ArrowLeft size={20} color="#ac3434" />
+                                <Text style={styles.backBtnText}>Back</Text>
+                            </TouchableOpacity>
+
+                            {/* Glass panel — matches web exactly */}
+                            <View style={styles.glassPanel}>
+                                {/* Logo */}
+                                <View style={styles.panelHeader}>
+                                    <Image
+                                        source={require("../assets/images/logo12.png")}
+                                        style={styles.panelLogo}
+                                        resizeMode="contain"
                                     />
+                                </View>
+
+                                {/* Form */}
+                                <View style={styles.form}>
+                                    {/* Username */}
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Username</Text>
+                                        <TextInput
+                                            style={[styles.input, errors.username ? styles.inputError : null]}
+                                            value={username}
+                                            onChangeText={setUsername}
+                                            placeholder="Enter your Username"
+                                            placeholderTextColor="#9CA3AF"
+                                            autoCapitalize="none"
+                                        />
+                                        {errors.username ? (
+                                            <Text style={styles.fieldError}>{errors.username}</Text>
+                                        ) : null}
+                                    </View>
+
+                                    {/* Password */}
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Password</Text>
+                                        <View
+                                            style={[
+                                                styles.passwordContainer,
+                                                errors.password ? styles.inputError : null,
+                                            ]}
+                                        >
+                                            <TextInput
+                                                style={styles.passwordInput}
+                                                value={password}
+                                                onChangeText={setPassword}
+                                                placeholder="Enter your Password"
+                                                placeholderTextColor="#9CA3AF"
+                                                secureTextEntry={!showPassword}
+                                                autoCapitalize="none"
+                                            />
+                                            <TouchableOpacity
+                                                onPress={() => setShowPassword((v) => !v)}
+                                                style={styles.eyeIcon}
+                                            >
+                                                {showPassword ? (
+                                                    <Eye color="#6B7280" size={20} />
+                                                ) : (
+                                                    <EyeOff color="#6B7280" size={20} />
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                        {errors.password ? (
+                                            <Text style={styles.fieldError}>{errors.password}</Text>
+                                        ) : null}
+                                    </View>
+
+                                    {/* Forgot password */}
+                                    <View style={styles.rowEnd}>
+                                        <TouchableOpacity onPress={() => router.push("/forgot-password")}>
+                                            <Text style={styles.forgotText}>Forgot password?</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Login button */}
                                     <TouchableOpacity
-                                        onPress={() => setShowPassword((v) => !v)}
-                                        style={styles.eyeIcon}
+                                        style={[
+                                            styles.loginBtn,
+                                            (!isFormValid || isLoading) && styles.loginBtnDisabled,
+                                        ]}
+                                        onPress={handleLogin}
+                                        disabled={!isFormValid || isLoading}
                                     >
-                                        {showPassword ? (
-                                            <Eye color="#6B7280" size={20} />
+                                        {isLoading ? (
+                                            <View style={styles.loadingRow}>
+                                                <ActivityIndicator color="white" size="small" />
+                                                <Text style={styles.loginBtnText}> Logging in...</Text>
+                                            </View>
                                         ) : (
-                                            <EyeOff color="#6B7280" size={20} />
+                                            <Text style={styles.loginBtnText}>LOGIN</Text>
                                         )}
                                     </TouchableOpacity>
                                 </View>
-                                {errors.password ? (
-                                    <Text style={styles.fieldError}>{errors.password}</Text>
-                                ) : null}
                             </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
+                </Animated.View>
 
-                            {/* Login button */}
-                            <TouchableOpacity
-                                style={[
-                                    styles.loginBtn,
-                                    (!isFormValid || isLoading) && styles.loginBtnDisabled,
-                                ]}
-                                onPress={handleLogin}
-                                disabled={!isFormValid || isLoading}
-                            >
-                                {isLoading ? (
-                                    <View style={styles.loadingRow}>
-                                        <ActivityIndicator color="white" size="small" />
-                                        <Text style={styles.loginBtnText}> Logging in...</Text>
-                                    </View>
-                                ) : (
-                                    <Text style={styles.loginBtnText}>LOGIN</Text>
-                                )}
-                            </TouchableOpacity>
-                        </Animated.View>
-                    )}
-                </ScrollView>
-            </KeyboardAvoidingView>
+            </View>
 
             <SuccessDialog
                 visible={errorDialog.visible}
@@ -309,44 +367,40 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#ac3434" },
-    scroll: { flexGrow: 1, paddingBottom: 40 },
-    topSection: { alignItems: "center", paddingTop: 56, paddingBottom: 32 },
-    logo: { width: 72, height: 72, marginBottom: 16 },
-    greeting: {
-        fontSize: 26,
-        fontWeight: "700",
-        color: "#fff",
-        marginBottom: 4,
+    safeArea: { flex: 1, backgroundColor: "#F8F8F8" },
+    container: { flex: 1, overflow: "hidden" },
+
+    // Both screens sit side by side, absolutely positioned
+    screen: {
+        position: "absolute",
+        width: SCREEN_WIDTH,
+        height: "100%",
     },
-    subtitle: {
-        fontSize: 14,
-        color: "#fff",
-        opacity: 0.85,
+
+    // Selector screen
+    selectorScroll: {
+        flexGrow: 1,
+        justifyContent: "center",
+        paddingHorizontal: 24,
+        paddingVertical: 40,
     },
+    topSection: { alignItems: "center", marginBottom: 32 },
+    logo: { width: 80, height: 80, marginBottom: 16 },
+    greeting: { fontSize: 26, fontWeight: "700", color: "#111827", marginBottom: 4 },
+    subtitle: { fontSize: 14, color: "#6B7280" },
     card: {
         flexDirection: "row",
         backgroundColor: "#fff",
         borderRadius: 20,
-        marginHorizontal: 24,
         padding: 8,
         elevation: 6,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.12,
         shadowRadius: 6,
     },
-    cardBtn: {
-        flex: 1,
-        paddingVertical: 24,
-        alignItems: "center",
-        gap: 8,
-    },
-    cardBtnLabel: {
-        fontSize: 13,
-        fontWeight: "700",
-        textAlign: "center",
-    },
+    cardBtn: { flex: 1, paddingVertical: 24, alignItems: "center", gap: 8 },
+    cardBtnLabel: { fontSize: 13, fontWeight: "700", textAlign: "center" },
     divider: {
         width: 1,
         backgroundColor: "#E5E7EB",
@@ -354,25 +408,41 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     bioError: {
-        color: "#fff",
+        color: "#ac3434",
         fontSize: 13,
         textAlign: "center",
-        marginTop: 12,
-        marginHorizontal: 24,
+        marginTop: 16,
     },
-    formCard: {
+
+    // Manual login screen
+    manualScroll: {
+        flexGrow: 1,
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        paddingBottom: 40,
+    },
+    backBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 24,
+        alignSelf: "flex-start",
+    },
+    backBtnText: { fontSize: 15, color: "#ac3434", fontWeight: "600" },
+    glassPanel: {
         backgroundColor: "#fff",
         borderRadius: 16,
-        marginHorizontal: 24,
-        marginTop: 20,
-        padding: 20,
-        gap: 16,
-        elevation: 4,
+        padding: 24,
+        paddingTop: 32,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
+    panelHeader: { alignItems: "center", marginBottom: 32 },
+    panelLogo: { width: 100, height: 100 },
+    form: { gap: 20 },
     inputGroup: { gap: 6 },
     label: { color: "#374151", fontWeight: "500", fontSize: 14 },
     input: {
@@ -396,6 +466,8 @@ const styles = StyleSheet.create({
     },
     passwordInput: { flex: 1, padding: 12, fontSize: 16, color: "#111827" },
     eyeIcon: { padding: 10 },
+    rowEnd: { alignItems: "flex-end", marginTop: -8 },
+    forgotText: { fontSize: 14, color: "#ac3434" },
     loginBtn: {
         backgroundColor: "#ac3434",
         padding: 16,
