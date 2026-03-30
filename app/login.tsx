@@ -49,10 +49,13 @@ export default function Login() {
 
     const isFormValid = username.trim() !== "" && password.trim() !== "";
 
-    // Check biometric_enabled on mount
+    // Check biometric_enabled on mount, auto-trigger if enabled
     useEffect(() => {
         SecureStore.getItemAsync("biometric_enabled").then((val) => {
-            setBiometricEnabled(val === "true");
+            if (val === "true") {
+                setBiometricEnabled(true);
+                handleBiometricLogin();
+            }
         });
     }, []);
 
