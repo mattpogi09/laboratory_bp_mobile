@@ -6,6 +6,7 @@ import {
     CalendarClock,
     ChevronDown,
     ChevronRight,
+    Flag,
     History,
     PackageSearch,
     Pencil,
@@ -144,6 +145,8 @@ export default function InventoryScreen() {
     const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+    const [showFlagModal, setShowFlagModal] = useState(false);
+    const [flagItem, setFlagItem] = useState<InventoryItem | null>(null);
 
     // Dialogs
     const [confirmDialog, setConfirmDialog] = useState({
@@ -216,6 +219,12 @@ export default function InventoryScreen() {
             item_id: formData.item_id,
             quantity: formData.quantity,
             reason: formData.reason,
+            supplier_id: formData.supplier_id || null,
+            expiry_date: formData.expiry_date || null,
+            purchased_date: formData.purchased_date || null,
+            purchase_unit_id: formData.purchase_unit_id || null,
+            purchase_quantity: formData.purchase_quantity || null,
+            conversion_factor: formData.conversion_factor || null,
         });
         setSuccessDialog({
             visible: true,
@@ -295,6 +304,32 @@ export default function InventoryScreen() {
             type: "success",
         });
         loadInventory();
+    };
+
+    const handleFlagBatch = async (formData: {
+        batch_id: number;
+        reason_type: string;
+        reason_details: string;
+    }) => {
+        const response = await api.post(
+            `/inventory/batches/${formData.batch_id}/flag`,
+            {
+                reason: `${formData.reason_type}${
+                    formData.reason_details
+                        ? ": " + formData.reason_details
+                        : ""
+                }`,
+            },
+        );
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message:
+                response.data.message || "Batch flagged as unusable",
+            type: "success",
+        });
+        loadInventory();
+        setTransactionRefreshKey((k) => k + 1);
     };
 
     const handleToggleItem = (item: InventoryItem) => {
@@ -629,6 +664,16 @@ export default function InventoryScreen() {
                     >
                         <SlidersHorizontal size={14} color="#2563EB" />
                         <Text style={styles.adjustBtnText}>Adjust</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.flagBtn}
+                        onPress={() => {
+                            setFlagItem(item);
+                            setShowFlagModal(true);
+                        }}
+                    >
+                        <Flag size={14} color="#EF4444" />
+                        <Text style={styles.flagBtnText}>Flag</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.toggleBtn}
@@ -1120,6 +1165,24 @@ export default function InventoryScreen() {
                 }
             />
 
+            <FlagBatchModal
+                show={showFlagModal}
+                item={flagItem}
+                onClose={() => {
+                    setShowFlagModal(false);
+                    setFlagItem(null);
+                }}
+                onSubmit={handleFlagBatch}
+                onError={(message) =>
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message,
+                        type: "error",
+                    })
+                }
+            />
+
             <StockOutModal
                 show={showStockOutModal}
                 items={items}
@@ -1390,8 +1453,7 @@ function CreateStockModal({
     const [formData, setFormData] = useState({
         name: "",
         category: "",
-        initial_stock: "",
-        unit: "",
+        initial_quantity: "0",
         minimum_stock: "",
         base_unit_id: "",
     });
@@ -1417,33 +1479,34 @@ function CreateStockModal({
         }
     };
 
+    const [showPrecheck, setShowPrecheck] = useState(false);
+
     const validate = () => {
         const errs: Record<string, string[]> = {};
         if (!formData.name.trim()) errs.name = ["Item name is required."];
         else if (!/^[a-zA-Z\s\-().]+$/.test(formData.name.trim()))
             errs.name = [
-                "Only letters, spaces, hyphens, parentheses, and periods are allowed.",
+                "Item name may only contain letters, spaces, hyphens, and parentheses.",
             ];
-        else if (formData.name.length > 255)
-            errs.name = ["Item name cannot exceed 255 characters."];
+        else if (formData.name.length > 120)
+            errs.name = ["Item name cannot exceed 120 characters."];
         if (!formData.category) errs.category = ["Category is required."];
-        if (!formData.initial_stock)
-            errs.initial_stock = ["Initial stock is required."];
+        if (formData.initial_quantity === "")
+            errs.initial_quantity = ["Initial stock is required."];
         else if (
-            isNaN(parseInt(formData.initial_stock)) ||
-            parseInt(formData.initial_stock) < 0
+            isNaN(parseInt(formData.initial_quantity)) ||
+            parseInt(formData.initial_quantity) < 0
         )
-            errs.initial_stock = ["Enter a valid non-negative number."];
-        else if (parseInt(formData.initial_stock) > 999999)
-            errs.initial_stock = ["Initial stock cannot exceed 999,999."];
-        if (!formData.unit) errs.unit = ["Unit is required."];
+            errs.initial_quantity = ["Quantity must be a whole number of 0 or greater."];
+        else if (parseInt(formData.initial_quantity) > 999999)
+            errs.initial_quantity = ["Quantity cannot exceed 999,999."];
         if (!formData.minimum_stock && formData.minimum_stock !== "0")
             errs.minimum_stock = ["Minimum stock level is required."];
         else if (
             isNaN(parseInt(formData.minimum_stock)) ||
             parseInt(formData.minimum_stock) < 0
         )
-            errs.minimum_stock = ["Minimum stock must be a positive number."];
+            errs.minimum_stock = ["Minimum stock must be a whole number of 0 or greater."];
         else if (parseInt(formData.minimum_stock) > 999999)
             errs.minimum_stock = ["Minimum stock cannot exceed 999,999."];
         if (!formData.base_unit_id)
@@ -1457,11 +1520,17 @@ function CreateStockModal({
             setErrors(validationErrors);
             return;
         }
+        setShowPrecheck(true);
+    };
+
+    const handleConfirmCreate = async () => {
+        setShowPrecheck(false);
         setLoading(true);
         try {
             await onSubmit({
-                ...formData,
-                initial_stock: parseInt(formData.initial_stock),
+                name: formData.name.trim(),
+                category: formData.category,
+                initial_quantity: parseInt(formData.initial_quantity),
                 minimum_stock: parseInt(formData.minimum_stock),
                 base_unit_id: formData.base_unit_id
                     ? parseInt(formData.base_unit_id)
@@ -1470,8 +1539,7 @@ function CreateStockModal({
             setFormData({
                 name: "",
                 category: "",
-                initial_stock: "",
-                unit: "",
+                initial_quantity: "0",
                 minimum_stock: "",
                 base_unit_id: "",
             });
@@ -1504,16 +1572,6 @@ function CreateStockModal({
                   "Office Supplies",
                   "Other",
               ];
-    const unitOptions = [
-        "pieces",
-        "boxes",
-        "bottles",
-        "tubes",
-        "kits",
-        "liters",
-        "grams",
-        "units",
-    ];
 
     return (
         <Modal visible={show} animationType="slide" transparent>
@@ -1580,60 +1638,30 @@ function CreateStockModal({
                             )}
                         </View>
 
-                        <View style={styles.formRow}>
-                            <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>
-                                    Initial Stock *
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Initial Stock *</Text>
+                            <TextInput
+                                style={[
+                                    styles.formInput,
+                                    errors.initial_quantity && styles.inputError,
+                                ]}
+                                value={formData.initial_quantity}
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        initial_quantity: text.replace(/[^0-9]/g, ""),
+                                    });
+                                    clearError("initial_quantity");
+                                }}
+                                placeholder="0"
+                                keyboardType="number-pad"
+                                maxLength={6}
+                            />
+                            {errors.initial_quantity?.[0] && (
+                                <Text style={styles.errorText}>
+                                    {errors.initial_quantity[0]}
                                 </Text>
-                                <TextInput
-                                    style={[
-                                        styles.formInput,
-                                        errors.initial_stock &&
-                                            styles.inputError,
-                                    ]}
-                                    value={formData.initial_stock}
-                                    onChangeText={(text) => {
-                                        setFormData({
-                                            ...formData,
-                                            initial_stock: text.replace(
-                                                /[^0-9]/g,
-                                                "",
-                                            ),
-                                        });
-                                        clearError("initial_stock");
-                                    }}
-                                    placeholder="0"
-                                    keyboardType="number-pad"
-                                    maxLength={6}
-                                />
-                                {errors.initial_stock?.[0] && (
-                                    <Text style={styles.errorText}>
-                                        {errors.initial_stock[0]}
-                                    </Text>
-                                )}
-                            </View>
-
-                            <View style={styles.formGroupHalf}>
-                                <Text style={styles.formLabel}>Unit *</Text>
-                                <PickerSelect
-                                    items={unitOptions}
-                                    selectedValue={formData.unit}
-                                    onValueChange={(value) => {
-                                        setFormData({
-                                            ...formData,
-                                            unit: value,
-                                        });
-                                        clearError("unit");
-                                    }}
-                                    placeholder="Select unit"
-                                    hasError={!!errors.unit}
-                                />
-                                {errors.unit?.[0] && (
-                                    <Text style={styles.errorText}>
-                                        {errors.unit[0]}
-                                    </Text>
-                                )}
-                            </View>
+                            )}
                         </View>
 
                         <View style={styles.formGroup}>
@@ -1723,6 +1751,22 @@ function CreateStockModal({
                     </View>
                 </View>
             </View>
+
+            <ConfirmDialog
+                visible={showPrecheck}
+                title="Confirm New Stock Item"
+                message={[
+                    `Item Name: ${formData.name || "-"}`,
+                    `Category: ${formData.category || "-"}`,
+                    `Initial Stock: ${formData.initial_quantity || "0"} ${units.find((u) => String(u.id) === formData.base_unit_id)?.short_name ?? ""}`,
+                    `Minimum Stock: ${formData.minimum_stock || "0"} ${units.find((u) => String(u.id) === formData.base_unit_id)?.short_name ?? ""}`,
+                    `Base Unit: ${units.find((u) => String(u.id) === formData.base_unit_id)?.name ?? "-"}`,
+                ].join("\n")}
+                confirmText="Confirm and Save"
+                onConfirm={handleConfirmCreate}
+                onCancel={() => setShowPrecheck(false)}
+                type="info"
+            />
         </Modal>
     );
 }
@@ -1745,7 +1789,7 @@ function StockInModal({
         reason: "",
         supplier_id: "",
         expiry_date: "",
-        purchased_date: "",
+        purchased_date: new Date().toLocaleDateString("en-CA"),
         purchase_unit_id: "",
         purchase_quantity: "",
         conversion_factor: "",
@@ -1754,6 +1798,7 @@ function StockInModal({
     const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [showPrecheck, setShowPrecheck] = useState(false);
 
     useEffect(() => {
         if (show) {
@@ -1778,6 +1823,7 @@ function StockInModal({
 
     const validateStockIn = () => {
         const errs: Record<string, string[]> = {};
+        const today = new Date().toLocaleDateString("en-CA");
         if (!formData.item_id) errs.item_id = ["Please select an item."];
         if (!formData.supplier_id) errs.supplier_id = ["Supplier is required."];
         if (!formData.purchase_unit_id)
@@ -1785,10 +1831,20 @@ function StockInModal({
         if (!formData.reason.trim()) errs.reason = ["Reason is required."];
         else if (formData.reason.length > 500)
             errs.reason = ["Reason cannot exceed 500 characters."];
-        if (formData.expiry_date) {
-            if (new Date(formData.expiry_date) <= new Date())
-                errs.expiry_date = ["Expiry date must be in the future."];
-        }
+        if (!formData.expiry_date)
+            errs.expiry_date = ["Expiry date is required."];
+        else if (formData.expiry_date < today)
+            errs.expiry_date = ["Expiry date cannot be in the past."];
+        if (formData.purchased_date && formData.purchased_date > today)
+            errs.purchased_date = ["Purchased date cannot be in the future."];
+        if (
+            formData.expiry_date &&
+            formData.purchased_date &&
+            formData.purchased_date > formData.expiry_date
+        )
+            errs.purchased_date = [
+                "Purchased date cannot be later than expiry date.",
+            ];
         if (
             formData.purchase_quantity &&
             (isNaN(parseFloat(formData.purchase_quantity)) ||
@@ -1828,11 +1884,26 @@ function StockInModal({
     };
 
     const handleSubmit = async () => {
+        if (looksReversedScale) {
+            setErrors((prev) => ({
+                ...prev,
+                purchase_unit_id: [
+                    `Reversed unit setup: base unit (${baseUnitName}) should be smaller than purchase unit. Edit the item's base unit first.`,
+                ],
+            }));
+            return;
+        }
         const validationErrors = validateStockIn();
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
             return;
         }
+        // Show pre-check confirmation before submitting (mirrors web)
+        setShowPrecheck(true);
+    };
+
+    const handleConfirmStockIn = async () => {
+        setShowPrecheck(false);
         setLoading(true);
         try {
             await onSubmit({
@@ -1888,6 +1959,22 @@ function StockInModal({
         selectedItem &&
         selectedPurchaseUnit &&
         String(selectedItem.base_unit_id) === String(selectedPurchaseUnit.id);
+
+    // Reversed scale guard — mirrors web
+    const getUnitScale = (name: string) => {
+        const u = name.trim().toLowerCase();
+        const small = ["piece", "pieces", "pc", "pcs", "ml", "milliliter", "milliliters", "g", "gram", "grams"];
+        const large = ["box", "boxes", "bottle", "bottles", "pack", "packs", "case", "cases", "carton", "cartons"];
+        if (small.includes(u)) return 1;
+        if (large.includes(u)) return 2;
+        return 0;
+    };
+    const baseScale = getUnitScale(baseUnitName);
+    const purchaseScale = getUnitScale(purchaseUnitName);
+    const looksReversedScale =
+        selectedItem && selectedPurchaseUnit && baseScale > 0 && purchaseScale > 0
+            ? baseScale > purchaseScale
+            : false;
     const convertedBase =
         formData.purchase_quantity && formData.conversion_factor
             ? Math.round(
@@ -1949,7 +2036,7 @@ function StockInModal({
 
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>
-                                Supplier (optional)
+                                Supplier *
                             </Text>
                             <SupplierPickerSelect
                                 suppliers={suppliers}
@@ -1980,6 +2067,7 @@ function StockInModal({
                                     }}
                                     placeholder="Select date"
                                     hasError={!!errors.purchased_date}
+                                    maximumDate={new Date()}
                                 />
                                 {errors.purchased_date?.[0] && (
                                     <Text style={styles.errorText}>
@@ -1989,7 +2077,7 @@ function StockInModal({
                             </View>
                             <View style={styles.formGroupHalf}>
                                 <Text style={styles.formLabel}>
-                                    Expiry Date
+                                    Expiry Date *
                                 </Text>
                                 <DatePickerField
                                     value={formData.expiry_date}
@@ -2179,6 +2267,15 @@ function StockInModal({
                             </View>
                         </View>
 
+                        {looksReversedScale && (
+                            <View style={[styles.stockWarnRed, { marginBottom: 8 }]}>
+                                <AlertTriangle size={16} color="#DC2626" style={{ marginTop: 1 }} />
+                                <Text style={[styles.stockWarnRedText, { flex: 1 }]}>
+                                    Reversed unit setup: base unit ({baseUnitName}) should be smaller than purchase unit. Edit the item's base unit first.
+                                </Text>
+                            </View>
+                        )}
+
                         {convertedBase !== null && selectedItem && (
                             <View style={styles.stockPreviewGreen}>
                                 <Text style={styles.stockPreviewLabel}>
@@ -2256,11 +2353,30 @@ function StockInModal({
                     </View>
                 </View>
             </View>
+
+            {/* Pre-check confirmation — mirrors web ConfirmModal */}
+            <ConfirmDialog
+                visible={showPrecheck}
+                title="Confirm Stock In Entry"
+                message={[
+                    `Item: ${selectedItem?.name ?? "-"}`,
+                    `Supplier: ${suppliers.find((s) => String(s.id) === formData.supplier_id)?.name ?? "-"}`,
+                    `Batch: Auto-generated`,
+                    `Purchase Date: ${formData.purchased_date || "-"}`,
+                    `Expiry Date: ${formData.expiry_date || "-"}`,
+                    `Qty Bought: ${formData.purchase_quantity || "0"} ${purchaseUnitName}`,
+                    `Conversion: 1 ${purchaseUnitName} = ${sameAsBase ? "1" : formData.conversion_factor || "0"} ${baseUnitName}`,
+                    `Adding: ${convertedBase ?? 0} ${baseUnitName}`,
+                    `Reason: ${formData.reason || "-"}`,
+                ].join("\n")}
+                confirmText="Confirm and Add"
+                onConfirm={handleConfirmStockIn}
+                onCancel={() => setShowPrecheck(false)}
+                type="info"
+            />
         </Modal>
     );
-}
-
-function StockOutModal({
+}{
     show,
     items,
     onClose,
@@ -2341,22 +2457,18 @@ function StockOutModal({
 
     const selectedItem = items.find((i) => String(i.id) === formData.item_id);
 
-    // Build unit options from item's active batches — mirrors web behaviour
+    // Build unit options from item's active batches — collect all batches per unit for FEFO
     const availableUnits = (() => {
         if (!selectedItem) return [];
         const seen = new Map<
             string,
-            {
-                id: string;
-                name: string;
-                short_name: string;
-                conversion_factor: number;
-            }
+            { id: string; name: string; short_name: string; conversion_factor: number }
         >();
         (selectedItem.batches ?? [])
             .filter((b) => b.status === "active")
             .forEach((b) => {
                 const key = String(b.purchase_unit_id);
+                // Store first encountered factor per unit for display; mixed-factor note handled separately
                 if (!seen.has(key) && b.purchase_unit) {
                     seen.set(key, {
                         id: key,
@@ -2370,12 +2482,47 @@ function StockOutModal({
     })();
 
     const selectedUnit = availableUnits.find((u) => u.id === formData.unit_id);
-    const effectiveFactor = selectedUnit?.conversion_factor ?? 1;
     const qty = parseInt(formData.quantity);
-    const normalizedBase = !isNaN(qty) ? Math.round(qty * effectiveFactor) : 0;
+
+    // FEFO walk: collect active batches for the selected unit sorted by expiry (nulls last)
+    const fefoBatches = (() => {
+        if (!selectedItem || !formData.unit_id) return [];
+        return (selectedItem.batches ?? [])
+            .filter((b) => b.status === "active" && String(b.purchase_unit_id) === formData.unit_id)
+            .sort((a, b) => {
+                if (!a.expiry_date && !b.expiry_date) return 0;
+                if (!a.expiry_date) return 1;
+                if (!b.expiry_date) return -1;
+                return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+            });
+    })();
+
+    // Per-batch FEFO check: walk batches and accumulate base units needed
+    const fefoResult = (() => {
+        if (!selectedItem || !formData.unit_id || isNaN(qty) || qty < 1)
+            return { canFulfill: true, baseNeeded: 0 };
+        let remaining = qty;
+        let baseNeeded = 0;
+        for (const b of fefoBatches) {
+            if (remaining <= 0) break;
+            const batchCapacityInUnits = b.conversion_factor > 0
+                ? Math.floor(b.current_quantity / b.conversion_factor)
+                : 0;
+            const take = Math.min(remaining, batchCapacityInUnits);
+            baseNeeded += take * b.conversion_factor;
+            remaining -= take;
+        }
+        return { canFulfill: remaining <= 0, baseNeeded: Math.round(baseNeeded) };
+    })();
+
+    // Fallback for base-unit (no unit selected) path
+    const effectiveFactor = selectedUnit?.conversion_factor ?? 1;
+    const normalizedBase = !isNaN(qty)
+        ? (formData.unit_id ? fefoResult.baseNeeded : Math.round(qty * effectiveFactor))
+        : 0;
     const insufficientStock =
         selectedItem && formData.quantity && !isNaN(qty)
-            ? normalizedBase > selectedItem.current_stock
+            ? (formData.unit_id ? !fefoResult.canFulfill : normalizedBase > selectedItem.current_stock)
             : false;
     const newStock =
         selectedItem && formData.quantity && !isNaN(qty) && !insufficientStock
@@ -2385,6 +2532,22 @@ function StockOutModal({
         newStock !== null &&
         selectedItem &&
         newStock < selectedItem.minimum_stock;
+
+    // Remaining equivalent in selected unit (FEFO-based)
+    const remainingInUnit = (() => {
+        if (!selectedUnit || fefoBatches.length === 0) return null;
+        const totalBase = fefoBatches.reduce((sum, b) => sum + b.current_quantity, 0);
+        return selectedUnit.conversion_factor > 0
+            ? Math.floor(totalBase / selectedUnit.conversion_factor)
+            : null;
+    })();
+
+    // Detect mixed conversion factors for the same unit across batches
+    const hasMixedFactors = (() => {
+        if (fefoBatches.length < 2) return false;
+        const first = fefoBatches[0].conversion_factor;
+        return fefoBatches.some((b) => b.conversion_factor !== first);
+    })();
 
     return (
         <Modal visible={show} animationType="slide" transparent>
@@ -2492,6 +2655,20 @@ function StockOutModal({
                                 <Text style={styles.infoNoteText}>
                                     Conversion: 1 {selectedUnit.name} ={" "}
                                     {effectiveFactor} {selectedItem?.unit}
+                                </Text>
+                            </View>
+                        )}
+                        {remainingInUnit !== null && selectedUnit && (
+                            <View style={[styles.infoNote, { marginTop: 6 }]}>
+                                <Text style={styles.infoNoteText}>
+                                    Available: {remainingInUnit} {selectedUnit.name}{remainingInUnit !== 1 ? "s" : ""}
+                                </Text>
+                            </View>
+                        )}
+                        {hasMixedFactors && selectedUnit && (
+                            <View style={[styles.infoNote, { marginTop: 6, borderLeftColor: "#F59E0B", backgroundColor: "#FFFBEB" }]}>
+                                <Text style={[styles.infoNoteText, { color: "#92400E" }]}>
+                                    Note: Different suppliers have different conversion factors for {selectedUnit.name}. Stock will be deducted per batch (FEFO).
                                 </Text>
                             </View>
                         )}
@@ -2657,9 +2834,10 @@ function StockOutModal({
                             style={[
                                 styles.modalButtonPrimary,
                                 { backgroundColor: "#DC2626" },
+                                !!insufficientStock && { opacity: 0.5 },
                             ]}
                             onPress={handleSubmit}
-                            disabled={loading}
+                            disabled={loading || !!insufficientStock}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
@@ -2669,6 +2847,253 @@ function StockOutModal({
                                 </Text>
                             )}
                         </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+function FlagBatchModal({
+    show,
+    item,
+    onClose,
+    onSubmit,
+    onError,
+}: {
+    show: boolean;
+    item: InventoryItem | null;
+    onClose: () => void;
+    onSubmit: (data: {
+        batch_id: number;
+        reason_type: string;
+        reason_details: string;
+    }) => Promise<void>;
+    onError: (message: string) => void;
+}) {
+    const [selectedBatchId, setSelectedBatchId] = useState("");
+    const [reasonType, setReasonType] = useState("damaged");
+    const [reasonDetails, setReasonDetails] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const eligibleBatches = (item?.batches ?? []).filter(
+        (b) => b.status === "active" && b.current_quantity > 0,
+    );
+
+    const isPastExpiry = (date: string | null) => {
+        if (!date) return false;
+        const expiry = new Date(date + "T00:00:00");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return expiry < today;
+    };
+
+    const selectedBatch = eligibleBatches.find(
+        (b) => String(b.id) === selectedBatchId,
+    );
+    const batchIsExpired = selectedBatch
+        ? isPastExpiry(selectedBatch.expiry_date)
+        : false;
+
+    useEffect(() => {
+        if (show && item) {
+            const first = eligibleBatches[0];
+            setSelectedBatchId(first ? String(first.id) : "");
+            setReasonType(first && isPastExpiry(first.expiry_date) ? "expired" : "damaged");
+            setReasonDetails("");
+            setErrors({});
+        }
+    }, [show, item?.id]);
+
+    useEffect(() => {
+        if (selectedBatch) {
+            setReasonType(batchIsExpired ? "expired" : "damaged");
+            setReasonDetails("");
+            setErrors({});
+        }
+    }, [selectedBatchId]);
+
+    const handleSubmit = async () => {
+        const errs: Record<string, string> = {};
+        if (!selectedBatchId) errs.batch_id = "Please select a batch.";
+        if (reasonType === "expired" && !batchIsExpired)
+            errs.reason_type =
+                "Expired can only be selected for batches past their expiry date.";
+        if (reasonType !== "expired" && !reasonDetails.trim())
+            errs.reason_details = "Please provide details for this reason.";
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
+        setLoading(true);
+        try {
+            await onSubmit({
+                batch_id: parseInt(selectedBatchId),
+                reason_type: reasonType,
+                reason_details: reasonDetails.trim(),
+            });
+            onClose();
+        } catch (err: any) {
+            onError(err.response?.data?.message || "Failed to flag batch");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!item) return null;
+
+    const reasonTypes = [
+        { value: "expired", label: "Expired" },
+        { value: "damaged", label: "Damaged" },
+        { value: "contaminated", label: "Contaminated" },
+        { value: "other", label: "Other" },
+    ];
+
+    return (
+        <Modal visible={show} animationType="slide" transparent>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.modalTitle}>
+                                Flag Batch as Unusable
+                            </Text>
+                            <Text style={styles.modalSubtitle} numberOfLines={2}>
+                                {item.name}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose}>
+                            <X color="#6B7280" size={24} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalBody}>
+                        {eligibleBatches.length === 0 ? (
+                            <View style={[styles.infoNote, { borderLeftColor: "#F59E0B", backgroundColor: "#FFFBEB" }]}>
+                                <Text style={[styles.infoNoteText, { color: "#92400E" }]}>
+                                    No active batch with remaining quantity available for this item.
+                                </Text>
+                            </View>
+                        ) : (
+                            <>
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Select Batch *</Text>
+                                    <BatchPickerSelect
+                                        batches={eligibleBatches}
+                                        selectedValue={selectedBatchId}
+                                        onValueChange={(val) => {
+                                            setSelectedBatchId(val);
+                                            setErrors((e) => ({ ...e, batch_id: "" }));
+                                        }}
+                                    />
+                                    {!!errors.batch_id && (
+                                        <Text style={styles.errorText}>{errors.batch_id}</Text>
+                                    )}
+                                    {selectedBatch && (
+                                        <View style={styles.stockPreviewBlue}>
+                                            <Text style={styles.stockPreviewLabel}>
+                                                Qty: {Math.floor(selectedBatch.current_quantity)} {item.unit}
+                                                {" · "}Expiry: {selectedBatch.expiry_date ?? "No expiry"}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Reason Type *</Text>
+                                    <PickerSelect
+                                        items={reasonTypes
+                                            .filter((r) => r.value !== "expired" || batchIsExpired)
+                                            .map((r) => r.label)}
+                                        selectedValue={
+                                            reasonTypes.find((r) => r.value === reasonType)?.label ?? ""
+                                        }
+                                        onValueChange={(label) => {
+                                            const found = reasonTypes.find((r) => r.label === label);
+                                            if (found) {
+                                                setReasonType(found.value);
+                                                setErrors((e) => ({ ...e, reason_type: "" }));
+                                            }
+                                        }}
+                                        placeholder="Select reason type"
+                                        hasError={!!errors.reason_type}
+                                    />
+                                    {!!errors.reason_type && (
+                                        <Text style={styles.errorText}>{errors.reason_type}</Text>
+                                    )}
+                                    {!batchIsExpired && (
+                                        <Text style={styles.formHint}>
+                                            "Expired" is only available for batches past their expiry date.
+                                        </Text>
+                                    )}
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>
+                                        Reason Details{reasonType === "expired" ? " (optional)" : " *"}
+                                    </Text>
+                                    <TextInput
+                                        style={[
+                                            styles.formInput,
+                                            styles.textArea,
+                                            errors.reason_details && styles.inputError,
+                                        ]}
+                                        value={reasonDetails}
+                                        onChangeText={(t) => {
+                                            setReasonDetails(t);
+                                            setErrors((e) => ({ ...e, reason_details: "" }));
+                                        }}
+                                        placeholder={
+                                            reasonType === "expired"
+                                                ? "Optional note (e.g., found during stock check)"
+                                                : "Provide a clear reason (e.g., broken seal, contamination risk)"
+                                        }
+                                        multiline
+                                        numberOfLines={3}
+                                        maxLength={500}
+                                    />
+                                    {!!errors.reason_details && (
+                                        <Text style={styles.errorText}>{errors.reason_details}</Text>
+                                    )}
+                                </View>
+
+                                <View style={styles.stockWarnRed}>
+                                    <AlertTriangle size={16} color="#DC2626" style={{ marginTop: 1 }} />
+                                    <Text style={[styles.stockWarnRedText, { flex: 1 }]}>
+                                        This will mark the selected batch as unusable and exclude it from stock availability and FEFO deduction.
+                                    </Text>
+                                </View>
+                            </>
+                        )}
+                    </ScrollView>
+
+                    <View style={styles.modalFooter}>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                        </TouchableOpacity>
+                        {eligibleBatches.length > 0 && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalButtonPrimary,
+                                    { backgroundColor: "#EF4444" },
+                                    (!selectedBatchId || loading) && { opacity: 0.5 },
+                                ]}
+                                onPress={handleSubmit}
+                                disabled={loading || !selectedBatchId}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalButtonTextPrimary}>
+                                        Flag as Unusable
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </View>
@@ -3473,12 +3898,14 @@ function DatePickerField({
     placeholder = "Select date",
     hasError = false,
     minimumDate,
+    maximumDate,
 }: {
     value: string;
     onChange: (val: string) => void;
     placeholder?: string;
     hasError?: boolean;
     minimumDate?: Date;
+    maximumDate?: Date;
 }) {
     const [show, setShow] = useState(false);
     const date = value ? new Date(value) : new Date();
@@ -3510,6 +3937,7 @@ function DatePickerField({
                     mode="date"
                     display="default"
                     minimumDate={minimumDate}
+                    maximumDate={maximumDate}
                     onChange={(_, selected) => {
                         setShow(false);
                         if (selected) {
@@ -5023,6 +5451,23 @@ const styles = StyleSheet.create({
     typeBadgeText: { fontWeight: "600", fontSize: 12 },
     inputError: { borderColor: "#EF4444" },
     errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
+    flagBtn: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#FECACA",
+        backgroundColor: "#FEF2F2",
+        gap: 4,
+    },
+    flagBtnText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#EF4444",
+    },
     pickerButtonError: { borderColor: "#EF4444" },
     errorContainer: {
         flex: 1,
