@@ -2376,7 +2376,9 @@ function StockInModal({
             />
         </Modal>
     );
-}{
+}
+
+function StockOutModal({
     show,
     items,
     onClose,

@@ -188,15 +188,10 @@ export default function ServicesScreen() {
     const handleSaveInterpretation = async () => {
         setSavingInterpretation(true);
         try {
-            await api.post("/settings", {
-                // required general fields — send current values unchanged
-                email_sending_enabled: true,
-                email_notification_enabled: true,
-                notification_enabled: true,
-                pdf_password_format: "birthdate",
-                interpretation_engine_enabled: interpretationForm.engine_enabled,
-                interpretation_show_in_lab_entry: interpretationForm.show_in_lab_entry,
-                interpretation_show_in_pdf: interpretationForm.show_in_pdf,
+            await api.post("/services/interpretation-settings", {
+                engine_enabled:    interpretationForm.engine_enabled,
+                show_in_lab_entry: interpretationForm.show_in_lab_entry,
+                show_in_pdf:       interpretationForm.show_in_pdf,
             });
             setShowInterpretationModal(false);
             setSuccessDialog({ visible: true, title: "Success", message: "Interpretation settings saved.", type: "success" });
@@ -843,7 +838,7 @@ function CreateServiceModal({
             await onSubmit({
                 ...formData,
                 price: parseFloat(formData.price),
-                reference_config: Object.keys(referenceConfig).length > 0 ? referenceConfig : null,
+                reference_config: referenceConfig,
             });
             setFormData({ name: "", category: "", price: "", description: "" });
             setReferenceRows([{ key: "", value: "" }]);
@@ -1111,7 +1106,7 @@ function EditServiceModal({
             await onSubmit(service.id, {
                 ...formData,
                 price: parseFloat(formData.price),
-                reference_config: Object.keys(referenceConfig).length > 0 ? referenceConfig : null,
+                reference_config: referenceConfig,
             });
             setErrors({});
             onClose();
