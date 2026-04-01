@@ -517,7 +517,7 @@ export default function ReconciliationScreen() {
                     <View style={styles.statCard}>
                         <Clipboard
                             color="#6B7280"
-                            size={18}
+                            size={16}
                             strokeWidth={2.5}
                         />
                         <Text
@@ -536,7 +536,7 @@ export default function ReconciliationScreen() {
                     <View style={[styles.statCard, styles.statCardGreen]}>
                         <CheckCircle2
                             color="#10B981"
-                            size={18}
+                            size={16}
                             strokeWidth={2.5}
                         />
                         <Text
@@ -564,7 +564,7 @@ export default function ReconciliationScreen() {
                     <View style={[styles.statCard, styles.statCardBlue]}>
                         <TrendingUp
                             color="#3B82F6"
-                            size={18}
+                            size={16}
                             strokeWidth={2.5}
                         />
                         <Text
@@ -596,7 +596,7 @@ export default function ReconciliationScreen() {
                     <View style={[styles.statCard, styles.statCardRed]}>
                         <TrendingDown
                             color="#EF4444"
-                            size={18}
+                            size={16}
                             strokeWidth={2.5}
                         />
                         <Text
@@ -632,6 +632,7 @@ export default function ReconciliationScreen() {
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="Search reconciliations..."
+                    containerStyle={styles.searchBar}
                 />
             </View>
 
@@ -913,19 +914,19 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         paddingHorizontal: 12,
-        paddingVertical: 10,
-        gap: 8,
+        paddingVertical: 8,
+        gap: 6,
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
     statCard: {
-        width: "46%",
+        width: "47%",
         flexGrow: 1,
         backgroundColor: "#fff",
         borderRadius: 10,
         paddingHorizontal: 10,
-        paddingVertical: 10,
+        paddingVertical: 8,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
@@ -952,7 +953,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     statSubValue: {
-        fontSize: 11,
+        fontSize: 10,
         color: "#6B7280",
         textAlign: "center",
         marginTop: 1,
@@ -964,15 +965,15 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     statValue: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "700",
         color: "#111827",
-        marginTop: 6,
+        marginTop: 4,
         marginBottom: 2,
         textAlign: "center",
     },
     statLabel: {
-        fontSize: 10,
+        fontSize: 9,
         color: "#6B7280",
         fontWeight: "500",
         textAlign: "center",
@@ -981,6 +982,12 @@ const styles = StyleSheet.create({
     searchContainer: {
         padding: 16,
         paddingTop: 8,
+    },
+    searchBar: {
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 12,
     },
     filterContainer: {
         paddingHorizontal: 16,

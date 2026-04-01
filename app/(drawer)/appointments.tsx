@@ -740,10 +740,6 @@ export default function AppointmentsScreen() {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Calendar size={22} color="#ac3434" />
-                    <Text style={styles.headerTitle}>Appointments</Text>
-                </View>
                 <TouchableOpacity
                     style={styles.settingsBtn}
                     onPress={openSettingsModal}
@@ -2581,15 +2577,13 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "flex-end",
         paddingHorizontal: 16,
         paddingVertical: 12,
         backgroundColor: "#fff",
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
     statsGrid: {
         flexDirection: "row",
         flexWrap: "wrap",

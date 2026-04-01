@@ -46,6 +46,7 @@ import {
     SuccessDialog,
     TransactionLogTab,
 } from "@/components";
+import { useAuth } from "@/contexts/AuthContext";
 
 type InventoryUnit = {
     id: number;
@@ -122,6 +123,9 @@ const filters = [
 ];
 
 export default function InventoryScreen() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === "admin";
+
     const [activeTab, setActiveTab] = useState<
         "items" | "transactions" | "batch_issues" | "expiring_soon"
     >("items");
@@ -145,6 +149,8 @@ export default function InventoryScreen() {
     const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+    const [showEditBatchModal, setShowEditBatchModal] = useState(false);
+    const [editBatch, setEditBatch] = useState<InventoryBatch | null>(null);
     const [showFlagModal, setShowFlagModal] = useState(false);
     const [flagItem, setFlagItem] = useState<InventoryItem | null>(null);
 
@@ -301,6 +307,30 @@ export default function InventoryScreen() {
             visible: true,
             title: "Success",
             message: response.data.message || "Item updated successfully",
+            type: "success",
+        });
+        loadInventory();
+    };
+
+    const handleUpdateBatchDetails = async (formData: {
+        batch_id: number;
+        supplier_id: number;
+        expiry_date: string;
+        reason: string;
+    }) => {
+        const response = await api.put(
+            `/inventory/batches/${formData.batch_id}/details`,
+            {
+                supplier_id: formData.supplier_id,
+                expiry_date: formData.expiry_date,
+                reason: formData.reason,
+            },
+        );
+        setSuccessDialog({
+            visible: true,
+            title: "Success",
+            message:
+                response.data.message || "Batch details updated successfully",
             type: "success",
         });
         loadInventory();
@@ -518,22 +548,56 @@ export default function InventoryScreen() {
                                                 {b.batch_number}
                                             </Text>
                                             <View
-                                                style={[
-                                                    styles.statusBadge,
-                                                    {
-                                                        backgroundColor:
-                                                            statusColor + "22",
-                                                    },
-                                                ]}
+                                                style={
+                                                    styles.batchRowHeaderRight
+                                                }
                                             >
-                                                <Text
+                                                <View
                                                     style={[
-                                                        styles.statusText,
-                                                        { color: statusColor },
+                                                        styles.statusBadge,
+                                                        {
+                                                            backgroundColor:
+                                                                statusColor +
+                                                                "22",
+                                                        },
                                                     ]}
                                                 >
-                                                    {b.status}
-                                                </Text>
+                                                    <Text
+                                                        style={[
+                                                            styles.statusText,
+                                                            {
+                                                                color: statusColor,
+                                                            },
+                                                        ]}
+                                                    >
+                                                        {b.status}
+                                                    </Text>
+                                                </View>
+                                                {isAdmin && (
+                                                    <TouchableOpacity
+                                                        style={
+                                                            styles.batchEditBtn
+                                                        }
+                                                        onPress={() => {
+                                                            setEditBatch(b);
+                                                            setShowEditBatchModal(
+                                                                true,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Pencil
+                                                            size={12}
+                                                            color="#4F46E5"
+                                                        />
+                                                        <Text
+                                                            style={
+                                                                styles.batchEditBtnText
+                                                            }
+                                                        >
+                                                            Edit
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                         <View style={styles.batchGrid}>
@@ -1217,6 +1281,24 @@ export default function InventoryScreen() {
                     setEditItem(null);
                 }}
                 onSubmit={handleEditItem}
+                onError={(message) =>
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message,
+                        type: "error",
+                    })
+                }
+            />
+
+            <EditBatchDetailsModal
+                show={showEditBatchModal}
+                batch={editBatch}
+                onClose={() => {
+                    setShowEditBatchModal(false);
+                    setEditBatch(null);
+                }}
+                onSubmit={handleUpdateBatchDetails}
                 onError={(message) =>
                     setSuccessDialog({
                         visible: true,
@@ -4053,6 +4135,283 @@ function EditItemModal({
     );
 }
 
+function EditBatchDetailsModal({
+    show,
+    batch,
+    onClose,
+    onSubmit,
+    onError,
+}: {
+    show: boolean;
+    batch: InventoryBatch | null;
+    onClose: () => void;
+    onSubmit: (data: {
+        batch_id: number;
+        supplier_id: number;
+        expiry_date: string;
+        reason: string;
+    }) => Promise<void>;
+    onError: (message: string) => void;
+}) {
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        supplier_id: "",
+        expiry_date: "",
+        reason: "",
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (!show) return;
+        setLoadingSuppliers(true);
+        api.get("/suppliers")
+            .then((r) => setSuppliers(r.data.data ?? r.data ?? []))
+            .catch(() => setSuppliers([]))
+            .finally(() => setLoadingSuppliers(false));
+    }, [show]);
+
+    useEffect(() => {
+        if (!show || !batch) return;
+        setFormData({
+            supplier_id: batch.supplier_id ? String(batch.supplier_id) : "",
+            expiry_date: batch.expiry_date ?? "",
+            reason: "",
+        });
+        setErrors({});
+    }, [show, batch?.id]);
+
+    const validate = () => {
+        const errs: Record<string, string> = {};
+
+        if (!formData.supplier_id) {
+            errs.supplier_id = "Supplier is required.";
+        }
+        if (!formData.expiry_date) {
+            errs.expiry_date = "Expiry date is required.";
+        }
+        if (!formData.reason.trim()) {
+            errs.reason = "Reason for update is required.";
+        } else if (formData.reason.length > 500) {
+            errs.reason = "Reason cannot exceed 500 characters.";
+        }
+
+        const originalSupplierId = batch?.supplier_id
+            ? String(batch.supplier_id)
+            : "";
+        const originalExpiry = batch?.expiry_date ?? "";
+        if (
+            formData.supplier_id === originalSupplierId &&
+            formData.expiry_date === originalExpiry
+        ) {
+            errs.reason =
+                "No changes detected. Update supplier or expiry date first.";
+        }
+
+        return errs;
+    };
+
+    const handleSubmit = async () => {
+        if (!batch) return;
+
+        const errs = validate();
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await onSubmit({
+                batch_id: batch.id,
+                supplier_id: parseInt(formData.supplier_id),
+                expiry_date: formData.expiry_date,
+                reason: formData.reason.trim(),
+            });
+            onClose();
+        } catch (err: any) {
+            onError(
+                err.response?.data?.message ||
+                    getApiErrorMessage(err, "Failed to update batch details."),
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!batch) return null;
+
+    return (
+        <Modal visible={show} animationType="slide" transparent>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.modalTitle}>
+                                Edit Batch Details
+                            </Text>
+                            <Text
+                                style={styles.modalSubtitle}
+                                numberOfLines={2}
+                            >
+                                Batch {batch.batch_number}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose}>
+                            <X color="#6B7280" size={24} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalBody}>
+                        <View style={styles.adjustInfoBox}>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Current Supplier:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {batch.supplier_name ?? "-"}
+                                </Text>
+                            </View>
+                            <View style={styles.adjustInfoRow}>
+                                <Text style={styles.adjustInfoLabel}>
+                                    Current Expiry:
+                                </Text>
+                                <Text style={styles.adjustInfoValue}>
+                                    {batch.expiry_date ?? "No expiry"}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Supplier *</Text>
+                            <SupplierPickerSelect
+                                suppliers={suppliers}
+                                selectedValue={formData.supplier_id}
+                                onValueChange={(val) => {
+                                    setFormData({
+                                        ...formData,
+                                        supplier_id: val,
+                                    });
+                                    setErrors((e) => ({
+                                        ...e,
+                                        supplier_id: "",
+                                    }));
+                                }}
+                            />
+                            {errors.supplier_id && (
+                                <Text style={styles.errorText}>
+                                    {errors.supplier_id}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>Expiry Date *</Text>
+                            <DatePickerField
+                                value={formData.expiry_date}
+                                onChange={(val) => {
+                                    setFormData({
+                                        ...formData,
+                                        expiry_date: val,
+                                    });
+                                    setErrors((e) => ({
+                                        ...e,
+                                        expiry_date: "",
+                                    }));
+                                }}
+                                placeholder="Select date"
+                                hasError={!!errors.expiry_date}
+                            />
+                            {errors.expiry_date && (
+                                <Text style={styles.errorText}>
+                                    {errors.expiry_date}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.formLabel}>
+                                Reason for Update *
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.formInput,
+                                    styles.textArea,
+                                    errors.reason && styles.inputError,
+                                ]}
+                                value={formData.reason}
+                                onChangeText={(text) => {
+                                    setFormData({
+                                        ...formData,
+                                        reason: text,
+                                    });
+                                    setErrors((e) => ({
+                                        ...e,
+                                        reason: "",
+                                    }));
+                                }}
+                                placeholder="e.g., Corrected based on supplier invoice"
+                                multiline
+                                numberOfLines={3}
+                                maxLength={500}
+                            />
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {formData.reason.length}/500
+                            </Text>
+                            {errors.reason && (
+                                <Text style={styles.errorText}>
+                                    {errors.reason}
+                                </Text>
+                            )}
+                        </View>
+
+                        {loadingSuppliers && (
+                            <Text style={styles.formHint}>
+                                Loading suppliers...
+                            </Text>
+                        )}
+                    </ScrollView>
+
+                    <View style={styles.modalFooter}>
+                        <TouchableOpacity
+                            style={styles.modalButtonSecondary}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.modalButtonTextSecondary}>
+                                Cancel
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.modalButtonPrimary,
+                                { backgroundColor: "#4F46E5" },
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    Save Details
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
 function DatePickerField({
     value,
     onChange,
@@ -5713,7 +6072,28 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 8,
     },
+    batchRowHeaderRight: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
     batchNumber: { fontSize: 13, fontWeight: "700", color: "#111827" },
+    batchEditBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 7,
+        borderWidth: 1,
+        borderColor: "#C7D2FE",
+        backgroundColor: "#EEF2FF",
+    },
+    batchEditBtnText: {
+        fontSize: 11,
+        fontWeight: "600",
+        color: "#4F46E5",
+    },
     batchGrid: {
         flexDirection: "row",
         flexWrap: "wrap",

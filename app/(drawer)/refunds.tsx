@@ -963,6 +963,10 @@ const styles = StyleSheet.create({
     searchContainer: {
         marginHorizontal: 16,
         marginVertical: 10,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 12,
     },
 
     // ── List ──

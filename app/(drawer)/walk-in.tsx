@@ -57,17 +57,17 @@ type Stats = {
 const PRIORITY_OPTIONS = ["Regular", "PWD", "Senior Citizen", "Pregnant"];
 
 const STATUS_COLORS: Record<string, string> = {
-    pending:    "#EAB308",
+    pending: "#EAB308",
     checked_in: "#3B82F6",
-    confirmed:  "#22C55E",
-    cancelled:  "#EF4444",
+    confirmed: "#22C55E",
+    cancelled: "#EF4444",
 };
 
 const PRIORITY_COLORS: Record<string, { color: string; bg: string }> = {
-    PWD:              { color: "#1E40AF", bg: "#DBEAFE" },
+    PWD: { color: "#1E40AF", bg: "#DBEAFE" },
     "Senior Citizen": { color: "#5B21B6", bg: "#EDE9FE" },
-    Pregnant:         { color: "#9D174D", bg: "#FCE7F3" },
-    Regular:          { color: "#374151", bg: "#F3F4F6" },
+    Pregnant: { color: "#9D174D", bg: "#FCE7F3" },
+    Regular: { color: "#374151", bg: "#F3F4F6" },
 };
 
 export default function WalkInScreen() {
@@ -84,11 +84,20 @@ export default function WalkInScreen() {
     const [confirmCancel, setConfirmCancel] = useState<WalkIn | null>(null);
 
     const [priorityModal, setPriorityModal] = useState<WalkIn | null>(null);
-    const [pendingPriority, setPendingPriority] = useState<{ walkIn: WalkIn; newPriority: string } | null>(null);
+    const [pendingPriority, setPendingPriority] = useState<{
+        walkIn: WalkIn;
+        newPriority: string;
+    } | null>(null);
     const [updatingPriority, setUpdatingPriority] = useState(false);
 
-    const [idViewer, setIdViewer] = useState<{ visible: boolean; url: string | null; name: string | null }>({
-        visible: false, url: null, name: null,
+    const [idViewer, setIdViewer] = useState<{
+        visible: boolean;
+        url: string | null;
+        name: string | null;
+    }>({
+        visible: false,
+        url: null,
+        name: null,
     });
 
     const fetchWalkIns = useCallback(
@@ -96,7 +105,9 @@ export default function WalkInScreen() {
             try {
                 setLoading(true);
                 const dateStr = date.toISOString().split("T")[0];
-                const res = await api.get("/walk-ins", { params: { date: dateStr } });
+                const res = await api.get("/walk-ins", {
+                    params: { date: dateStr },
+                });
                 setWalkIns(res.data.data);
                 setStats(res.data.stats);
                 setError(null);
@@ -155,9 +166,12 @@ export default function WalkInScreen() {
         if (!pendingPriority) return;
         setUpdatingPriority(true);
         try {
-            await api.patch(`/walk-ins/${pendingPriority.walkIn.id}/update-priority`, {
-                priority_category: pendingPriority.newPriority,
-            });
+            await api.patch(
+                `/walk-ins/${pendingPriority.walkIn.id}/update-priority`,
+                {
+                    priority_category: pendingPriority.newPriority,
+                },
+            );
             fetchWalkIns(selectedDate);
         } catch (e: any) {
             setError(getApiErrorMessage(e, "Failed to update priority."));
@@ -167,7 +181,8 @@ export default function WalkInScreen() {
         }
     };
 
-    const pc = (category: string) => PRIORITY_COLORS[category] ?? PRIORITY_COLORS.Regular;
+    const pc = (category: string) =>
+        PRIORITY_COLORS[category] ?? PRIORITY_COLORS.Regular;
     const isQueuePriority = (category: string) => category !== "Regular";
 
     const renderItem = ({ item }: { item: WalkIn }) => {
@@ -177,14 +192,26 @@ export default function WalkInScreen() {
         return (
             <View style={styles.card}>
                 {/* Left status bar — same as appointments */}
-                <View style={[styles.statusBar, { backgroundColor: statusColor }]} />
+                <View
+                    style={[styles.statusBar, { backgroundColor: statusColor }]}
+                />
                 <View style={styles.cardBody}>
                     {/* Row 1: Name + status badge */}
                     <View style={styles.cardRow}>
                         <User size={14} color="#6B7280" />
                         <Text style={styles.cardName}>{item.patient_name}</Text>
-                        <View style={[styles.badge, { backgroundColor: statusColor + "22" }]}>
-                            <Text style={[styles.badgeText, { color: statusColor }]}>
+                        <View
+                            style={[
+                                styles.badge,
+                                { backgroundColor: statusColor + "22" },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.badgeText,
+                                    { color: statusColor },
+                                ]}
+                            >
                                 {item.status.replace("_", " ")}
                             </Text>
                         </View>
@@ -193,35 +220,69 @@ export default function WalkInScreen() {
                     {/* Row 2: Ref + registered time */}
                     <View style={styles.cardRow}>
                         <Clock size={13} color="#9CA3AF" />
-                        <Text style={styles.cardSub}>Registered: {item.registered_at}</Text>
+                        <Text style={styles.cardSub}>
+                            Registered: {item.registered_at}
+                        </Text>
                         {item.checked_in_at && (
                             <>
                                 <Text style={styles.cardSub}>•</Text>
-                                <Text style={styles.cardSub}>In: {item.checked_in_at}</Text>
+                                <Text style={styles.cardSub}>
+                                    In: {item.checked_in_at}
+                                </Text>
                             </>
                         )}
                     </View>
 
                     {/* Row 3: Age/gender + demographic + queue type */}
                     <View style={styles.cardRow}>
-                        <Text style={styles.cardSub}>{item.age} yrs • {item.gender}</Text>
+                        <Text style={styles.cardSub}>
+                            {item.age} yrs • {item.gender}
+                        </Text>
                         <View style={{ flex: 1 }} />
-                        <View style={[styles.demoBadge, { backgroundColor: demoBadge.bg }]}>
-                            <Text style={[styles.demoBadgeText, { color: demoBadge.color }]}>
+                        <View
+                            style={[
+                                styles.demoBadge,
+                                { backgroundColor: demoBadge.bg },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.demoBadgeText,
+                                    { color: demoBadge.color },
+                                ]}
+                            >
                                 {item.priority_category}
                             </Text>
                         </View>
-                        <View style={[
-                            styles.queueBadge,
-                            isQueuePriority(item.priority_category)
-                                ? { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }
-                                : { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" },
-                        ]}>
-                            <Text style={[
-                                styles.queueBadgeText,
-                                { color: isQueuePriority(item.priority_category) ? "#065F46" : "#374151" },
-                            ]}>
-                                {isQueuePriority(item.priority_category) ? "PW" : "W"}
+                        <View
+                            style={[
+                                styles.queueBadge,
+                                isQueuePriority(item.priority_category)
+                                    ? {
+                                          backgroundColor: "#D1FAE5",
+                                          borderColor: "#6EE7B7",
+                                      }
+                                    : {
+                                          backgroundColor: "#F3F4F6",
+                                          borderColor: "#D1D5DB",
+                                      },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.queueBadgeText,
+                                    {
+                                        color: isQueuePriority(
+                                            item.priority_category,
+                                        )
+                                            ? "#065F46"
+                                            : "#374151",
+                                    },
+                                ]}
+                            >
+                                {isQueuePriority(item.priority_category)
+                                    ? "PW"
+                                    : "W"}
                             </Text>
                         </View>
                     </View>
@@ -229,28 +290,42 @@ export default function WalkInScreen() {
                     {/* Row 4: Tests + amount */}
                     <View style={styles.cardRow}>
                         <Text style={styles.cardSub}>
-                            {item.tests.length} test{item.tests.length !== 1 ? "s" : ""}
+                            {item.tests.length} test
+                            {item.tests.length !== 1 ? "s" : ""}
                         </Text>
                         <View style={{ flex: 1 }} />
                         <Text style={styles.cardAmount}>
-                            ₱{Number(item.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                            ₱
+                            {Number(item.total_amount).toLocaleString("en-PH", {
+                                minimumFractionDigits: 2,
+                            })}
                         </Text>
                     </View>
 
                     {/* Row 5: Ref number */}
                     <View style={styles.cardRow}>
                         <View style={{ flex: 1 }} />
-                        <Text style={styles.refNum}>Ref: {item.reference_number}</Text>
+                        <Text style={styles.refNum}>
+                            Ref: {item.reference_number}
+                        </Text>
                     </View>
 
                     {/* ID picture */}
                     {item.id_picture_url ? (
                         <TouchableOpacity
                             style={styles.idBtn}
-                            onPress={() => setIdViewer({ visible: true, url: item.id_picture_url!, name: item.patient_name })}
+                            onPress={() =>
+                                setIdViewer({
+                                    visible: true,
+                                    url: item.id_picture_url!,
+                                    name: item.patient_name,
+                                })
+                            }
                         >
                             <Eye size={13} color="#2563EB" />
-                            <Text style={styles.idBtnText}>View Uploaded ID</Text>
+                            <Text style={styles.idBtnText}>
+                                View Uploaded ID
+                            </Text>
                         </TouchableOpacity>
                     ) : (
                         <Text style={styles.noId}>No ID uploaded</Text>
@@ -260,29 +335,60 @@ export default function WalkInScreen() {
                     <View style={styles.actionRow}>
                         {item.status === "pending" && (
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: "#ac3434" }]}
+                                style={[
+                                    styles.actionBtn,
+                                    { backgroundColor: "#ac3434" },
+                                ]}
                                 onPress={() => setConfirmCheckIn(item)}
                             >
                                 <CheckCircle size={14} color="#fff" />
-                                <Text style={[styles.actionBtnText, { color: "#fff" }]}>Check In</Text>
+                                <Text
+                                    style={[
+                                        styles.actionBtnText,
+                                        { color: "#fff" },
+                                    ]}
+                                >
+                                    Check In
+                                </Text>
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
-                            style={[styles.actionBtn, { borderWidth: 1, borderColor: "#D1D5DB" }]}
+                            style={[
+                                styles.actionBtn,
+                                { borderWidth: 1, borderColor: "#D1D5DB" },
+                            ]}
                             onPress={() => setPriorityModal(item)}
                         >
                             <ChevronDown size={14} color="#374151" />
-                            <Text style={[styles.actionBtnText, { color: "#374151" }]}>Priority</Text>
-                        </TouchableOpacity>
-                        {item.status !== "confirmed" && item.status !== "cancelled" && (
-                            <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: "#FEE2E2" }]}
-                                onPress={() => setConfirmCancel(item)}
+                            <Text
+                                style={[
+                                    styles.actionBtnText,
+                                    { color: "#374151" },
+                                ]}
                             >
-                                <X size={14} color="#991B1B" />
-                                <Text style={[styles.actionBtnText, { color: "#991B1B" }]}>Cancel</Text>
-                            </TouchableOpacity>
-                        )}
+                                Priority
+                            </Text>
+                        </TouchableOpacity>
+                        {item.status !== "confirmed" &&
+                            item.status !== "cancelled" && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.actionBtn,
+                                        { backgroundColor: "#FEE2E2" },
+                                    ]}
+                                    onPress={() => setConfirmCancel(item)}
+                                >
+                                    <X size={14} color="#991B1B" />
+                                    <Text
+                                        style={[
+                                            styles.actionBtnText,
+                                            { color: "#991B1B" },
+                                        ]}
+                                    >
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                     </View>
                 </View>
             </View>
@@ -291,14 +397,6 @@ export default function WalkInScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <User size={22} color="#ac3434" />
-                    <Text style={styles.headerTitle}>Walk-In Management</Text>
-                </View>
-            </View>
-
             {/* Stats */}
             {stats && (
                 <View style={styles.statsGrid}>
@@ -307,24 +405,44 @@ export default function WalkInScreen() {
                         <Text style={styles.statLabel}>Total</Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardPending]}>
-                        <Text style={[styles.statValue, { color: "#92400E" }]}>{stats.pending}</Text>
-                        <Text style={[styles.statLabel, { color: "#78350F" }]}>Pending</Text>
+                        <Text style={[styles.statValue, { color: "#92400E" }]}>
+                            {stats.pending}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#78350F" }]}>
+                            Pending
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardCheckedIn]}>
-                        <Text style={[styles.statValue, { color: "#1E3A8A" }]}>{stats.checked_in}</Text>
-                        <Text style={[styles.statLabel, { color: "#1E40AF" }]}>Checked In</Text>
+                        <Text style={[styles.statValue, { color: "#1E3A8A" }]}>
+                            {stats.checked_in}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#1E40AF" }]}>
+                            Checked In
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardConfirmed]}>
-                        <Text style={[styles.statValue, { color: "#065F46" }]}>{stats.confirmed}</Text>
-                        <Text style={[styles.statLabel, { color: "#047857" }]}>Confirmed</Text>
+                        <Text style={[styles.statValue, { color: "#065F46" }]}>
+                            {stats.confirmed}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#047857" }]}>
+                            Confirmed
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardCancelled]}>
-                        <Text style={[styles.statValue, { color: "#991B1B" }]}>{stats.cancelled}</Text>
-                        <Text style={[styles.statLabel, { color: "#B91C1C" }]}>Cancelled</Text>
+                        <Text style={[styles.statValue, { color: "#991B1B" }]}>
+                            {stats.cancelled}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#B91C1C" }]}>
+                            Cancelled
+                        </Text>
                     </View>
                     <View style={[styles.statCard, styles.statCardPriority]}>
-                        <Text style={[styles.statValue, { color: "#5B21B6" }]}>{stats.priority}</Text>
-                        <Text style={[styles.statLabel, { color: "#6D28D9" }]}>Priority</Text>
+                        <Text style={[styles.statValue, { color: "#5B21B6" }]}>
+                            {stats.priority}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: "#6D28D9" }]}>
+                            Priority
+                        </Text>
                     </View>
                 </View>
             )}
@@ -335,10 +453,16 @@ export default function WalkInScreen() {
                     style={styles.pickerButton}
                     onPress={() => setShowDatePicker(true)}
                 >
-                    <Calendar size={14} color="#6B7280" style={{ marginRight: 6 }} />
+                    <Calendar
+                        size={14}
+                        color="#6B7280"
+                        style={{ marginRight: 6 }}
+                    />
                     <Text style={styles.pickerButtonText} numberOfLines={1}>
                         {selectedDate.toLocaleDateString("en-US", {
-                            month: "short", day: "numeric", year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
                         })}
                     </Text>
                     <ChevronDown color="#6B7280" size={16} />
@@ -357,13 +481,41 @@ export default function WalkInScreen() {
             {/* Queue type legend — matches appointments */}
             <View style={styles.legendCard}>
                 <View style={styles.legendRow}>
-                    <View style={[styles.legendItem, { backgroundColor: "#D1FAE5", borderColor: "#6EE7B7" }]}>
-                        <Text style={[styles.legendTitle, { color: "#065F46" }]}>PW — Priority Walk-in</Text>
-                        <Text style={[styles.legendSub, { color: "#047857" }]}>Verified demographic priority walk-in</Text>
+                    <View
+                        style={[
+                            styles.legendItem,
+                            {
+                                backgroundColor: "#D1FAE5",
+                                borderColor: "#6EE7B7",
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[styles.legendTitle, { color: "#065F46" }]}
+                        >
+                            PW — Priority Walk-in
+                        </Text>
+                        <Text style={[styles.legendSub, { color: "#047857" }]}>
+                            Verified demographic priority walk-in
+                        </Text>
                     </View>
-                    <View style={[styles.legendItem, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
-                        <Text style={[styles.legendTitle, { color: "#374151" }]}>W — Regular Walk-in</Text>
-                        <Text style={[styles.legendSub, { color: "#4B5563" }]}>Standard walk-in without priority</Text>
+                    <View
+                        style={[
+                            styles.legendItem,
+                            {
+                                backgroundColor: "#F3F4F6",
+                                borderColor: "#D1D5DB",
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[styles.legendTitle, { color: "#374151" }]}
+                        >
+                            W — Regular Walk-in
+                        </Text>
+                        <Text style={[styles.legendSub, { color: "#4B5563" }]}>
+                            Standard walk-in without priority
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -371,58 +523,98 @@ export default function WalkInScreen() {
             {error && (
                 <View style={styles.errorContainer}>
                     <AlertCircle color="#EF4444" size={36} />
-                    <Text style={styles.errorTitle}>Unable to load walk-ins</Text>
+                    <Text style={styles.errorTitle}>
+                        Unable to load walk-ins
+                    </Text>
                     <Text style={styles.errorMessage}>{error}</Text>
                     <TouchableOpacity
                         style={styles.retryBtn}
-                        onPress={() => { setError(null); fetchWalkIns(selectedDate); }}
+                        onPress={() => {
+                            setError(null);
+                            fetchWalkIns(selectedDate);
+                        }}
                     >
                         <Text style={styles.retryBtnText}>Retry</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-            {!error && (loading ? (
-                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
-                    <ActivityIndicator size="large" color="#ac3434" style={{ marginTop: 40 }} />
-                </View>
-            ) : (
-                <FlatList
-                    style={{ flex: 1 }}
-                    data={walkIns}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#ac3434"]} />
-                    }
-                    contentContainerStyle={styles.list}
-                    ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <CalendarX size={40} color="#D1D5DB" />
-                            <Text style={styles.emptyText}>No walk-ins found</Text>
-                            <Text style={{ fontSize: 13, color: "#9CA3AF", textAlign: "center", marginTop: 4 }}>
-                                No walk-in registrations for this date
-                            </Text>
-                        </View>
-                    }
-                />
-            ))}
+            {!error &&
+                (loading ? (
+                    <View
+                        style={{
+                            flex: 1,
+                            paddingHorizontal: 16,
+                            paddingTop: 8,
+                        }}
+                    >
+                        <ActivityIndicator
+                            size="large"
+                            color="#ac3434"
+                            style={{ marginTop: 40 }}
+                        />
+                    </View>
+                ) : (
+                    <FlatList
+                        style={{ flex: 1 }}
+                        data={walkIns}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={renderItem}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                colors={["#ac3434"]}
+                            />
+                        }
+                        contentContainerStyle={styles.list}
+                        ListEmptyComponent={
+                            <View style={styles.empty}>
+                                <CalendarX size={40} color="#D1D5DB" />
+                                <Text style={styles.emptyText}>
+                                    No walk-ins found
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 13,
+                                        color: "#9CA3AF",
+                                        textAlign: "center",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    No walk-in registrations for this date
+                                </Text>
+                            </View>
+                        }
+                    />
+                ))}
 
             {/* In-app ID image viewer */}
             <Modal
                 visible={idViewer.visible}
                 transparent
                 animationType="fade"
-                onRequestClose={() => setIdViewer({ visible: false, url: null, name: null })}
+                onRequestClose={() =>
+                    setIdViewer({ visible: false, url: null, name: null })
+                }
             >
                 <View style={styles.idViewerOverlay}>
                     <View style={styles.idViewerBox}>
                         <View style={styles.idViewerHeader}>
-                            <Text style={styles.idViewerTitle} numberOfLines={1}>
+                            <Text
+                                style={styles.idViewerTitle}
+                                numberOfLines={1}
+                            >
                                 ID — {idViewer.name}
                             </Text>
                             <TouchableOpacity
-                                onPress={() => setIdViewer({ visible: false, url: null, name: null })}
+                                onPress={() =>
+                                    setIdViewer({
+                                        visible: false,
+                                        url: null,
+                                        name: null,
+                                    })
+                                }
                                 style={{ padding: 4 }}
                             >
                                 <X size={22} color="#6B7280" />
@@ -431,7 +623,7 @@ export default function WalkInScreen() {
                         {idViewer.url && (
                             <Image
                                 source={{
-                                    uri: idViewer.url.startsWith('http')
+                                    uri: idViewer.url.startsWith("http")
                                         ? idViewer.url
                                         : `${API_BASE_URL}/${idViewer.url}`,
                                 }}
@@ -459,8 +651,16 @@ export default function WalkInScreen() {
                         <View style={styles.priorityBox}>
                             <View style={styles.modalHeader}>
                                 <View>
-                                    <Text style={styles.modalTitle}>Change Priority</Text>
-                                    <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                    <Text style={styles.modalTitle}>
+                                        Change Priority
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#6B7280",
+                                            marginTop: 2,
+                                        }}
+                                    >
                                         {priorityModal?.patient_name}
                                     </Text>
                                 </View>
@@ -472,12 +672,15 @@ export default function WalkInScreen() {
                                 </TouchableOpacity>
                             </View>
                             {PRIORITY_OPTIONS.map((p) => {
-                                const isActive = priorityModal?.priority_category === p;
+                                const isActive =
+                                    priorityModal?.priority_category === p;
                                 const badge = pc(p);
                                 const descriptions: Record<string, string> = {
-                                    Regular: "Standard walk-in, served by arrival order",
+                                    Regular:
+                                        "Standard walk-in, served by arrival order",
                                     PWD: "Person with disability — served first",
-                                    "Senior Citizen": "60 years old and above — served first",
+                                    "Senior Citizen":
+                                        "60 years old and above — served first",
                                     Pregnant: "Pregnant patient — served first",
                                 };
                                 return (
@@ -485,30 +688,59 @@ export default function WalkInScreen() {
                                         key={p}
                                         style={[
                                             styles.priorityOption,
-                                            isActive && styles.priorityOptionActive,
+                                            isActive &&
+                                                styles.priorityOptionActive,
                                         ]}
                                         onPress={() => {
                                             if (isActive) return;
-                                            setPendingPriority({ walkIn: priorityModal!, newPriority: p });
+                                            setPendingPriority({
+                                                walkIn: priorityModal!,
+                                                newPriority: p,
+                                            });
                                             setPriorityModal(null);
                                         }}
                                         activeOpacity={0.7}
                                     >
-                                        <View style={[styles.priorityOptionDot, { backgroundColor: badge.bg, borderColor: badge.color }]} />
+                                        <View
+                                            style={[
+                                                styles.priorityOptionDot,
+                                                {
+                                                    backgroundColor: badge.bg,
+                                                    borderColor: badge.color,
+                                                },
+                                            ]}
+                                        />
                                         <View style={{ flex: 1 }}>
-                                            <Text style={[
-                                                styles.priorityOptionLabel,
-                                                isActive && { color: "#ac3434", fontWeight: "700" },
-                                            ]}>
+                                            <Text
+                                                style={[
+                                                    styles.priorityOptionLabel,
+                                                    isActive && {
+                                                        color: "#ac3434",
+                                                        fontWeight: "700",
+                                                    },
+                                                ]}
+                                            >
                                                 {p}
                                             </Text>
-                                            <Text style={styles.priorityOptionDesc}>
+                                            <Text
+                                                style={
+                                                    styles.priorityOptionDesc
+                                                }
+                                            >
                                                 {descriptions[p]}
                                             </Text>
                                         </View>
                                         {isActive && (
-                                            <View style={styles.priorityCheckmark}>
-                                                <Text style={styles.priorityCheckmarkText}>✓</Text>
+                                            <View
+                                                style={styles.priorityCheckmark}
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.priorityCheckmarkText
+                                                    }
+                                                >
+                                                    ✓
+                                                </Text>
                                             </View>
                                         )}
                                     </TouchableOpacity>
@@ -536,7 +768,9 @@ export default function WalkInScreen() {
                 message={`Check in ${confirmCheckIn?.patient_name}?\n\nRef: ${confirmCheckIn?.reference_number}`}
                 confirmText="Check In"
                 type="info"
-                onConfirm={() => confirmCheckIn && handleCheckIn(confirmCheckIn)}
+                onConfirm={() =>
+                    confirmCheckIn && handleCheckIn(confirmCheckIn)
+                }
                 onCancel={() => setConfirmCheckIn(null)}
             />
 
@@ -555,19 +789,6 @@ export default function WalkInScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#F9FAFB" },
-    // Header — matches appointments
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: "#fff",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
     // Stats grid — matches appointments
     statsGrid: {
         flexDirection: "row",
@@ -590,12 +811,36 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 1,
     },
-    statCardTotal:     { backgroundColor: "#fff",    borderWidth: 1, borderColor: "#E5E7EB" },
-    statCardPending:   { backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A" },
-    statCardCheckedIn: { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE" },
-    statCardConfirmed: { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" },
-    statCardCancelled: { backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" },
-    statCardPriority:  { backgroundColor: "#F5F3FF", borderWidth: 1, borderColor: "#DDD6FE" },
+    statCardTotal: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    statCardPending: {
+        backgroundColor: "#FFFBEB",
+        borderWidth: 1,
+        borderColor: "#FDE68A",
+    },
+    statCardCheckedIn: {
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+    },
+    statCardConfirmed: {
+        backgroundColor: "#ECFDF5",
+        borderWidth: 1,
+        borderColor: "#A7F3D0",
+    },
+    statCardCancelled: {
+        backgroundColor: "#FEF2F2",
+        borderWidth: 1,
+        borderColor: "#FECACA",
+    },
+    statCardPriority: {
+        backgroundColor: "#F5F3FF",
+        borderWidth: 1,
+        borderColor: "#DDD6FE",
+    },
     statValue: { fontSize: 22, fontWeight: "700", color: "#111827" },
     statLabel: { fontSize: 11, color: "#6B7280", marginTop: 2 },
     // Filter row — matches appointments
@@ -729,7 +974,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    idViewerTitle: { fontSize: 15, fontWeight: "700", color: "#111827", flex: 1, marginRight: 8 },
+    idViewerTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#111827",
+        flex: 1,
+        marginRight: 8,
+    },
     idViewerImage: { width: "100%", height: 300, backgroundColor: "#F3F4F6" },
     // Error
     errorContainer: {
@@ -739,7 +990,12 @@ const styles = StyleSheet.create({
         padding: 32,
         gap: 12,
     },
-    errorTitle: { fontSize: 17, fontWeight: "600", color: "#111827", textAlign: "center" },
+    errorTitle: {
+        fontSize: 17,
+        fontWeight: "600",
+        color: "#111827",
+        textAlign: "center",
+    },
     errorMessage: { fontSize: 14, color: "#6B7280", textAlign: "center" },
     retryBtn: {
         marginTop: 4,
