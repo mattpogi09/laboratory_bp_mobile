@@ -1,5 +1,5 @@
 import { AlertCircle, History } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -34,31 +34,75 @@ export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
     const [data, setData] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
 
-    const load = async (isRefresh = false) => {
-        if (isRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
-        setError(null);
-        try {
-            const response = await api.get("/inventory/transactions");
-            setData(
-                Array.isArray(response.data.data) ? response.data.data : [],
-            );
-        } catch (err: any) {
-            setError(getApiErrorMessage(err, "Failed to load transactions."));
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
+    const load = useCallback(
+        async ({
+            page = 1,
+            append = false,
+            isRefresh = false,
+        }: {
+            page?: number;
+            append?: boolean;
+            isRefresh?: boolean;
+        } = {}) => {
+            if (isRefresh) {
+                setRefreshing(true);
+            } else if (append) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+            }
+
+            if (!append) {
+                setError(null);
+            }
+
+            try {
+                const response = await api.get("/inventory/transactions", {
+                    params: { page },
+                });
+
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : [];
+                const pagination = response.data.pagination || {};
+
+                setData((prev) => (append ? [...prev, ...rows] : rows));
+                setCurrentPage(pagination.current_page ?? page);
+                setLastPage(pagination.last_page ?? page);
+            } catch (err: any) {
+                if (!append) {
+                    setError(
+                        getApiErrorMessage(err, "Failed to load transactions."),
+                    );
+                }
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
+                setLoadingMore(false);
+            }
+        },
+        [],
+    );
+
+    const handleLoadMore = useCallback(() => {
+        if (loading || refreshing || loadingMore) return;
+        if (currentPage >= lastPage) return;
+
+        load({ page: currentPage + 1, append: true });
+    }, [currentPage, lastPage, load, loading, refreshing, loadingMore]);
+
+    const handleRefresh = useCallback(() => {
+        load({ page: 1, isRefresh: true });
+    }, [load]);
 
     useEffect(() => {
-        load();
-    }, [refreshTrigger]);
+        load({ page: 1 });
+    }, [refreshTrigger, load]);
 
     if (loading) {
         return (
@@ -73,9 +117,14 @@ export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
         return (
             <View style={styles.center}>
                 <AlertCircle color="#EF4444" size={36} />
-                <Text style={styles.errorTitle}>Failed to load transactions</Text>
+                <Text style={styles.errorTitle}>
+                    Failed to load transactions
+                </Text>
                 <Text style={styles.errorMessage}>{error}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+                <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={() => load({ page: 1 })}
+                >
                     <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
             </View>
@@ -96,10 +145,19 @@ export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
                     <Text style={styles.emptyTitle}>No transactions found</Text>
                 </View>
             }
+            ListFooterComponent={
+                loadingMore ? (
+                    <View style={{ paddingVertical: 12 }}>
+                        <ActivityIndicator color="#ac3434" />
+                    </View>
+                ) : null
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
             refreshControl={
                 <RefreshControl
                     refreshing={refreshing}
-                    onRefresh={() => load(true)}
+                    onRefresh={handleRefresh}
                 />
             }
             renderItem={({ item }) => (
@@ -166,8 +224,8 @@ export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
 const styles = StyleSheet.create({
     center: {
         flex: 1,
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
         padding: 40,
         gap: 12,
     },

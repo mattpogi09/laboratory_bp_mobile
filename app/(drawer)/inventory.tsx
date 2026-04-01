@@ -5071,6 +5071,10 @@ const batchStyles = StyleSheet.create({
 function BatchIssuesTab() {
     const [batches, setBatches] = useState<InventoryBatch[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
     const [successDialog, setSuccessDialog] = useState({
         visible: false,
         title: "",
@@ -5081,22 +5085,60 @@ function BatchIssuesTab() {
     const [flagReasonError, setFlagReasonError] = useState("");
     const [flagBatch, setFlagBatch] = useState<InventoryBatch | null>(null);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const r = await api.get("/inventory/batch-issues");
-            setBatches(r.data.data ?? []);
-        } catch {
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const load = useCallback(
+        async ({
+            page = 1,
+            append = false,
+            isRefresh = false,
+        }: {
+            page?: number;
+            append?: boolean;
+            isRefresh?: boolean;
+        } = {}) => {
+            if (isRefresh) {
+                setRefreshing(true);
+            } else if (append) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+            }
+
+            try {
+                const r = await api.get("/inventory/batch-issues", {
+                    params: { page },
+                });
+                const rows = r.data.data ?? [];
+                const meta = r.data.meta ?? {};
+
+                setBatches((prev) => (append ? [...prev, ...rows] : rows));
+                setCurrentPage(meta.current_page ?? page);
+                setLastPage(meta.last_page ?? page);
+            } catch {
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
+                setLoadingMore(false);
+            }
+        },
+        [],
+    );
 
     useFocusEffect(
         useCallback(() => {
-            load();
+            load({ page: 1 });
         }, [load]),
     );
+
+    const handleLoadMore = useCallback(() => {
+        if (loading || refreshing || loadingMore) return;
+        if (currentPage >= lastPage) return;
+
+        load({ page: currentPage + 1, append: true });
+    }, [currentPage, lastPage, load, loading, refreshing, loadingMore]);
+
+    const handleRefresh = useCallback(() => {
+        load({ page: 1, isRefresh: true });
+    }, [load]);
 
     const handleFlag = (batch: InventoryBatch) => {
         setFlagBatch(batch);
@@ -5125,7 +5167,7 @@ function BatchIssuesTab() {
                 message: "Batch flagged as unusable",
                 type: "success",
             });
-            load();
+            load({ page: 1 });
         } catch (e: any) {
             setSuccessDialog({
                 visible: true,
@@ -5136,7 +5178,7 @@ function BatchIssuesTab() {
         }
     };
 
-    if (loading)
+    if (loading && !refreshing)
         return (
             <View style={styles.emptyState}>
                 <ActivityIndicator color="#ac3434" />
@@ -5159,6 +5201,21 @@ function BatchIssuesTab() {
                             No expired or unusable batches found.
                         </Text>
                     </View>
+                }
+                ListFooterComponent={
+                    loadingMore ? (
+                        <View style={{ paddingVertical: 12 }}>
+                            <ActivityIndicator color="#ac3434" />
+                        </View>
+                    ) : null
+                }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                    />
                 }
                 contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
             />
@@ -5243,27 +5300,67 @@ function BatchIssuesTab() {
 function ExpiringSoonTab() {
     const [batches, setBatches] = useState<InventoryBatch[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const r = await api.get("/inventory/expiring-soon", {
-                params: { days: 30 },
-            });
-            setBatches(r.data.data ?? []);
-        } catch {
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const load = useCallback(
+        async ({
+            page = 1,
+            append = false,
+            isRefresh = false,
+        }: {
+            page?: number;
+            append?: boolean;
+            isRefresh?: boolean;
+        } = {}) => {
+            if (isRefresh) {
+                setRefreshing(true);
+            } else if (append) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+            }
+
+            try {
+                const r = await api.get("/inventory/expiring-soon", {
+                    params: { days: 30, page },
+                });
+                const rows = r.data.data ?? [];
+                const meta = r.data.meta ?? {};
+
+                setBatches((prev) => (append ? [...prev, ...rows] : rows));
+                setCurrentPage(meta.current_page ?? page);
+                setLastPage(meta.last_page ?? page);
+            } catch {
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
+                setLoadingMore(false);
+            }
+        },
+        [],
+    );
 
     useFocusEffect(
         useCallback(() => {
-            load();
+            load({ page: 1 });
         }, [load]),
     );
 
-    if (loading)
+    const handleLoadMore = useCallback(() => {
+        if (loading || refreshing || loadingMore) return;
+        if (currentPage >= lastPage) return;
+
+        load({ page: currentPage + 1, append: true });
+    }, [currentPage, lastPage, load, loading, refreshing, loadingMore]);
+
+    const handleRefresh = useCallback(() => {
+        load({ page: 1, isRefresh: true });
+    }, [load]);
+
+    if (loading && !refreshing)
         return (
             <View style={styles.emptyState}>
                 <ActivityIndicator color="#ac3434" />
@@ -5283,6 +5380,21 @@ function ExpiringSoonTab() {
                         No batches expiring within 30 days.
                     </Text>
                 </View>
+            }
+            ListFooterComponent={
+                loadingMore ? (
+                    <View style={{ paddingVertical: 12 }}>
+                        <ActivityIndicator color="#ac3434" />
+                    </View>
+                ) : null
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                />
             }
             contentContainerStyle={{ padding: 20, paddingBottom: 64 }}
         />
