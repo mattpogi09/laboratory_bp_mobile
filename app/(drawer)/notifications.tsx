@@ -777,9 +777,7 @@ export default function NotificationsScreen() {
 
             {/* Header */}
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Bell size={22} color="#ac3434" />
-                    <Text style={styles.headerTitle}>Notifications</Text>
+                <View style={styles.headerRight}>
                     {stats && stats.unread > 0 ? (
                         <View style={styles.unreadBadge}>
                             <Text style={styles.unreadBadgeText}>
@@ -787,8 +785,6 @@ export default function NotificationsScreen() {
                             </Text>
                         </View>
                     ) : null}
-                </View>
-                <View style={styles.headerRight}>
                     <TouchableOpacity
                         style={styles.headerBtn}
                         onPress={handleMarkAllRead}
@@ -981,7 +977,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "flex-end",
         paddingHorizontal: 16,
         paddingVertical: 12,
         backgroundColor: "#fff",

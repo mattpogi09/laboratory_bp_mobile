@@ -66,7 +66,13 @@ export default function SettingsScreen() {
         onConfirm: async () => {},
     });
 
-    const [userManuals, setUserManuals] = useState<{ role: string; original_filename: string | null; file_url: string | null }[]>([]);
+    const [userManuals, setUserManuals] = useState<
+        {
+            role: string;
+            original_filename: string | null;
+            file_url: string | null;
+        }[]
+    >([]);
     const [uploadingManual, setUploadingManual] = useState<string | null>(null);
 
     const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -91,7 +97,7 @@ export default function SettingsScreen() {
         useCallback(() => {
             loadSettings();
             SecureStore.getItemAsync("biometric_enabled").then((val) =>
-                setBiometricEnabled(val === "true")
+                setBiometricEnabled(val === "true"),
             );
         }, [loadSettings]),
     );
@@ -121,12 +127,18 @@ export default function SettingsScreen() {
             return;
         }
 
-        const supported = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        if (!supported.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        const supported =
+            await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (
+            !supported.includes(
+                LocalAuthentication.AuthenticationType.FINGERPRINT,
+            )
+        ) {
             setSuccessDialog({
                 visible: true,
                 title: "Not Supported",
-                message: "This app only supports fingerprint. Your device does not have a fingerprint sensor.",
+                message:
+                    "This app only supports fingerprint. Your device does not have a fingerprint sensor.",
                 type: "error",
             });
             return;
@@ -137,7 +149,8 @@ export default function SettingsScreen() {
             setSuccessDialog({
                 visible: true,
                 title: "No Fingerprint Enrolled",
-                message: "No fingerprint enrolled on your device. Please go to Phone Settings > Biometrics > Fingerprint and add your fingerprint first.",
+                message:
+                    "No fingerprint enrolled on your device. Please go to Phone Settings > Biometrics > Fingerprint and add your fingerprint first.",
                 type: "warning",
             });
             return;
@@ -155,7 +168,10 @@ export default function SettingsScreen() {
             // This token survives logout unlike the session token
             try {
                 const res = await api.post("/biometric-token");
-                await SecureStore.setItemAsync("auth_token", res.data.biometric_token);
+                await SecureStore.setItemAsync(
+                    "auth_token",
+                    res.data.biometric_token,
+                );
             } catch {
                 // Fallback to context token if endpoint fails
                 if (token) {
@@ -184,13 +200,15 @@ export default function SettingsScreen() {
         try {
             setSaving(true);
             await api.post("/settings", {
-                patient_portal_enabled:     settings.patient_portal_enabled     ? 1 : 0,
-                email_sending_enabled:      settings.email_sending_enabled      ? 1 : 0,
-                email_notification_enabled: settings.email_notification_enabled ? 1 : 0,
-                notification_enabled:       settings.notification_enabled       ? 1 : 0,
-                pdf_password_format:        settings.pdf_password_format,
-                pathologist_user_id:        settings.pathologist_user_id ?? null,
-                chief_med_tech_user_id:     settings.chief_med_tech_user_id ?? null,
+                patient_portal_enabled: settings.patient_portal_enabled ? 1 : 0,
+                email_sending_enabled: settings.email_sending_enabled ? 1 : 0,
+                email_notification_enabled: settings.email_notification_enabled
+                    ? 1
+                    : 0,
+                notification_enabled: settings.notification_enabled ? 1 : 0,
+                pdf_password_format: settings.pdf_password_format,
+                pathologist_user_id: settings.pathologist_user_id ?? null,
+                chief_med_tech_user_id: settings.chief_med_tech_user_id ?? null,
             });
             setSuccessDialog({
                 visible: true,
@@ -211,28 +229,53 @@ export default function SettingsScreen() {
     };
 
     const handleUploadManual = async (role: string) => {
-        const result = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
+        const result = await DocumentPicker.getDocumentAsync({
+            type: "application/pdf",
+            copyToCacheDirectory: true,
+        });
         if (result.canceled) return;
         const asset = result.assets[0];
         const formData = new FormData();
         formData.append("role", role);
-        formData.append("file", { uri: asset.uri, type: "application/pdf", name: asset.name } as any);
+        formData.append("file", {
+            uri: asset.uri,
+            type: "application/pdf",
+            name: asset.name,
+        } as any);
         setUploadingManual(role);
         try {
-            await api.post("/user-manuals/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
-            setSuccessDialog({ visible: true, title: "Uploaded", message: "Manual uploaded successfully.", type: "success" });
+            await api.post("/user-manuals/upload", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            setSuccessDialog({
+                visible: true,
+                title: "Uploaded",
+                message: "Manual uploaded successfully.",
+                type: "success",
+            });
             loadSettings();
         } catch (err: any) {
-            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to upload manual."), type: "error" });
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: getApiErrorMessage(err, "Failed to upload manual."),
+                type: "error",
+            });
         } finally {
             setUploadingManual(null);
         }
     };
 
     const handleUploadLogo = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-            setSuccessDialog({ visible: true, title: "Permission Required", message: "Allow access to your photo library to upload a logo.", type: "warning" });
+            setSuccessDialog({
+                visible: true,
+                title: "Permission Required",
+                message: "Allow access to your photo library to upload a logo.",
+                type: "warning",
+            });
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -244,15 +287,31 @@ export default function SettingsScreen() {
         if (result.canceled) return;
         const asset = result.assets[0];
         const formData = new FormData();
-        formData.append("signature", { uri: asset.uri, type: asset.mimeType || "image/jpeg", name: asset.uri.split("/").pop() || "logo.jpg" } as any);
+        formData.append("signature", {
+            uri: asset.uri,
+            type: asset.mimeType || "image/jpeg",
+            name: asset.uri.split("/").pop() || "logo.jpg",
+        } as any);
         formData.append("type", "header_logo");
         setUploadingSignature("header_logo");
         try {
-            await api.post("/settings/upload-signature", formData, { headers: { "Content-Type": "multipart/form-data" } });
-            setSuccessDialog({ visible: true, title: "Uploaded", message: "Clinic logo uploaded successfully.", type: "success" });
+            await api.post("/settings/upload-signature", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            setSuccessDialog({
+                visible: true,
+                title: "Uploaded",
+                message: "Clinic logo uploaded successfully.",
+                type: "success",
+            });
             loadSettings();
         } catch (err: any) {
-            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to upload logo."), type: "error" });
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: getApiErrorMessage(err, "Failed to upload logo."),
+                type: "error",
+            });
         } finally {
             setUploadingSignature(null);
         }
@@ -268,11 +327,26 @@ export default function SettingsScreen() {
             onConfirm: async () => {
                 setConfirmDialog((d) => ({ ...d, visible: false }));
                 try {
-                    await api.post("/settings/remove-signature", { type: "header_logo" });
-                    setSuccessDialog({ visible: true, title: "Removed", message: "Clinic logo removed.", type: "success" });
+                    await api.post("/settings/remove-signature", {
+                        type: "header_logo",
+                    });
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Removed",
+                        message: "Clinic logo removed.",
+                        type: "success",
+                    });
                     loadSettings();
                 } catch (err: any) {
-                    setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to remove logo."), type: "error" });
+                    setSuccessDialog({
+                        visible: true,
+                        title: "Error",
+                        message: getApiErrorMessage(
+                            err,
+                            "Failed to remove logo.",
+                        ),
+                        type: "error",
+                    });
                 }
             },
         });
@@ -388,7 +462,9 @@ export default function SettingsScreen() {
             <View style={styles.errorContainer}>
                 <AlertCircle color="#EF4444" size={36} />
                 <Text style={styles.errorTitle}>Unable to load settings</Text>
-                <Text style={styles.errorMessage}>{loadError ?? "Settings could not be loaded."}</Text>
+                <Text style={styles.errorMessage}>
+                    {loadError ?? "Settings could not be loaded."}
+                </Text>
                 <TouchableOpacity
                     style={styles.retryBtn}
                     onPress={() => {
@@ -409,313 +485,156 @@ export default function SettingsScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Admin-only: System Settings, PDF format, signatures */}
-                {user?.role === "admin" && settings && (<>
-
-                {/* Header */}
-                <View style={styles.sectionHeader}>
-                    <Settings2 size={18} color="#ac3434" />
-                    <Text style={styles.sectionTitle}>System Settings</Text>
-                </View>
-
-                {/* Toggles */}
-                <View style={styles.card}>
-                    {[
-                        {
-                            key: "patient_portal_enabled" as const,
-                            label: "Patient Portal",
-                            desc: "Enable/disable public booking, walk-in & results tracking",
-                        },
-                        {
-                            key: "email_sending_enabled" as const,
-                            label: "Email Sending",
-                            desc: "Enable/disable all outbound emails",
-                        },
-                        {
-                            key: "email_notification_enabled" as const,
-                            label: "Email Notifications",
-                            desc: "Send email alerts to users",
-                        },
-                        {
-                            key: "notification_enabled" as const,
-                            label: "In-App Notifications",
-                            desc: "Show in-app notification banners",
-                        },
-                    ].map(({ key, label, desc }, idx, arr) => (
-                        <View
-                            key={key}
-                            style={[
-                                styles.toggleRow,
-                                idx < arr.length - 1 && styles.rowBorder,
-                            ]}
-                        >
-                            <View style={styles.toggleInfo}>
-                                <Text style={styles.toggleLabel}>{label}</Text>
-                                <Text style={styles.toggleDesc}>{desc}</Text>
-                            </View>
-                            <Switch
-                                value={!!settings[key]}
-                                onValueChange={(v) =>
-                                    setSettings((s) =>
-                                        s ? { ...s, [key]: v } : s,
-                                    )
-                                }
-                                trackColor={{
-                                    false: "#E5E7EB",
-                                    true: "#ac343480",
-                                }}
-                                thumbColor={
-                                    settings[key] ? "#ac3434" : "#9CA3AF"
-                                }
-                            />
-                        </View>
-                    ))}
-                </View>
-
-                {/* PDF Password Format */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>PDF Password Format</Text>
-                </View>
-                <View style={styles.card}>
-                    {PDF_OPTIONS.map((opt, idx, arr) => (
-                        <TouchableOpacity
-                            key={opt.value}
-                            style={[
-                                styles.radioRow,
-                                idx < arr.length - 1 && styles.rowBorder,
-                            ]}
-                            onPress={() =>
-                                setSettings((s) =>
-                                    s
-                                        ? {
-                                              ...s,
-                                              pdf_password_format:
-                                                  opt.value as any,
-                                          }
-                                        : s,
-                                )
-                            }
-                        >
-                            <View
-                                style={[
-                                    styles.radioCircle,
-                                    settings.pdf_password_format ===
-                                        opt.value && styles.radioCircleSelected,
-                                ]}
-                            >
-                                {settings.pdf_password_format === opt.value && (
-                                    <View style={styles.radioInner} />
-                                )}
-                            </View>
-                            <Text style={styles.radioLabel}>{opt.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Lab Personnel Signatures — all lab staff by rank */}
-                {labStaff.length > 0 && (
+                {user?.role === "admin" && settings && (
                     <>
-                        {/* Clinic Header Logo */}
+                        {/* Header */}
                         <View style={styles.sectionHeader}>
-                            <ImageIcon size={18} color="#ac3434" />
-                            <Text style={styles.sectionTitle}>Clinic Header Logo</Text>
-                        </View>
-                        <View style={styles.card}>
-                            <View style={[styles.toggleRow]}>
-                                <View style={styles.toggleInfo}>
-                                    <Text style={styles.toggleLabel}>Header Logo</Text>
-                                    <Text style={styles.toggleDesc}>
-                                        {settings.clinic_header_logo_exists ? "Logo uploaded" : "No logo uploaded"}
-                                    </Text>
-                                </View>
-                                <View style={{ flexDirection: "row", gap: 8 }}>
-                                    {settings.clinic_header_logo_exists && (
-                                        <TouchableOpacity style={styles.removeBtn} onPress={handleRemoveLogo}>
-                                            <Text style={styles.removeBtnText}>Remove</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                    <TouchableOpacity
-                                        style={[styles.uploadBtn, uploadingSignature === "header_logo" && styles.uploadBtnDisabled]}
-                                        onPress={handleUploadLogo}
-                                        disabled={uploadingSignature === "header_logo"}
-                                    >
-                                        {uploadingSignature === "header_logo"
-                                            ? <ActivityIndicator size="small" color="#fff" />
-                                            : <Upload size={13} color="#fff" />}
-                                        <Text style={styles.uploadBtnText}>
-                                            {settings.clinic_header_logo_exists ? "Replace" : "Upload"}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            <Settings2 size={18} color="#ac3434" />
+                            <Text style={styles.sectionTitle}>
+                                System Settings
+                            </Text>
                         </View>
 
-                        {/* Report Signatories */}
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Report Signatories</Text>
-                        </View>
-                        <Text style={styles.uploadHint}>
-                            Override which lab staff fills each signature slot on printed PDFs.
-                            Leave blank to auto-select by role.
-                        </Text>
+                        {/* Toggles */}
                         <View style={styles.card}>
                             {[
-                                { key: "pathologist_user_id" as const, label: "Pathologist Signatory", desc: "Left signature on PDF" },
-                                { key: "chief_med_tech_user_id" as const, label: "Chief MedTech Signatory", desc: "Middle signature on PDF" },
+                                {
+                                    key: "patient_portal_enabled" as const,
+                                    label: "Patient Portal",
+                                    desc: "Enable/disable public booking, walk-in & results tracking",
+                                },
+                                {
+                                    key: "email_sending_enabled" as const,
+                                    label: "Email Sending",
+                                    desc: "Enable/disable all outbound emails",
+                                },
+                                {
+                                    key: "email_notification_enabled" as const,
+                                    label: "Email Notifications",
+                                    desc: "Send email alerts to users",
+                                },
+                                {
+                                    key: "notification_enabled" as const,
+                                    label: "In-App Notifications",
+                                    desc: "Show in-app notification banners",
+                                },
                             ].map(({ key, label, desc }, idx, arr) => (
-                                <View key={key} style={[styles.toggleRow, idx < arr.length - 1 && styles.rowBorder]}>
+                                <View
+                                    key={key}
+                                    style={[
+                                        styles.toggleRow,
+                                        idx < arr.length - 1 &&
+                                            styles.rowBorder,
+                                    ]}
+                                >
                                     <View style={styles.toggleInfo}>
-                                        <Text style={styles.toggleLabel}>{label}</Text>
-                                        <Text style={styles.toggleDesc}>{desc}</Text>
+                                        <Text style={styles.toggleLabel}>
+                                            {label}
+                                        </Text>
+                                        <Text style={styles.toggleDesc}>
+                                            {desc}
+                                        </Text>
                                     </View>
-                                    <SignatoryPicker
-                                        labStaff={labStaff}
-                                        selectedId={settings[key] ?? null}
-                                        onSelect={(id) => setSettings((s) => s ? { ...s, [key]: id } : s)}
+                                    <Switch
+                                        value={!!settings[key]}
+                                        onValueChange={(v) =>
+                                            setSettings((s) =>
+                                                s ? { ...s, [key]: v } : s,
+                                            )
+                                        }
+                                        trackColor={{
+                                            false: "#E5E7EB",
+                                            true: "#ac343480",
+                                        }}
+                                        thumbColor={
+                                            settings[key]
+                                                ? "#ac3434"
+                                                : "#9CA3AF"
+                                        }
                                     />
                                 </View>
                             ))}
                         </View>
 
+                        {/* PDF Password Format */}
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>
-                                Lab Personnel Signatures
+                                PDF Password Format
                             </Text>
                         </View>
-                        <Text style={styles.uploadHint}>
-                            All lab personnel are lab staff accounts. Name,
-                            license, and title are managed in User Management.
-                            PDF slot is set by each person's role.
-                        </Text>
-                        {labStaff.map((u) => {
-                            const ROLE_STYLE: Record<
-                                string,
-                                {
-                                    color: string;
-                                    bg: string;
-                                    border: string;
-                                    label: string;
-                                }
-                            > = {
-                                pathologist: {
-                                    color: "#4338CA",
-                                    bg: "#EEF2FF",
-                                    border: "#C7D2FE",
-                                    label: "Pathologist · Left Signature",
-                                },
-                                chief_med_tech: {
-                                    color: "#1D4ED8",
-                                    bg: "#EFF6FF",
-                                    border: "#BFDBFE",
-                                    label: "Chief Medical Technologist · Middle Signature",
-                                },
-                                staff: {
-                                    color: "#059669",
-                                    bg: "#ECFDF5",
-                                    border: "#A7F3D0",
-                                    label: "Lab Staff",
-                                },
-                            };
-                            const rs =
-                                ROLE_STYLE[u.lab_role ?? "staff"] ??
-                                ROLE_STYLE.staff;
-                            const uploading =
-                                uploadingSignature === `lab_staff_${u.id}`;
-                            return (
-                                <View
-                                    key={u.id}
+                        <View style={styles.card}>
+                            {PDF_OPTIONS.map((opt, idx, arr) => (
+                                <TouchableOpacity
+                                    key={opt.value}
                                     style={[
-                                        styles.personnelCard,
-                                        {
-                                            backgroundColor: rs.bg,
-                                            borderColor: rs.border,
-                                        },
+                                        styles.radioRow,
+                                        idx < arr.length - 1 &&
+                                            styles.rowBorder,
                                     ]}
+                                    onPress={() =>
+                                        setSettings((s) =>
+                                            s
+                                                ? {
+                                                      ...s,
+                                                      pdf_password_format:
+                                                          opt.value as any,
+                                                  }
+                                                : s,
+                                        )
+                                    }
                                 >
-                                    {/* Role badge + name row */}
-                                    <View style={styles.personnelHeader}>
-                                        <View
-                                            style={[
-                                                styles.roleBadge,
-                                                { borderColor: rs.border },
-                                            ]}
-                                        >
-                                            <Text
-                                                style={[
-                                                    styles.roleBadgeText,
-                                                    { color: rs.color },
-                                                ]}
-                                            >
-                                                {rs.label}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    {/* Read-only info */}
-                                    <Text
+                                    <View
                                         style={[
-                                            styles.personnelName,
-                                            { color: rs.color },
+                                            styles.radioCircle,
+                                            settings.pdf_password_format ===
+                                                opt.value &&
+                                                styles.radioCircleSelected,
                                         ]}
                                     >
-                                        {u.name}
-                                    </Text>
-                                    {u.professional_title ? (
-                                        <Text style={styles.personnelSub}>
-                                            {u.professional_title}
-                                        </Text>
-                                    ) : null}
-                                    {u.license_number ? (
-                                        <Text style={styles.personnelSub}>
-                                            Lic: {u.license_number}
-                                        </Text>
-                                    ) : null}
-                                    {/* Signature row */}
-                                    <View style={styles.personnelSigRow}>
-                                        {u.has_signature ? (
-                                            <View style={styles.sigBadge}>
-                                                <CheckCircle2
-                                                    size={13}
-                                                    color="#22C55E"
-                                                />
-                                                <Text
-                                                    style={styles.sigBadgeText}
-                                                >
-                                                    Signature uploaded
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            <View
-                                                style={[
-                                                    styles.sigBadge,
-                                                    {
-                                                        backgroundColor:
-                                                            "#FEE2E2",
-                                                    },
-                                                ]}
-                                            >
-                                                <XCircle
-                                                    size={13}
-                                                    color="#EF4444"
-                                                />
-                                                <Text
-                                                    style={[
-                                                        styles.sigBadgeText,
-                                                        { color: "#EF4444" },
-                                                    ]}
-                                                >
-                                                    No signature
-                                                </Text>
-                                            </View>
+                                        {settings.pdf_password_format ===
+                                            opt.value && (
+                                            <View style={styles.radioInner} />
                                         )}
-                                        <View style={styles.sigActions}>
-                                            {u.has_signature && (
+                                    </View>
+                                    <Text style={styles.radioLabel}>
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Lab Personnel Signatures — all lab staff by rank */}
+                        {labStaff.length > 0 && (
+                            <>
+                                {/* Clinic Header Logo */}
+                                <View style={styles.sectionHeader}>
+                                    <ImageIcon size={18} color="#ac3434" />
+                                    <Text style={styles.sectionTitle}>
+                                        Clinic Header Logo
+                                    </Text>
+                                </View>
+                                <View style={styles.card}>
+                                    <View style={[styles.toggleRow]}>
+                                        <View style={styles.toggleInfo}>
+                                            <Text style={styles.toggleLabel}>
+                                                Header Logo
+                                            </Text>
+                                            <Text style={styles.toggleDesc}>
+                                                {settings.clinic_header_logo_exists
+                                                    ? "Logo uploaded"
+                                                    : "No logo uploaded"}
+                                            </Text>
+                                        </View>
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                gap: 8,
+                                            }}
+                                        >
+                                            {settings.clinic_header_logo_exists && (
                                                 <TouchableOpacity
                                                     style={styles.removeBtn}
-                                                    onPress={() =>
-                                                        handleRemoveSignature(
-                                                            "lab_staff",
-                                                            u.id,
-                                                        )
-                                                    }
+                                                    onPress={handleRemoveLogo}
                                                 >
                                                     <Text
                                                         style={
@@ -729,14 +648,373 @@ export default function SettingsScreen() {
                                             <TouchableOpacity
                                                 style={[
                                                     styles.uploadBtn,
+                                                    uploadingSignature ===
+                                                        "header_logo" &&
+                                                        styles.uploadBtnDisabled,
+                                                ]}
+                                                onPress={handleUploadLogo}
+                                                disabled={
+                                                    uploadingSignature ===
+                                                    "header_logo"
+                                                }
+                                            >
+                                                {uploadingSignature ===
+                                                "header_logo" ? (
+                                                    <ActivityIndicator
+                                                        size="small"
+                                                        color="#fff"
+                                                    />
+                                                ) : (
+                                                    <Upload
+                                                        size={13}
+                                                        color="#fff"
+                                                    />
+                                                )}
+                                                <Text
+                                                    style={styles.uploadBtnText}
+                                                >
+                                                    {settings.clinic_header_logo_exists
+                                                        ? "Replace"
+                                                        : "Upload"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {/* Report Signatories */}
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>
+                                        Report Signatories
+                                    </Text>
+                                </View>
+                                <Text style={styles.uploadHint}>
+                                    Override which lab staff fills each
+                                    signature slot on printed PDFs. Leave blank
+                                    to auto-select by role.
+                                </Text>
+                                <View style={styles.card}>
+                                    {[
+                                        {
+                                            key: "pathologist_user_id" as const,
+                                            label: "Pathologist Signatory",
+                                            desc: "Left signature on PDF",
+                                        },
+                                        {
+                                            key: "chief_med_tech_user_id" as const,
+                                            label: "Chief MedTech Signatory",
+                                            desc: "Middle signature on PDF",
+                                        },
+                                    ].map(({ key, label, desc }, idx, arr) => (
+                                        <View
+                                            key={key}
+                                            style={[
+                                                styles.toggleRow,
+                                                idx < arr.length - 1 &&
+                                                    styles.rowBorder,
+                                            ]}
+                                        >
+                                            <View style={styles.toggleInfo}>
+                                                <Text
+                                                    style={styles.toggleLabel}
+                                                >
+                                                    {label}
+                                                </Text>
+                                                <Text style={styles.toggleDesc}>
+                                                    {desc}
+                                                </Text>
+                                            </View>
+                                            <SignatoryPicker
+                                                labStaff={labStaff}
+                                                selectedId={
+                                                    settings[key] ?? null
+                                                }
+                                                onSelect={(id) =>
+                                                    setSettings((s) =>
+                                                        s
+                                                            ? {
+                                                                  ...s,
+                                                                  [key]: id,
+                                                              }
+                                                            : s,
+                                                    )
+                                                }
+                                            />
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>
+                                        Lab Personnel Signatures
+                                    </Text>
+                                </View>
+                                <Text style={styles.uploadHint}>
+                                    All lab personnel are lab staff accounts.
+                                    Name, license, and title are managed in User
+                                    Management. PDF slot is set by each person's
+                                    role.
+                                </Text>
+                                {labStaff.map((u) => {
+                                    const ROLE_STYLE: Record<
+                                        string,
+                                        {
+                                            color: string;
+                                            bg: string;
+                                            border: string;
+                                            label: string;
+                                        }
+                                    > = {
+                                        pathologist: {
+                                            color: "#4338CA",
+                                            bg: "#EEF2FF",
+                                            border: "#C7D2FE",
+                                            label: "Pathologist - Left Signature",
+                                        },
+                                        chief_med_tech: {
+                                            color: "#1D4ED8",
+                                            bg: "#EFF6FF",
+                                            border: "#BFDBFE",
+                                            label: "Chief Medical Technologist - Middle Signature",
+                                        },
+                                        staff: {
+                                            color: "#059669",
+                                            bg: "#ECFDF5",
+                                            border: "#A7F3D0",
+                                            label: "Lab Staff",
+                                        },
+                                    };
+                                    const rs =
+                                        ROLE_STYLE[u.lab_role ?? "staff"] ??
+                                        ROLE_STYLE.staff;
+                                    const uploading =
+                                        uploadingSignature ===
+                                        `lab_staff_${u.id}`;
+                                    return (
+                                        <View
+                                            key={u.id}
+                                            style={[
+                                                styles.personnelCard,
+                                                {
+                                                    backgroundColor: rs.bg,
+                                                    borderColor: rs.border,
+                                                },
+                                            ]}
+                                        >
+                                            {/* Role badge + name row */}
+                                            <View
+                                                style={styles.personnelHeader}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.roleBadge,
+                                                        {
+                                                            borderColor:
+                                                                rs.border,
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.roleBadgeText,
+                                                            { color: rs.color },
+                                                        ]}
+                                                    >
+                                                        {rs.label}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            {/* Read-only info */}
+                                            <Text
+                                                style={[
+                                                    styles.personnelName,
+                                                    { color: rs.color },
+                                                ]}
+                                            >
+                                                {u.name}
+                                            </Text>
+                                            {u.professional_title ? (
+                                                <Text
+                                                    style={styles.personnelSub}
+                                                >
+                                                    {u.professional_title}
+                                                </Text>
+                                            ) : null}
+                                            {u.license_number ? (
+                                                <Text
+                                                    style={styles.personnelSub}
+                                                >
+                                                    Lic: {u.license_number}
+                                                </Text>
+                                            ) : null}
+                                            {/* Signature row */}
+                                            <View
+                                                style={styles.personnelSigRow}
+                                            >
+                                                {u.has_signature ? (
+                                                    <View
+                                                        style={styles.sigBadge}
+                                                    >
+                                                        <CheckCircle2
+                                                            size={13}
+                                                            color="#22C55E"
+                                                        />
+                                                        <Text
+                                                            style={
+                                                                styles.sigBadgeText
+                                                            }
+                                                        >
+                                                            Signature uploaded
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <View
+                                                        style={[
+                                                            styles.sigBadge,
+                                                            {
+                                                                backgroundColor:
+                                                                    "#FEE2E2",
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <XCircle
+                                                            size={13}
+                                                            color="#EF4444"
+                                                        />
+                                                        <Text
+                                                            style={[
+                                                                styles.sigBadgeText,
+                                                                {
+                                                                    color: "#EF4444",
+                                                                },
+                                                            ]}
+                                                        >
+                                                            No signature
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                                <View style={styles.sigActions}>
+                                                    {u.has_signature && (
+                                                        <TouchableOpacity
+                                                            style={
+                                                                styles.removeBtn
+                                                            }
+                                                            onPress={() =>
+                                                                handleRemoveSignature(
+                                                                    "lab_staff",
+                                                                    u.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.removeBtnText
+                                                                }
+                                                            >
+                                                                Remove
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.uploadBtn,
+                                                            uploading &&
+                                                                styles.uploadBtnDisabled,
+                                                        ]}
+                                                        onPress={() =>
+                                                            handleUploadSignature(
+                                                                "lab_staff",
+                                                                u.id,
+                                                            )
+                                                        }
+                                                        disabled={uploading}
+                                                    >
+                                                        {uploading ? (
+                                                            <ActivityIndicator
+                                                                size="small"
+                                                                color="#fff"
+                                                            />
+                                                        ) : (
+                                                            <Upload
+                                                                size={13}
+                                                                color="#fff"
+                                                            />
+                                                        )}
+                                                        <Text
+                                                            style={
+                                                                styles.uploadBtnText
+                                                            }
+                                                        >
+                                                            {u.has_signature
+                                                                ? "Replace"
+                                                                : "Upload"}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </>
+                )}
+
+                {/* User Manuals — admin only: upload + manage */}
+                {user?.role === "admin" && (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <BookOpen size={18} color="#EA580C" />
+                            <Text style={styles.sectionTitle}>
+                                User Manuals
+                            </Text>
+                        </View>
+                        <View style={styles.card}>
+                            {(["admin", "cashier", "lab_staff"] as const).map(
+                                (role, idx) => {
+                                    const label =
+                                        role === "lab_staff"
+                                            ? "Lab Staff"
+                                            : role.charAt(0).toUpperCase() +
+                                              role.slice(1);
+                                    const existing = userManuals.find(
+                                        (m) => m.role === role,
+                                    );
+                                    const uploading = uploadingManual === role;
+                                    return (
+                                        <View
+                                            key={role}
+                                            style={[
+                                                styles.toggleRow,
+                                                idx > 0 && styles.rowBorder,
+                                            ]}
+                                        >
+                                            <View style={styles.toggleInfo}>
+                                                <Text
+                                                    style={styles.toggleLabel}
+                                                >
+                                                    {label} Manual
+                                                </Text>
+                                                <Text
+                                                    style={styles.toggleDesc}
+                                                    numberOfLines={1}
+                                                >
+                                                    {existing?.original_filename ??
+                                                        "No manual uploaded"}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.uploadBtn,
+                                                    {
+                                                        backgroundColor:
+                                                            "#EA580C",
+                                                    },
                                                     uploading &&
                                                         styles.uploadBtnDisabled,
                                                 ]}
                                                 onPress={() =>
-                                                    handleUploadSignature(
-                                                        "lab_staff",
-                                                        u.id,
-                                                    )
+                                                    handleUploadManual(role)
                                                 }
                                                 disabled={uploading}
                                             >
@@ -754,56 +1032,15 @@ export default function SettingsScreen() {
                                                 <Text
                                                     style={styles.uploadBtnText}
                                                 >
-                                                    {u.has_signature
+                                                    {existing?.original_filename
                                                         ? "Replace"
                                                         : "Upload"}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
-                                    </View>
-                                </View>
-                            );
-                        })}
-                    </>
-                )}
-
-                </>)}
-
-                {/* User Manuals — admin only: upload + manage */}
-                {user?.role === "admin" && (
-                    <>
-                        <View style={styles.sectionHeader}>
-                            <BookOpen size={18} color="#EA580C" />
-                            <Text style={styles.sectionTitle}>User Manuals</Text>
-                        </View>
-                        <View style={styles.card}>
-                            {(["admin", "cashier", "lab_staff"] as const).map((role, idx) => {
-                                const label = role === "lab_staff" ? "Lab Staff" : role.charAt(0).toUpperCase() + role.slice(1);
-                                const existing = userManuals.find((m) => m.role === role);
-                                const uploading = uploadingManual === role;
-                                return (
-                                    <View key={role} style={[styles.toggleRow, idx > 0 && styles.rowBorder]}>
-                                        <View style={styles.toggleInfo}>
-                                            <Text style={styles.toggleLabel}>{label} Manual</Text>
-                                            <Text style={styles.toggleDesc} numberOfLines={1}>
-                                                {existing?.original_filename ?? "No manual uploaded"}
-                                            </Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            style={[styles.uploadBtn, { backgroundColor: "#EA580C" }, uploading && styles.uploadBtnDisabled]}
-                                            onPress={() => handleUploadManual(role)}
-                                            disabled={uploading}
-                                        >
-                                            {uploading
-                                                ? <ActivityIndicator size="small" color="#fff" />
-                                                : <Upload size={13} color="#fff" />}
-                                            <Text style={styles.uploadBtnText}>
-                                                {existing?.original_filename ? "Replace" : "Upload"}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                );
-                            })}
+                                    );
+                                },
+                            )}
                         </View>
                     </>
                 )}
@@ -822,7 +1059,9 @@ export default function SettingsScreen() {
                             style={{ marginRight: 12 }}
                         />
                         <View style={styles.toggleInfo}>
-                            <Text style={styles.toggleLabel}>Fingerprint Login</Text>
+                            <Text style={styles.toggleLabel}>
+                                Fingerprint Login
+                            </Text>
                             <Text style={styles.toggleDesc}>
                                 Use your fingerprint to login quickly
                             </Text>
@@ -846,7 +1085,9 @@ export default function SettingsScreen() {
                         {saving ? (
                             <ActivityIndicator color="#fff" size="small" />
                         ) : (
-                            <Text style={styles.saveBtnText}>Save Settings</Text>
+                            <Text style={styles.saveBtnText}>
+                                Save Settings
+                            </Text>
                         )}
                     </TouchableOpacity>
                 )}
@@ -909,19 +1150,33 @@ function SignatoryPicker({
                     <View style={styles.modalSheet}>
                         <TouchableOpacity
                             style={styles.pickerOption}
-                            onPress={() => { onSelect(null); setOpen(false); }}
+                            onPress={() => {
+                                onSelect(null);
+                                setOpen(false);
+                            }}
                         >
-                            <Text style={styles.pickerOptionText}>Auto (by role)</Text>
-                            {selectedId === null && <CheckCircle2 size={16} color="#ac3434" />}
+                            <Text style={styles.pickerOptionText}>
+                                Auto (by role)
+                            </Text>
+                            {selectedId === null && (
+                                <CheckCircle2 size={16} color="#ac3434" />
+                            )}
                         </TouchableOpacity>
                         {labStaff.map((u) => (
                             <TouchableOpacity
                                 key={u.id}
                                 style={styles.pickerOption}
-                                onPress={() => { onSelect(u.id); setOpen(false); }}
+                                onPress={() => {
+                                    onSelect(u.id);
+                                    setOpen(false);
+                                }}
                             >
-                                <Text style={styles.pickerOptionText}>{u.name}</Text>
-                                {selectedId === u.id && <CheckCircle2 size={16} color="#ac3434" />}
+                                <Text style={styles.pickerOptionText}>
+                                    {u.name}
+                                </Text>
+                                {selectedId === u.id && (
+                                    <CheckCircle2 size={16} color="#ac3434" />
+                                )}
                             </TouchableOpacity>
                         ))}
                     </View>

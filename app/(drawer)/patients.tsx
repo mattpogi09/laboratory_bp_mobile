@@ -238,7 +238,7 @@ export default function PatientsScreen() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.name}>{item.full_name}</Text>
                         <Text style={styles.meta}>
-                            {item.patient_id ?? `#${item.id}`} • {item.gender} •{" "}
+                            {item.patient_id ?? `#${item.id}`} - {item.gender} -{" "}
                             {item.age} yrs
                         </Text>
                     </View>

@@ -3195,7 +3195,7 @@ function FlagBatchModal({
                                                     selectedBatch.current_quantity,
                                                 )}{" "}
                                                 {item.unit}
-                                                {" · "}Expiry:{" "}
+                                                {" - "}Expiry:{" "}
                                                 {selectedBatch.expiry_date ??
                                                     "No expiry"}
                                             </Text>
@@ -3509,7 +3509,7 @@ function ItemPickerSelect({
                                         <Text
                                             style={styles.pickerOptionSubtext}
                                         >
-                                            {item.category} • Stock:{" "}
+                                            {item.category} - Stock:{" "}
                                             {item.current_stock} {item.unit}
                                         </Text>
                                     </View>
@@ -4764,7 +4764,7 @@ function BatchPickerSelect({
                                         {b.batch_number}
                                     </Text>
                                     <Text style={styles.pickerOptionSubtext}>
-                                        Qty: {b.current_quantity} • Exp:{" "}
+                                        Qty: {b.current_quantity} - Exp:{" "}
                                         {b.expiry_date ?? "N/A"}
                                     </Text>
                                 </TouchableOpacity>

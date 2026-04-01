@@ -1228,7 +1228,7 @@ export default function AppointmentsScreen() {
                                             <Text
                                                 style={styles.detailCardValue}
                                             >
-                                                {(selected as any).age} yrs •{" "}
+                                                {(selected as any).age} yrs -{" "}
                                                 {(selected as any).gender ??
                                                     "—"}
                                             </Text>

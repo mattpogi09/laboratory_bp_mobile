@@ -437,7 +437,7 @@ export default function ServicesScreen() {
                                             {totalCount === 1
                                                 ? "service"
                                                 : "services"}{" "}
-                                            • {activeCount} active
+                                            - {activeCount} active
                                         </Text>
                                     </View>
                                 </View>

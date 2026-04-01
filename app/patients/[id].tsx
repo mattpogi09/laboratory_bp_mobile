@@ -553,7 +553,7 @@ export default function PatientDetails() {
                                 {patient.full_name}
                             </Text>
                             <Text style={styles.subtitle}>
-                                {patient.gender} • {patient.age} yrs
+                                {patient.gender} - {patient.age} yrs
                             </Text>
                             {patient.patient_id ? (
                                 <Text style={styles.patientIdText}>
@@ -926,7 +926,7 @@ export default function PatientDetails() {
                                         day: "numeric",
                                     },
                                 )}{" "}
-                                • {txn.payment_status} • {txn.tests.length} test
+                                - {txn.payment_status} - {txn.tests.length} test
                                 {txn.tests.length !== 1 ? "s" : ""}
                             </Text>
                         </View>

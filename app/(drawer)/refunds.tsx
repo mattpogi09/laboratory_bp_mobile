@@ -363,7 +363,7 @@ export default function RefundsScreen() {
                             {item.refund_type === "full"
                                 ? "Full Refund"
                                 : "Partial Refund"}
-                            {"  ·  "}
+                            {" - "}
                             {formatDate(item.created_at)}
                         </Text>
                         <ChevronRight size={14} color="#D1D5DB" />
@@ -386,17 +386,6 @@ export default function RefundsScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Refund Requests</Text>
-                {refunds.length > 0 && !loading && (
-                    <Text style={styles.headerCount}>
-                        {refunds.length} request
-                        {refunds.length !== 1 ? "s" : ""}
-                    </Text>
-                )}
-            </View>
-
             {/* Status filter tabs — horizontal scroll for 5 tabs */}
             <View style={styles.tabBarWrapper}>
                 <ScrollView

@@ -225,7 +225,7 @@ export default function WalkInScreen() {
                         </Text>
                         {item.checked_in_at && (
                             <>
-                                <Text style={styles.cardSub}>•</Text>
+                                <Text style={styles.cardSub}>-</Text>
                                 <Text style={styles.cardSub}>
                                     In: {item.checked_in_at}
                                 </Text>
@@ -236,7 +236,7 @@ export default function WalkInScreen() {
                     {/* Row 3: Age/gender + demographic + queue type */}
                     <View style={styles.cardRow}>
                         <Text style={styles.cardSub}>
-                            {item.age} yrs • {item.gender}
+                            {item.age} yrs - {item.gender}
                         </Text>
                         <View style={{ flex: 1 }} />
                         <View
