@@ -12,6 +12,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Image,
+    Modal,
     RefreshControl,
     StyleSheet,
     Text,
@@ -42,7 +44,32 @@ type Patient = {
     active_tests_count?: number;
     completed_tests_count?: number;
     latest_test_name?: string | null;
+    id_picture_url?: string | null;
+    active_test_info?: {
+        queue_number?: string | number | null;
+        priority_level?: string | null;
+        priority_category?: string | null;
+        test_type?: string | null;
+        lab_status?: string | null;
+        transaction_number?: string | null;
+    } | null;
 };
+
+type SortKey =
+    | "updated_at"
+    | "created_at"
+    | "first_name"
+    | "id"
+    | "last_visit"
+    | "total_transactions";
+
+const SORT_OPTIONS: { label: string; value: SortKey }[] = [
+    { label: "Recent", value: "updated_at" },
+    { label: "Name", value: "first_name" },
+    { label: "ID", value: "id" },
+    { label: "Last Visit", value: "last_visit" },
+    { label: "Visits", value: "total_transactions" },
+];
 
 type Meta = {
     current_page: number;
@@ -59,6 +86,13 @@ export default function PatientsScreen() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [sortBy, setSortBy] = useState<SortKey>("updated_at");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [idViewer, setIdViewer] = useState<{
+        visible: boolean;
+        url: string | null;
+        name: string | null;
+    }>({ visible: false, url: null, name: null });
 
     const loadPatients = useCallback(
         async (page = 1, replace = false) => {
@@ -71,6 +105,8 @@ export default function PatientsScreen() {
                         page,
                         per_page: 15,
                         search: search.trim() || undefined,
+                        sort_by: sortBy,
+                        sort_order: sortOrder,
                     },
                 });
 
@@ -91,13 +127,13 @@ export default function PatientsScreen() {
                 setLoadingMore(false);
             }
         },
-        [isRefreshing, search],
+        [isRefreshing, search, sortBy, sortOrder],
     );
 
     useEffect(() => {
         const debounce = setTimeout(() => loadPatients(1, true), 400);
         return () => clearTimeout(debounce);
-    }, [loadPatients, search]);
+    }, [loadPatients]);
 
     useFocusEffect(
         useCallback(() => {
@@ -273,6 +309,55 @@ export default function PatientsScreen() {
                     </View>
                 </View>
             )}
+            {!!item.active_test_info && (
+                <>
+                    <View style={styles.row}>
+                        <Text style={styles.label}>Queue #</Text>
+                        <Text style={styles.value}>
+                            {item.active_test_info.queue_number
+                                ? `#${item.active_test_info.queue_number}`
+                                : "—"}
+                        </Text>
+                    </View>
+                    <View style={styles.row}>
+                        <Text style={styles.label}>Type / Apt Priority</Text>
+                        <Text style={[styles.value, styles.infoPill]}>
+                            {item.active_test_info.test_type || "—"}
+                            {item.active_test_info.priority_level
+                                ? ` / ${item.active_test_info.priority_level}`
+                                : ""}
+                        </Text>
+                    </View>
+                    <View style={styles.row}>
+                        <Text style={styles.label}>Demographic Priority</Text>
+                        <Text style={[styles.value, styles.infoPill]}>
+                            {item.active_test_info.priority_category ||
+                                "Regular"}
+                        </Text>
+                    </View>
+                </>
+            )}
+            <View style={styles.row}>
+                <Text style={styles.label}>Valid ID</Text>
+                {item.id_picture_url ? (
+                    <TouchableOpacity
+                        onPress={() =>
+                            setIdViewer({
+                                visible: true,
+                                url: item.id_picture_url ?? null,
+                                name: item.full_name,
+                            })
+                        }
+                        style={styles.idButton}
+                    >
+                        <Text style={styles.idButtonText}>
+                            View Uploaded ID
+                        </Text>
+                    </TouchableOpacity>
+                ) : (
+                    <Text style={styles.value}>Not Uploaded</Text>
+                )}
+            </View>
             <View style={styles.row}>
                 <Text style={styles.label}>Lifetime Value</Text>
                 <Text
@@ -327,9 +412,44 @@ export default function PatientsScreen() {
                         />
                     </View>
                 </View>
+                <View style={styles.sortRow}>
+                    {SORT_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                            key={option.value}
+                            style={[
+                                styles.sortChip,
+                                sortBy === option.value &&
+                                    styles.sortChipActive,
+                            ]}
+                            onPress={() => setSortBy(option.value)}
+                        >
+                            <Text
+                                style={[
+                                    styles.sortChipText,
+                                    sortBy === option.value &&
+                                        styles.sortChipTextActive,
+                                ]}
+                            >
+                                {option.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity
+                        style={styles.sortOrderButton}
+                        onPress={() =>
+                            setSortOrder((prev) =>
+                                prev === "asc" ? "desc" : "asc",
+                            )
+                        }
+                    >
+                        <Text style={styles.sortOrderText}>
+                            {sortOrder === "asc" ? "Asc" : "Desc"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </>
         ),
-        [search],
+        [search, sortBy, sortOrder],
     );
 
     if (isLoading && !patients.length) {
@@ -412,6 +532,47 @@ export default function PatientsScreen() {
                     setSuccessDialog((d) => ({ ...d, visible: false }))
                 }
             />
+
+            <Modal
+                visible={idViewer.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() =>
+                    setIdViewer({ visible: false, url: null, name: null })
+                }
+            >
+                <View style={styles.viewerOverlay}>
+                    <View style={styles.viewerCard}>
+                        <Text style={styles.viewerTitle}>
+                            ID Picture
+                            {idViewer.name ? ` - ${idViewer.name}` : ""}
+                        </Text>
+                        {idViewer.url ? (
+                            <Image
+                                source={{ uri: idViewer.url }}
+                                style={styles.viewerImage}
+                                resizeMode="contain"
+                            />
+                        ) : (
+                            <Text style={styles.emptySubtitle}>
+                                No image available.
+                            </Text>
+                        )}
+                        <TouchableOpacity
+                            style={styles.viewerCloseButton}
+                            onPress={() =>
+                                setIdViewer({
+                                    visible: false,
+                                    url: null,
+                                    name: null,
+                                })
+                            }
+                        >
+                            <Text style={styles.viewerCloseText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -440,7 +601,46 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        marginBottom: 16,
+        marginBottom: 8,
+    },
+    sortRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        marginBottom: 12,
+    },
+    sortChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#FFFFFF",
+    },
+    sortChipActive: {
+        backgroundColor: "#FEE2E2",
+        borderColor: "#FCA5A5",
+    },
+    sortChipText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#6B7280",
+    },
+    sortChipTextActive: {
+        color: "#991B1B",
+    },
+    sortOrderButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#FCA5A5",
+        backgroundColor: "#FFF1F2",
+    },
+    sortOrderText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#9F1239",
     },
     card: {
         backgroundColor: "#fff",
@@ -491,11 +691,32 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     latestTestText: { fontSize: 12, color: "#374151", fontWeight: "500" },
+    infoPill: {
+        backgroundColor: "#F3F4F6",
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        overflow: "hidden",
+        maxWidth: "70%",
+    },
     row: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         marginBottom: 6,
+    },
+    idButton: {
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+    },
+    idButtonText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#1D4ED8",
     },
     label: { color: "#6B7280", fontSize: 13 },
     value: { color: "#111827", fontWeight: "600" },
@@ -542,4 +763,43 @@ const styles = StyleSheet.create({
         borderColor: "#E5E7EB",
     },
     toggleBtnText: { fontSize: 12, fontWeight: "600" },
+    viewerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+    },
+    viewerCard: {
+        width: "100%",
+        maxWidth: 420,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 16,
+    },
+    viewerTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#111827",
+        marginBottom: 12,
+    },
+    viewerImage: {
+        width: "100%",
+        height: 320,
+        borderRadius: 12,
+        backgroundColor: "#F3F4F6",
+    },
+    viewerCloseButton: {
+        marginTop: 12,
+        alignSelf: "flex-end",
+        backgroundColor: "#111827",
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+    },
+    viewerCloseText: {
+        color: "#FFFFFF",
+        fontSize: 13,
+        fontWeight: "600",
+    },
 });

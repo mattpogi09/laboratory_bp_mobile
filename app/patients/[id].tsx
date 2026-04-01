@@ -48,6 +48,7 @@ type PatientDetail = {
         birth_date?: string;
         is_active?: boolean;
         address?: string;
+        id_picture_url?: string | null;
         region_id?: string;
         province_id?: string;
         city_id?: string;
@@ -69,6 +70,17 @@ type PatientDetail = {
         created_at: string;
         tests: { id: number; name: string; status: string; price: number }[];
     }[];
+    test_history?: {
+        id: number;
+        name: string;
+        status: string;
+        price: number;
+        date?: string | null;
+        payment_status?: string | null;
+        result_quality?: string | null;
+        transaction_id?: number | null;
+        transaction_number?: string | null;
+    }[];
 };
 
 type TestDetail = {
@@ -78,11 +90,14 @@ type TestDetail = {
     price: number;
     status: string;
     processed_by: string;
+    started_at?: string;
     completed_at?: string;
     released_at?: string;
     result_values?: Record<string, any>;
     normal_range?: string;
     notes?: string;
+    is_image_only_test?: boolean;
+    documents?: { name?: string; path?: string; url?: string; size?: number }[];
     images?: (
         | string
         | { name: string; path: string; url: string; size: number }
@@ -91,14 +106,13 @@ type TestDetail = {
 
 export default function PatientDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const [data, setData] = useState<PatientDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     // Edit Modal State
     const [showEditModal, setShowEditModal] = useState(false);
-    const [showOtherGender, setShowOtherGender] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -106,6 +120,18 @@ export default function PatientDetails() {
     const [showTestModal, setShowTestModal] = useState(false);
     const [selectedTest, setSelectedTest] = useState<TestDetail | null>(null);
     const [loadingTest, setLoadingTest] = useState(false);
+    const [notifyingTestId, setNotifyingTestId] = useState<number | null>(null);
+    const [notifiedTests, setNotifiedTests] = useState<number[]>([]);
+    const [idViewer, setIdViewer] = useState<{
+        visible: boolean;
+        url: string | null;
+        title: string;
+    }>({ visible: false, url: null, title: "" });
+    const [imageViewer, setImageViewer] = useState<{
+        visible: boolean;
+        url: string | null;
+        title: string;
+    }>({ visible: false, url: null, title: "" });
 
     // Dialog State
     const [confirmDialog, setConfirmDialog] = useState({
@@ -172,10 +198,12 @@ export default function PatientDetails() {
             setLoadingTest(true);
             setShowTestModal(true);
             const response = await api.get(`/tests/${testId}`);
-            // Map 'documents' to 'images' for compatibility
             const testData = {
                 ...response.data,
-                images: response.data.documents || response.data.images || [],
+                documents: response.data.documents || [],
+                images:
+                    response.data.images ||
+                    (response.data.documents || []).map((doc: any) => doc.url),
             };
             setSelectedTest(testData);
         } catch (error: any) {
@@ -221,9 +249,6 @@ export default function PatientDetails() {
             barangay_code: patient.barangay_code || "",
             street: patient.street || "",
         });
-        setShowOtherGender(
-            !!(patient.gender && !["Male", "Female"].includes(patient.gender)),
-        );
         setErrors({});
         setShowEditModal(true);
     };
@@ -280,13 +305,7 @@ export default function PatientDetails() {
     };
 
     const handleGenderChange = (value: string) => {
-        if (value === "Other") {
-            setShowOtherGender(true);
-            setFormData((prev) => ({ ...prev, gender: "" }));
-        } else {
-            setShowOtherGender(false);
-            setFormData((prev) => ({ ...prev, gender: value }));
-        }
+        setFormData((prev) => ({ ...prev, gender: value }));
     };
 
     const handleDateSelect = () => {
@@ -378,6 +397,63 @@ export default function PatientDetails() {
 
     const isAdmin = user?.role === "admin";
 
+    const resolveFileUrl = useCallback((value?: string | null) => {
+        if (!value) return null;
+        if (value.startsWith("http")) return value;
+        if (value.startsWith("files/")) return `${API_BASE_URL}/${value}`;
+        if (value.startsWith("/api/files/")) {
+            const root = API_BASE_URL.replace(/\/api\/?$/, "");
+            return `${root}${value}`;
+        }
+
+        return `${API_BASE_URL}/files/${value.replace(/^\/+/, "")}`;
+    }, []);
+
+    const notifySpecimenRecollect = async (test: {
+        id: number;
+        result_quality?: string | null;
+    }) => {
+        if (
+            !id ||
+            notifyingTestId === test.id ||
+            notifiedTests.includes(test.id)
+        ) {
+            return;
+        }
+
+        try {
+            setNotifyingTestId(test.id);
+            const response = await api.post(
+                `/patients/${id}/notify-specimen-recollect`,
+                {
+                    transaction_test_id: test.id,
+                },
+            );
+
+            setNotifiedTests((prev) => [...prev, test.id]);
+            setSuccessDialog({
+                visible: true,
+                title: "Notification Sent",
+                message:
+                    response.data?.message ||
+                    "Specimen recollect notification sent successfully.",
+                type: "success",
+            });
+        } catch (error: any) {
+            setSuccessDialog({
+                visible: true,
+                title: "Notify Failed",
+                message: getApiErrorMessage(
+                    error,
+                    "Failed to send specimen recollect notification.",
+                ),
+                type: "error",
+            });
+        } finally {
+            setNotifyingTestId(null);
+        }
+    };
+
     // Memoize address value and onChange callback to prevent infinite loops
     const addressValue = useMemo(
         () => ({
@@ -424,18 +500,16 @@ export default function PatientDetails() {
     }
 
     const patient = data.patient;
-    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, "");
-    const testHistory = data.recent_transactions.flatMap((txn) =>
-        txn.tests.map((test) => ({
-            ...test,
-            date: new Date(txn.created_at).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-            }),
-            payment_status: txn.payment_status,
-        })),
-    );
+    const testHistory = (data.test_history || []).map((test) => ({
+        ...test,
+        date: test.date
+            ? new Date(test.date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+              })
+            : "N/A",
+    }));
 
     return (
         <SafeAreaView
@@ -579,6 +653,29 @@ export default function PatientDetails() {
                             {patient.address || "N/A"}
                         </Text>
                     </View>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.label}>Valid ID</Text>
+                        {patient.id_picture_url ? (
+                            <TouchableOpacity
+                                style={styles.idButton}
+                                onPress={() =>
+                                    setIdViewer({
+                                        visible: true,
+                                        url: resolveFileUrl(
+                                            patient.id_picture_url,
+                                        ),
+                                        title: `ID Picture - ${patient.full_name}`,
+                                    })
+                                }
+                            >
+                                <Text style={styles.idButtonText}>
+                                    View Uploaded ID
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <Text style={styles.value}>Not Uploaded</Text>
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.statsRow}>
@@ -631,9 +728,35 @@ export default function PatientDetails() {
                                     style={{
                                         flexDirection: "row",
                                         alignItems: "center",
+                                        justifyContent: "flex-end",
+                                        flexWrap: "wrap",
                                         gap: 4,
+                                        maxWidth: "50%",
                                     }}
                                 >
+                                    {test.result_quality ===
+                                        "recollect_specimen" && (
+                                        <View
+                                            style={
+                                                styles.recollectSpecimenBadge
+                                            }
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.recollectSpecimenText
+                                                }
+                                            >
+                                                Recollect
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {test.result_quality === "rerun_test" && (
+                                        <View style={styles.rerunBadge}>
+                                            <Text style={styles.rerunBadgeText}>
+                                                Rerun
+                                            </Text>
+                                        </View>
+                                    )}
                                     {test.payment_status === "refunded" && (
                                         <View
                                             style={{
@@ -703,6 +826,43 @@ export default function PatientDetails() {
                                             {test.status}
                                         </Text>
                                     </View>
+                                    {test.result_quality ===
+                                        "recollect_specimen" &&
+                                        !!patient.email && (
+                                            <TouchableOpacity
+                                                style={styles.notifyButton}
+                                                onPress={(e) => {
+                                                    e.stopPropagation();
+                                                    notifySpecimenRecollect({
+                                                        id: test.id,
+                                                        result_quality:
+                                                            test.result_quality,
+                                                    });
+                                                }}
+                                                disabled={
+                                                    notifyingTestId ===
+                                                        test.id ||
+                                                    notifiedTests.includes(
+                                                        test.id,
+                                                    )
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.notifyButtonText
+                                                    }
+                                                >
+                                                    {notifiedTests.includes(
+                                                        test.id,
+                                                    )
+                                                        ? "Notified"
+                                                        : notifyingTestId ===
+                                                            test.id
+                                                          ? "Sending..."
+                                                          : "Notify"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
                                 </View>
                             </TouchableOpacity>
                         ))
@@ -1247,6 +1407,16 @@ export default function PatientDetails() {
                                         Timeline
                                     </Text>
                                 </View>
+                                {selectedTest.started_at ? (
+                                    <View style={styles.timelineRow}>
+                                        <Text style={styles.timelineLabel}>
+                                            Started:
+                                        </Text>
+                                        <Text style={styles.timelineValue}>
+                                            {selectedTest.started_at}
+                                        </Text>
+                                    </View>
+                                ) : null}
                                 {selectedTest.completed_at ? (
                                     <View style={styles.timelineRow}>
                                         <Text style={styles.timelineLabel}>
@@ -1267,7 +1437,8 @@ export default function PatientDetails() {
                                         </Text>
                                     </View>
                                 ) : null}
-                                {!selectedTest.completed_at &&
+                                {!selectedTest.started_at &&
+                                    !selectedTest.completed_at &&
                                     !selectedTest.released_at && (
                                         <Text
                                             style={{
@@ -1282,7 +1453,8 @@ export default function PatientDetails() {
                             </View>
 
                             {/* Result Values */}
-                            {selectedTest.result_values &&
+                            {!selectedTest.is_image_only_test &&
+                                selectedTest.result_values &&
                                 Object.keys(selectedTest.result_values).length >
                                     0 && (
                                     <View
@@ -1337,29 +1509,30 @@ export default function PatientDetails() {
                                 )}
 
                             {/* Normal Range */}
-                            {selectedTest.normal_range && (
-                                <View
-                                    style={[
-                                        styles.sectionCard,
-                                        {
-                                            backgroundColor: "#F0FDF4",
-                                            borderColor: "#BBF7D0",
-                                        },
-                                    ]}
-                                >
-                                    <Text style={styles.sectionCardTitle}>
-                                        Normal Range
-                                    </Text>
-                                    <Text
-                                        style={{
-                                            fontSize: 14,
-                                            color: "#374151",
-                                        }}
+                            {!selectedTest.is_image_only_test &&
+                                selectedTest.normal_range && (
+                                    <View
+                                        style={[
+                                            styles.sectionCard,
+                                            {
+                                                backgroundColor: "#F0FDF4",
+                                                borderColor: "#BBF7D0",
+                                            },
+                                        ]}
                                     >
-                                        {selectedTest.normal_range}
-                                    </Text>
-                                </View>
-                            )}
+                                        <Text style={styles.sectionCardTitle}>
+                                            Normal Range
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 14,
+                                                color: "#374151",
+                                            }}
+                                        >
+                                            {selectedTest.normal_range}
+                                        </Text>
+                                    </View>
+                                )}
 
                             {/* Notes & Remarks */}
                             {selectedTest.notes && (
@@ -1409,58 +1582,106 @@ export default function PatientDetails() {
                                     <Text style={styles.sectionCardTitle}>
                                         Uploaded Images
                                     </Text>
-                                    {selectedTest.images &&
-                                        selectedTest.images.length > 0 && (
-                                            <Text
-                                                style={{
-                                                    fontSize: 12,
-                                                    color: "#9CA3AF",
-                                                }}
-                                            >
-                                                ({selectedTest.images.length})
-                                            </Text>
-                                        )}
-                                </View>
-                                {selectedTest.images &&
-                                selectedTest.images.length > 0 ? (
-                                    selectedTest.images.map((img, index) => {
-                                        let imageUrl = "";
-                                        if (typeof img === "string") {
-                                            if (img.startsWith("http")) {
-                                                imageUrl = img;
-                                            } else if (
-                                                img.startsWith("files/")
-                                            ) {
-                                                // New format: files/result_images/...
-                                                imageUrl = `${API_BASE_URL}/${img}`;
-                                            } else {
-                                                // Legacy: /storage/... or bare path
-                                                imageUrl = `${baseUrl}${img.startsWith("/") ? "" : "/"}${img}`;
-                                            }
-                                        } else if (img.url) {
-                                            imageUrl = img.url.startsWith(
-                                                "http",
+                                    {(selectedTest.documents?.length ||
+                                        selectedTest.images?.length) && (
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                color: "#9CA3AF",
+                                            }}
+                                        >
+                                            (
+                                            {selectedTest.documents?.length ||
+                                                selectedTest.images?.length}
                                             )
-                                                ? img.url
-                                                : `${baseUrl}${img.url}`;
-                                        } else if (img.path) {
-                                            imageUrl = `${API_BASE_URL}/files/${img.path}`;
-                                        }
-                                        return (
-                                            <View
-                                                key={index}
+                                        </Text>
+                                    )}
+                                </View>
+                                {(selectedTest.documents ||
+                                    selectedTest.images) &&
+                                (selectedTest.documents?.length ||
+                                    selectedTest.images?.length) ? (
+                                    (selectedTest.documents?.length
+                                        ? selectedTest.documents.map((doc) => ({
+                                              name: doc.name || "Result Image",
+                                              url: resolveFileUrl(
+                                                  doc.url || doc.path,
+                                              ),
+                                              size: doc.size,
+                                          }))
+                                        : (selectedTest.images || []).map(
+                                              (img, index) => ({
+                                                  name: `Result Image ${
+                                                      index + 1
+                                                  }`,
+                                                  url:
+                                                      typeof img === "string"
+                                                          ? resolveFileUrl(img)
+                                                          : resolveFileUrl(
+                                                                img.url ||
+                                                                    img.path,
+                                                            ),
+                                                  size:
+                                                      typeof img === "string"
+                                                          ? 0
+                                                          : img.size,
+                                              }),
+                                          )
+                                    )
+                                        .filter((doc) => !!doc.url)
+                                        .map((doc, index) => (
+                                            <TouchableOpacity
+                                                key={`${doc.name}-${index}`}
                                                 style={styles.imageContainer}
+                                                onPress={() =>
+                                                    setImageViewer({
+                                                        visible: true,
+                                                        url: doc.url,
+                                                        title: doc.name,
+                                                    })
+                                                }
                                             >
                                                 <Image
                                                     source={{
-                                                        uri: imageUrl,
+                                                        uri:
+                                                            doc.url ||
+                                                            undefined,
                                                     }}
                                                     style={styles.resultImage}
                                                     resizeMode="contain"
                                                 />
-                                            </View>
-                                        );
-                                    })
+                                                <View
+                                                    style={
+                                                        styles.imageMetaOverlay
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.imageMetaText
+                                                        }
+                                                        numberOfLines={1}
+                                                    >
+                                                        {doc.name}
+                                                    </Text>
+                                                    {doc.size ? (
+                                                        <Text
+                                                            style={
+                                                                styles.imageMetaSubText
+                                                            }
+                                                        >
+                                                            {Math.max(
+                                                                1,
+                                                                Math.round(
+                                                                    doc.size /
+                                                                        1024,
+                                                                ),
+                                                            )}{" "}
+                                                            KB
+                                                        </Text>
+                                                    ) : null}
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))
                                 ) : (
                                     <Text
                                         style={{
@@ -1481,6 +1702,84 @@ export default function PatientDetails() {
                             <Text>Failed to load test details.</Text>
                         </View>
                     )}
+                </View>
+            </Modal>
+
+            <Modal
+                visible={idViewer.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() =>
+                    setIdViewer({ visible: false, url: null, title: "" })
+                }
+            >
+                <View style={styles.viewerOverlay}>
+                    <View style={styles.viewerCard}>
+                        <Text style={styles.viewerTitle}>{idViewer.title}</Text>
+                        {idViewer.url ? (
+                            <Image
+                                source={{ uri: idViewer.url }}
+                                style={styles.viewerImage}
+                                resizeMode="contain"
+                            />
+                        ) : (
+                            <Text style={styles.emptyState}>
+                                No image found.
+                            </Text>
+                        )}
+                        <TouchableOpacity
+                            style={styles.viewerCloseButton}
+                            onPress={() =>
+                                setIdViewer({
+                                    visible: false,
+                                    url: null,
+                                    title: "",
+                                })
+                            }
+                        >
+                            <Text style={styles.viewerCloseText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={imageViewer.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() =>
+                    setImageViewer({ visible: false, url: null, title: "" })
+                }
+            >
+                <View style={styles.viewerOverlay}>
+                    <View style={styles.viewerCard}>
+                        <Text style={styles.viewerTitle}>
+                            {imageViewer.title}
+                        </Text>
+                        {imageViewer.url ? (
+                            <Image
+                                source={{ uri: imageViewer.url }}
+                                style={styles.viewerImage}
+                                resizeMode="contain"
+                            />
+                        ) : (
+                            <Text style={styles.emptyState}>
+                                No image found.
+                            </Text>
+                        )}
+                        <TouchableOpacity
+                            style={styles.viewerCloseButton}
+                            onPress={() =>
+                                setImageViewer({
+                                    visible: false,
+                                    url: null,
+                                    title: "",
+                                })
+                            }
+                        >
+                            <Text style={styles.viewerCloseText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </Modal>
 
@@ -1727,7 +2026,21 @@ const styles = StyleSheet.create({
     infoRow: {
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "center",
         marginTop: 8,
+    },
+    idButton: {
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+    },
+    idButtonText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#1D4ED8",
     },
     label: { color: "#6B7280", fontSize: 14 },
     value: { color: "#111827", fontWeight: "600" },
@@ -1871,6 +2184,39 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "#6B7280",
         marginTop: 2,
+    },
+    recollectSpecimenBadge: {
+        backgroundColor: "#FEF3C7",
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    recollectSpecimenText: {
+        color: "#92400E",
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    rerunBadge: {
+        backgroundColor: "#FEE2E2",
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    rerunBadgeText: {
+        color: "#991B1B",
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    notifyButton: {
+        backgroundColor: "#D97706",
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+    },
+    notifyButtonText: {
+        color: "#FFFFFF",
+        fontSize: 11,
+        fontWeight: "700",
     },
     sectionCard: {
         borderRadius: 12,
@@ -2140,6 +2486,64 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
         backgroundColor: "transparent",
+    },
+    imageMetaOverlay: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        backgroundColor: "rgba(17,24,39,0.72)",
+    },
+    imageMetaText: {
+        color: "#FFFFFF",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+    imageMetaSubText: {
+        color: "#D1D5DB",
+        fontSize: 11,
+        marginTop: 2,
+    },
+    viewerOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+    },
+    viewerCard: {
+        width: "100%",
+        maxWidth: 420,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 14,
+        padding: 14,
+    },
+    viewerTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#111827",
+        marginBottom: 10,
+    },
+    viewerImage: {
+        width: "100%",
+        height: 360,
+        borderRadius: 10,
+        backgroundColor: "#F3F4F6",
+    },
+    viewerCloseButton: {
+        marginTop: 12,
+        alignSelf: "flex-end",
+        backgroundColor: "#111827",
+        borderRadius: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+    },
+    viewerCloseText: {
+        color: "#FFFFFF",
+        fontSize: 13,
+        fontWeight: "600",
     },
     pendingState: {
         alignItems: "center",
