@@ -401,15 +401,6 @@ export default function DrawerLayout() {
                     }}
                 />
                 <Drawer.Screen
-                    name="lab-queue"
-                    options={{
-                        title: "Lab Queue",
-                        drawerIcon: ({ color }) => (
-                            <ClipboardList color={color} size={20} />
-                        ),
-                    }}
-                />
-                <Drawer.Screen
                     name="appointments"
                     options={{
                         title: "Appointment Management",

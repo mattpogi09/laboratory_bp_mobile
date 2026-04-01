@@ -20,6 +20,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    type TextInputProps,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -47,6 +48,45 @@ const EMPTY_FORM = {
     email: "",
     address: "",
 };
+
+type SupplierFormField = {
+    key: keyof typeof EMPTY_FORM;
+    label: string;
+    placeholder: string;
+    keyboardType?: TextInputProps["keyboardType"];
+    multiline?: boolean;
+};
+
+const SUPPLIER_FORM_FIELDS: SupplierFormField[] = [
+    {
+        key: "name",
+        label: "Supplier Name",
+        placeholder: "e.g. MedSupply Inc.",
+    },
+    {
+        key: "contact_person",
+        label: "Contact Person",
+        placeholder: "e.g. Juan Dela Cruz",
+    },
+    {
+        key: "phone",
+        label: "Phone",
+        placeholder: "09XXXXXXXXX",
+        keyboardType: "phone-pad",
+    },
+    {
+        key: "email",
+        label: "Email",
+        placeholder: "supplier@email.com",
+        keyboardType: "email-address",
+    },
+    {
+        key: "address",
+        label: "Address",
+        placeholder: "Full address",
+        multiline: true,
+    },
+];
 
 export default function SupplierScreen() {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -193,7 +233,9 @@ export default function SupplierScreen() {
                 <View
                     style={[
                         styles.badge,
-                        item.is_active ? styles.badgeActive : styles.badgeInactive,
+                        item.is_active
+                            ? styles.badgeActive
+                            : styles.badgeInactive,
                     ]}
                 >
                     <Text
@@ -348,39 +390,7 @@ export default function SupplierScreen() {
                                 </Text>
                             )}
 
-                            {(
-                                [
-                                    {
-                                        key: "name",
-                                        label: "Supplier Name",
-                                        placeholder: "e.g. MedSupply Inc.",
-                                    },
-                                    {
-                                        key: "contact_person",
-                                        label: "Contact Person",
-                                        placeholder: "e.g. Juan Dela Cruz",
-                                    },
-                                    {
-                                        key: "phone",
-                                        label: "Phone",
-                                        placeholder: "09XXXXXXXXX",
-                                        keyboardType: "phone-pad" as const,
-                                    },
-                                    {
-                                        key: "email",
-                                        label: "Email",
-                                        placeholder: "supplier@email.com",
-                                        keyboardType:
-                                            "email-address" as const,
-                                    },
-                                    {
-                                        key: "address",
-                                        label: "Address",
-                                        placeholder: "Full address",
-                                        multiline: true,
-                                    },
-                                ] as const
-                            ).map((field) => (
+                            {SUPPLIER_FORM_FIELDS.map((field) => (
                                 <View key={field.key} style={styles.fieldGroup}>
                                     <Text style={styles.fieldLabel}>
                                         {field.label}
@@ -459,7 +469,9 @@ export default function SupplierScreen() {
                         : "Activate Supplier"
                 }
                 message={`Are you sure you want to ${confirmToggle?.is_active ? "deactivate" : "activate"} ${confirmToggle?.name}?`}
-                confirmText={confirmToggle?.is_active ? "Deactivate" : "Activate"}
+                confirmText={
+                    confirmToggle?.is_active ? "Deactivate" : "Activate"
+                }
                 type={confirmToggle?.is_active ? "danger" : "info"}
                 onConfirm={() => confirmToggle && handleToggle(confirmToggle)}
                 onCancel={() => setConfirmToggle(null)}
@@ -533,7 +545,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 10,
     },
-    cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+    cardTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        flex: 1,
+    },
     cardName: { fontSize: 16, fontWeight: "700", color: "#111827", flex: 1 },
     badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
     badgeActive: { backgroundColor: "#D1FAE5" },

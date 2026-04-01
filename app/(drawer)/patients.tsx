@@ -1,7 +1,8 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { router } from "expo-router";
 import {
     AlertCircle,
+    ChevronDown,
+    ChevronRight,
     FlaskConical,
     Power,
     PowerOff,
@@ -14,6 +15,7 @@ import {
     FlatList,
     Image,
     Modal,
+    Pressable,
     RefreshControl,
     StyleSheet,
     Text,
@@ -78,6 +80,17 @@ type Meta = {
     total: number;
 };
 
+function fmtVisitDate(value?: string | null): string {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
 export default function PatientsScreen() {
     const [patients, setPatients] = useState<Patient[]>([]);
     const [meta, setMeta] = useState<Meta | null>(null);
@@ -93,6 +106,7 @@ export default function PatientsScreen() {
         url: string | null;
         name: string | null;
     }>({ visible: false, url: null, name: null });
+    const [expandedPatientIds, setExpandedPatientIds] = useState<number[]>([]);
 
     const loadPatients = useCallback(
         async (page = 1, replace = false) => {
@@ -168,6 +182,14 @@ export default function PatientsScreen() {
         type: "success" as "success" | "error" | "info" | "warning",
     });
 
+    const toggleExpanded = (patientId: number) => {
+        setExpandedPatientIds((prev) =>
+            prev.includes(patientId)
+                ? prev.filter((id) => id !== patientId)
+                : [...prev, patientId],
+        );
+    };
+
     const handleTogglePatient = (patient: Patient) => {
         const active = patient.is_active ?? true;
         setConfirmDialog({
@@ -202,199 +224,246 @@ export default function PatientsScreen() {
         });
     };
 
-    const renderItem = ({ item }: { item: Patient }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push(`/patients/${item.id}`)}
-        >
-            {/* Card header: name + status badge */}
-            <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{item.full_name}</Text>
-                    <Text style={styles.meta}>
-                        {item.patient_id ?? `#${item.id}`} • {item.gender} •{" "}
-                        {item.age} yrs
-                    </Text>
-                </View>
-                <View
-                    style={[
-                        styles.statusBadge,
-                        (item.is_active ?? true)
-                            ? styles.statusActive
-                            : styles.statusInactive,
-                    ]}
-                >
-                    <Text
-                        style={[
-                            styles.statusBadgeText,
-                            (item.is_active ?? true)
-                                ? { color: "#166534" }
-                                : { color: "#991B1B" },
-                        ]}
-                    >
-                        {(item.is_active ?? true) ? "Active" : "Inactive"}
-                    </Text>
-                </View>
-            </View>
+    const renderItem = ({ item }: { item: Patient }) => {
+        const isExpanded = expandedPatientIds.includes(item.id);
 
-            {/* Test stats row */}
-            <View style={styles.statsRow}>
-                <View style={styles.statCell}>
-                    <Text style={styles.statNum}>{item.total_tests ?? 0}</Text>
-                    <Text style={styles.statLbl}>Total Tests</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                    <Text style={[styles.statNum, { color: "#EAB308" }]}>
-                        {item.active_tests_count ?? 0}
-                    </Text>
-                    <Text style={styles.statLbl}>Active</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                    <Text style={[styles.statNum, { color: "#22C55E" }]}>
-                        {item.completed_tests_count ?? 0}
-                    </Text>
-                    <Text style={styles.statLbl}>Completed</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                    <Text style={styles.statNum}>
-                        {item.total_transactions}
-                    </Text>
-                    <Text style={styles.statLbl}>Visits</Text>
-                </View>
-            </View>
-
-            {/* Info rows */}
-            <View style={styles.row}>
-                <Text style={styles.label}>Contact</Text>
-                <Text style={styles.value}>{item.contact_number || "N/A"}</Text>
-            </View>
-            {!!item.address && (
-                <View style={styles.row}>
-                    <Text style={styles.label}>Address</Text>
-                    <Text
-                        style={[styles.value, { flex: 1, textAlign: "right" }]}
-                        numberOfLines={1}
-                    >
-                        {item.address}
-                    </Text>
-                </View>
-            )}
-            <View style={styles.row}>
-                <Text style={styles.label}>First Visit</Text>
-                <Text style={styles.value}>
-                    {item.first_visit
-                        ? new Date(item.first_visit).toLocaleDateString()
-                        : "—"}
-                </Text>
-            </View>
-            <View style={styles.row}>
-                <Text style={styles.label}>Last Visit</Text>
-                <Text style={styles.value}>
-                    {item.last_visit
-                        ? new Date(item.last_visit).toLocaleDateString()
-                        : "—"}
-                </Text>
-            </View>
-            {!!item.latest_test_name && (
-                <View style={styles.row}>
-                    <Text style={styles.label}>Latest Test</Text>
-                    <View style={styles.latestTestBadge}>
-                        <FlaskConical size={11} color="#6B7280" />
-                        <Text style={styles.latestTestText}>
-                            {item.latest_test_name}
+        return (
+            <Pressable
+                style={styles.card}
+                onPress={() => toggleExpanded(item.id)}
+            >
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.name}>{item.full_name}</Text>
+                        <Text style={styles.meta}>
+                            {item.patient_id ?? `#${item.id}`} • {item.gender} •{" "}
+                            {item.age} yrs
                         </Text>
                     </View>
+                    <View style={styles.headerRightWrap}>
+                        <View
+                            style={[
+                                styles.statusBadge,
+                                (item.is_active ?? true)
+                                    ? styles.statusActive
+                                    : styles.statusInactive,
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.statusBadgeText,
+                                    (item.is_active ?? true)
+                                        ? { color: "#166534" }
+                                        : { color: "#991B1B" },
+                                ]}
+                            >
+                                {(item.is_active ?? true)
+                                    ? "Active"
+                                    : "Inactive"}
+                            </Text>
+                        </View>
+                        {isExpanded ? (
+                            <ChevronDown size={16} color="#6B7280" />
+                        ) : (
+                            <ChevronRight size={16} color="#6B7280" />
+                        )}
+                    </View>
                 </View>
-            )}
-            {!!item.active_test_info && (
-                <>
+
+                <View style={styles.statsRow}>
+                    <View style={styles.statCell}>
+                        <Text style={styles.statNum}>
+                            {item.total_tests ?? 0}
+                        </Text>
+                        <Text style={styles.statLbl}>Total Tests</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statCell}>
+                        <Text style={[styles.statNum, { color: "#EAB308" }]}>
+                            {item.active_tests_count ?? 0}
+                        </Text>
+                        <Text style={styles.statLbl}>Active</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statCell}>
+                        <Text style={[styles.statNum, { color: "#22C55E" }]}>
+                            {item.completed_tests_count ?? 0}
+                        </Text>
+                        <Text style={styles.statLbl}>Completed</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statCell}>
+                        <Text style={styles.statNum}>
+                            {item.total_transactions}
+                        </Text>
+                        <Text style={styles.statLbl}>Visits</Text>
+                    </View>
+                </View>
+
+                <View style={styles.quickInfoBlock}>
                     <View style={styles.row}>
-                        <Text style={styles.label}>Queue #</Text>
+                        <Text style={styles.label}>Latest Test</Text>
+                        {item.latest_test_name ? (
+                            <View style={styles.latestTestBadge}>
+                                <FlaskConical size={11} color="#6B7280" />
+                                <Text
+                                    style={styles.latestTestText}
+                                    numberOfLines={1}
+                                >
+                                    {item.latest_test_name}
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.value}>—</Text>
+                        )}
+                    </View>
+
+                    <View style={styles.row}>
+                        <Text style={styles.label}>Valid ID</Text>
+                        {item.id_picture_url ? (
+                            <TouchableOpacity
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    setIdViewer({
+                                        visible: true,
+                                        url: item.id_picture_url ?? null,
+                                        name: item.full_name,
+                                    });
+                                }}
+                                style={styles.idButton}
+                            >
+                                <Text style={styles.idButtonText}>
+                                    View Uploaded ID
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <Text style={styles.value}>Not Uploaded</Text>
+                        )}
+                    </View>
+
+                    <View style={styles.row}>
+                        <Text style={styles.label}>Lifetime Value</Text>
                         <Text style={styles.value}>
-                            {item.active_test_info.queue_number
-                                ? `#${item.active_test_info.queue_number}`
-                                : "—"}
+                            ₱{(item.total_spent ?? 0).toLocaleString("en-PH")}
                         </Text>
                     </View>
-                    <View style={styles.row}>
-                        <Text style={styles.label}>Type / Apt Priority</Text>
-                        <Text style={[styles.value, styles.infoPill]}>
-                            {item.active_test_info.test_type || "—"}
-                            {item.active_test_info.priority_level
-                                ? ` / ${item.active_test_info.priority_level}`
-                                : ""}
-                        </Text>
+                </View>
+
+                {isExpanded ? (
+                    <View style={styles.expandedSection}>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Contact</Text>
+                            <Text style={styles.detailValue}>
+                                {item.contact_number || "—"}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Address</Text>
+                            <Text style={styles.detailValue}>
+                                {item.address?.trim() || "—"}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>First Visit</Text>
+                            <Text style={styles.detailValue}>
+                                {fmtVisitDate(item.first_visit)}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Last Visit</Text>
+                            <Text style={styles.detailValue}>
+                                {fmtVisitDate(item.last_visit)}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Queue #</Text>
+                            <Text style={styles.detailValue}>
+                                {item.active_test_info?.queue_number ?? "—"}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>
+                                Type / Apt Priority
+                            </Text>
+                            <View style={styles.detailChipWrap}>
+                                <Text style={styles.opChip}>
+                                    {item.active_test_info?.test_type || "—"}
+                                </Text>
+                                <Text style={styles.opChip}>
+                                    {item.active_test_info?.priority_level ||
+                                        "—"}
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>
+                                Demographic Priority
+                            </Text>
+                            <View style={styles.detailChipWrap}>
+                                <Text style={styles.opChip}>
+                                    {item.active_test_info?.priority_category ||
+                                        "—"}
+                                </Text>
+                            </View>
+                        </View>
                     </View>
-                    <View style={styles.row}>
-                        <Text style={styles.label}>Demographic Priority</Text>
-                        <Text style={[styles.value, styles.infoPill]}>
-                            {item.active_test_info.priority_category ||
-                                "Regular"}
-                        </Text>
-                    </View>
-                </>
-            )}
-            <View style={styles.row}>
-                <Text style={styles.label}>Valid ID</Text>
-                {item.id_picture_url ? (
+                ) : null}
+
+                <View style={styles.cardActions}>
                     <TouchableOpacity
-                        onPress={() =>
-                            setIdViewer({
-                                visible: true,
-                                url: item.id_picture_url ?? null,
-                                name: item.full_name,
-                            })
-                        }
-                        style={styles.idButton}
+                        style={[
+                            styles.detailsBtn,
+                            isExpanded && styles.detailsBtnActive,
+                        ]}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            toggleExpanded(item.id);
+                        }}
                     >
-                        <Text style={styles.idButtonText}>
-                            View Uploaded ID
+                        <Text
+                            style={[
+                                styles.detailsBtnText,
+                                isExpanded && styles.detailsBtnTextActive,
+                            ]}
+                        >
+                            {isExpanded ? "Hide Details" : "View Details"}
                         </Text>
                     </TouchableOpacity>
-                ) : (
-                    <Text style={styles.value}>Not Uploaded</Text>
-                )}
-            </View>
-            <View style={styles.row}>
-                <Text style={styles.label}>Lifetime Value</Text>
-                <Text
-                    style={[
-                        styles.value,
-                        { fontWeight: "700", color: "#111827" },
-                    ]}
-                >
-                    ₱{(item.total_spent ?? 0).toLocaleString("en-PH")}
-                </Text>
-            </View>
 
-            <TouchableOpacity
-                style={styles.toggleBtn}
-                onPress={() => handleTogglePatient(item)}
-            >
-                {(item.is_active ?? true) ? (
-                    <PowerOff size={14} color="#EF4444" />
-                ) : (
-                    <Power size={14} color="#10B981" />
-                )}
-                <Text
-                    style={[
-                        styles.toggleBtnText,
-                        {
-                            color:
+                    <TouchableOpacity
+                        style={[
+                            styles.toggleBtn,
+                            (item.is_active ?? true)
+                                ? styles.toggleBtnDanger
+                                : styles.toggleBtnSuccess,
+                        ]}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            handleTogglePatient(item);
+                        }}
+                    >
+                        {(item.is_active ?? true) ? (
+                            <PowerOff size={14} color="#EF4444" />
+                        ) : (
+                            <Power size={14} color="#10B981" />
+                        )}
+                        <Text
+                            style={[
+                                styles.toggleBtnText,
                                 (item.is_active ?? true)
-                                    ? "#EF4444"
-                                    : "#10B981",
-                        },
-                    ]}
-                >
-                    {(item.is_active ?? true) ? "Deactivate" : "Activate"}
-                </Text>
-            </TouchableOpacity>
-        </TouchableOpacity>
-    );
+                                    ? styles.toggleBtnTextDanger
+                                    : styles.toggleBtnTextSuccess,
+                            ]}
+                        >
+                            {(item.is_active ?? true)
+                                ? "Deactivate"
+                                : "Activate"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </Pressable>
+        );
+    };
 
     const header = useMemo(
         () => (
@@ -648,9 +717,11 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 16,
         shadowColor: "#000",
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
+        shadowOpacity: 0.02,
+        shadowRadius: 10,
         elevation: 1,
+        borderWidth: 1,
+        borderColor: "#EAECEF",
     },
     cardHeader: {
         flexDirection: "row",
@@ -658,8 +729,14 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
         marginBottom: 12,
     },
+    headerRightWrap: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginLeft: 8,
+    },
     name: { fontSize: 16, fontWeight: "700", color: "#111827" },
-    meta: { color: "#6B7280", marginTop: 2, fontSize: 12 },
+    meta: { color: "#6B7280", marginTop: 2, fontSize: 11 },
     statusBadge: {
         borderRadius: 999,
         paddingHorizontal: 10,
@@ -672,38 +749,42 @@ const styles = StyleSheet.create({
     statusBadgeText: { fontSize: 11, fontWeight: "700" },
     statsRow: {
         flexDirection: "row",
-        backgroundColor: "#F9FAFB",
+        backgroundColor: "#F8FAFC",
         borderRadius: 10,
-        marginBottom: 10,
+        marginBottom: 14,
         paddingVertical: 8,
     },
     statCell: { flex: 1, alignItems: "center" },
     statDivider: { width: 1, backgroundColor: "#E5E7EB", marginVertical: 4 },
     statNum: { fontSize: 16, fontWeight: "700", color: "#111827" },
     statLbl: { fontSize: 10, color: "#9CA3AF", marginTop: 2 },
+    quickInfoBlock: {
+        gap: 10,
+    },
     latestTestBadge: {
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        backgroundColor: "#F3F4F6",
+        backgroundColor: "#F8FAFC",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
         paddingHorizontal: 8,
         paddingVertical: 2,
-        borderRadius: 6,
+        borderRadius: 999,
+        maxWidth: "62%",
+        minWidth: 56,
     },
-    latestTestText: { fontSize: 12, color: "#374151", fontWeight: "500" },
-    infoPill: {
-        backgroundColor: "#F3F4F6",
-        borderRadius: 6,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        overflow: "hidden",
-        maxWidth: "70%",
+    latestTestText: {
+        fontSize: 12,
+        color: "#334155",
+        fontWeight: "600",
+        flexShrink: 1,
     },
     row: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 6,
+        gap: 12,
     },
     idButton: {
         backgroundColor: "#EFF6FF",
@@ -718,8 +799,80 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         color: "#1D4ED8",
     },
-    label: { color: "#6B7280", fontSize: 13 },
-    value: { color: "#111827", fontWeight: "600" },
+    expandedSection: {
+        marginTop: 14,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#EEF2F7",
+        gap: 9,
+    },
+    detailRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 10,
+    },
+    detailLabel: {
+        width: 122,
+        color: "#64748B",
+        fontSize: 11,
+        fontWeight: "600",
+        paddingTop: 2,
+    },
+    detailValue: {
+        flex: 1,
+        color: "#0F172A",
+        fontSize: 13,
+        fontWeight: "700",
+        lineHeight: 18,
+    },
+    detailChipWrap: {
+        flex: 1,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    opChip: {
+        fontSize: 11,
+        color: "#334155",
+        backgroundColor: "#F8FAFC",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        overflow: "hidden",
+        fontWeight: "600",
+    },
+    cardActions: {
+        flexDirection: "row",
+        gap: 10,
+        marginTop: 14,
+    },
+    detailsBtn: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: "#FCA5A5",
+        borderRadius: 10,
+        backgroundColor: "#BE123C",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 38,
+        paddingHorizontal: 10,
+    },
+    detailsBtnActive: {
+        backgroundColor: "#FFF1F2",
+        borderColor: "#FDA4AF",
+    },
+    detailsBtnText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#FFFFFF",
+    },
+    detailsBtnTextActive: {
+        color: "#9F1239",
+    },
+    label: { color: "#6B7280", fontSize: 11, fontWeight: "600" },
+    value: { color: "#111827", fontWeight: "700", fontSize: 13 },
     emptyState: {
         alignItems: "center",
         paddingVertical: 80,
@@ -752,17 +905,29 @@ const styles = StyleSheet.create({
     toggleBtn: {
         flexDirection: "row",
         alignItems: "center",
-        alignSelf: "flex-end",
+        justifyContent: "center",
+        flex: 1,
         gap: 4,
-        marginTop: 10,
         paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 8,
-        backgroundColor: "#F9FAFB",
+        minHeight: 38,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
     },
     toggleBtnText: { fontSize: 12, fontWeight: "600" },
+    toggleBtnDanger: {
+        backgroundColor: "#FFF5F5",
+        borderColor: "#FECACA",
+    },
+    toggleBtnSuccess: {
+        backgroundColor: "#ECFDF5",
+        borderColor: "#A7F3D0",
+    },
+    toggleBtnTextDanger: {
+        color: "#EF4444",
+    },
+    toggleBtnTextSuccess: {
+        color: "#10B981",
+    },
     viewerOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.6)",

@@ -4,6 +4,7 @@ import {
     Calendar,
     ChevronDown,
     ChevronLeft,
+    ChevronRight,
     Edit,
     FileText,
     Image as ImageIcon,
@@ -122,6 +123,10 @@ export default function PatientDetails() {
     const [loadingTest, setLoadingTest] = useState(false);
     const [notifyingTestId, setNotifyingTestId] = useState<number | null>(null);
     const [notifiedTests, setNotifiedTests] = useState<number[]>([]);
+    const [isTestHistoryExpanded, setIsTestHistoryExpanded] = useState(false);
+    const [expandedTestRows, setExpandedTestRows] = useState<
+        Record<number, boolean>
+    >({});
     const [idViewer, setIdViewer] = useState<{
         visible: boolean;
         url: string | null;
@@ -166,6 +171,10 @@ export default function PatientDetails() {
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const toggleTestRow = (testId: number) => {
+        setExpandedTestRows((prev) => ({ ...prev, [testId]: !prev[testId] }));
+    };
 
     const loadDetails = useCallback(
         async (options?: { silent?: boolean }) => {
@@ -703,169 +712,273 @@ export default function PatientDetails() {
 
                 {/* Test History */}
                 <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Test History</Text>
-                    {testHistory.length > 0 ? (
-                        testHistory.map((test) => (
-                            <TouchableOpacity
-                                key={test.id}
-                                style={styles.testHistoryRow}
-                                onPress={() => loadTestDetails(test.id)}
-                            >
-                                <View style={styles.testHistoryLeft}>
-                                    <View style={styles.testHistoryIconWrap}>
-                                        <FileText size={16} color="#2563EB" />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.testHistoryName}>
-                                            {test.name}
-                                        </Text>
-                                        <Text style={styles.testHistoryDate}>
-                                            {test.date}
-                                        </Text>
-                                    </View>
-                                </View>
+                    <TouchableOpacity
+                        style={styles.sectionHeaderRow}
+                        onPress={() =>
+                            setIsTestHistoryExpanded((prev) => !prev)
+                        }
+                    >
+                        <Text style={styles.sectionTitle}>
+                            Test History ({testHistory.length})
+                        </Text>
+                        {isTestHistoryExpanded ? (
+                            <ChevronDown size={18} color="#6B7280" />
+                        ) : (
+                            <ChevronRight size={18} color="#6B7280" />
+                        )}
+                    </TouchableOpacity>
+
+                    {!isTestHistoryExpanded ? (
+                        <Text style={styles.collapsedHintText}>
+                            Tap to expand test history.
+                        </Text>
+                    ) : testHistory.length > 0 ? (
+                        testHistory.map((test) => {
+                            const isExpanded = !!expandedTestRows[test.id];
+
+                            return (
                                 <View
-                                    style={{
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        justifyContent: "flex-end",
-                                        flexWrap: "wrap",
-                                        gap: 4,
-                                        maxWidth: "50%",
-                                    }}
+                                    key={test.id}
+                                    style={styles.testHistoryCard}
                                 >
-                                    {test.result_quality ===
-                                        "recollect_specimen" && (
-                                        <View
-                                            style={
-                                                styles.recollectSpecimenBadge
-                                            }
-                                        >
-                                            <Text
-                                                style={
-                                                    styles.recollectSpecimenText
-                                                }
-                                            >
-                                                Recollect
-                                            </Text>
-                                        </View>
-                                    )}
-                                    {test.result_quality === "rerun_test" && (
-                                        <View style={styles.rerunBadge}>
-                                            <Text style={styles.rerunBadgeText}>
-                                                Rerun
-                                            </Text>
-                                        </View>
-                                    )}
-                                    {test.payment_status === "refunded" && (
-                                        <View
-                                            style={{
-                                                backgroundColor: "#FED7AA",
-                                                borderRadius: 12,
-                                                paddingHorizontal: 8,
-                                                paddingVertical: 2,
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: "#92400E",
-                                                    fontSize: 11,
-                                                    fontWeight: "600",
-                                                }}
-                                            >
-                                                Refunded
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View
-                                        style={[
-                                            styles.testStatus,
-                                            test.status === "pending"
-                                                ? { backgroundColor: "#FEE2E2" }
-                                                : test.status === "processing"
-                                                  ? {
-                                                        backgroundColor:
-                                                            "#FEF3C7",
-                                                    }
-                                                  : test.status === "completed"
-                                                    ? {
-                                                          backgroundColor:
-                                                              "#DBEAFE",
-                                                      }
-                                                    : test.status ===
-                                                        "cancelled"
-                                                      ? {
-                                                            backgroundColor:
-                                                                "#F3F4F6",
-                                                        }
-                                                      : {
-                                                            backgroundColor:
-                                                                "#D1FAE5",
-                                                        },
-                                        ]}
+                                    <TouchableOpacity
+                                        style={styles.testHistoryRow}
+                                        onPress={() => toggleTestRow(test.id)}
                                     >
-                                        <Text
-                                            style={[
-                                                styles.testStatusText,
-                                                test.status === "pending"
-                                                    ? { color: "#991B1B" }
-                                                    : test.status ===
-                                                        "processing"
-                                                      ? { color: "#92400E" }
-                                                      : test.status ===
-                                                          "completed"
-                                                        ? { color: "#1E40AF" }
-                                                        : test.status ===
-                                                            "cancelled"
-                                                          ? { color: "#374151" }
-                                                          : {
-                                                                color: "#065F46",
-                                                            },
-                                            ]}
-                                        >
-                                            {test.status}
-                                        </Text>
-                                    </View>
-                                    {test.result_quality ===
-                                        "recollect_specimen" &&
-                                        !!patient.email && (
-                                            <TouchableOpacity
-                                                style={styles.notifyButton}
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    notifySpecimenRecollect({
-                                                        id: test.id,
-                                                        result_quality:
-                                                            test.result_quality,
-                                                    });
-                                                }}
-                                                disabled={
-                                                    notifyingTestId ===
-                                                        test.id ||
-                                                    notifiedTests.includes(
-                                                        test.id,
-                                                    )
+                                        <View style={styles.testHistoryLeft}>
+                                            <View
+                                                style={
+                                                    styles.testHistoryIconWrap
                                                 }
                                             >
+                                                <FileText
+                                                    size={16}
+                                                    color="#2563EB"
+                                                />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
                                                 <Text
                                                     style={
-                                                        styles.notifyButtonText
+                                                        styles.testHistoryName
+                                                    }
+                                                    numberOfLines={1}
+                                                >
+                                                    {test.name}
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.testHistoryDate
                                                     }
                                                 >
-                                                    {notifiedTests.includes(
-                                                        test.id,
-                                                    )
-                                                        ? "Notified"
-                                                        : notifyingTestId ===
-                                                            test.id
-                                                          ? "Sending..."
-                                                          : "Notify"}
+                                                    {test.date}
                                                 </Text>
-                                            </TouchableOpacity>
-                                        )}
+                                            </View>
+                                        </View>
+                                        <View
+                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                gap: 8,
+                                            }}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.testStatus,
+                                                    test.status === "pending"
+                                                        ? {
+                                                              backgroundColor:
+                                                                  "#FEE2E2",
+                                                          }
+                                                        : test.status ===
+                                                            "processing"
+                                                          ? {
+                                                                backgroundColor:
+                                                                    "#FEF3C7",
+                                                            }
+                                                          : test.status ===
+                                                              "completed"
+                                                            ? {
+                                                                  backgroundColor:
+                                                                      "#DBEAFE",
+                                                              }
+                                                            : test.status ===
+                                                                "cancelled"
+                                                              ? {
+                                                                    backgroundColor:
+                                                                        "#F3F4F6",
+                                                                }
+                                                              : {
+                                                                    backgroundColor:
+                                                                        "#D1FAE5",
+                                                                },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.testStatusText,
+                                                        test.status ===
+                                                        "pending"
+                                                            ? {
+                                                                  color: "#991B1B",
+                                                              }
+                                                            : test.status ===
+                                                                "processing"
+                                                              ? {
+                                                                    color: "#92400E",
+                                                                }
+                                                              : test.status ===
+                                                                  "completed"
+                                                                ? {
+                                                                      color: "#1E40AF",
+                                                                  }
+                                                                : test.status ===
+                                                                    "cancelled"
+                                                                  ? {
+                                                                        color: "#374151",
+                                                                    }
+                                                                  : {
+                                                                        color: "#065F46",
+                                                                    },
+                                                    ]}
+                                                >
+                                                    {test.status}
+                                                </Text>
+                                            </View>
+                                            {isExpanded ? (
+                                                <ChevronDown
+                                                    size={16}
+                                                    color="#6B7280"
+                                                />
+                                            ) : (
+                                                <ChevronRight
+                                                    size={16}
+                                                    color="#6B7280"
+                                                />
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {isExpanded ? (
+                                        <View
+                                            style={
+                                                styles.testHistoryExpandedArea
+                                            }
+                                        >
+                                            <View style={styles.testTagWrap}>
+                                                {test.result_quality ===
+                                                    "recollect_specimen" && (
+                                                    <View
+                                                        style={
+                                                            styles.recollectSpecimenBadge
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.recollectSpecimenText
+                                                            }
+                                                        >
+                                                            Recollect
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                                {test.result_quality ===
+                                                    "rerun_test" && (
+                                                    <View
+                                                        style={
+                                                            styles.rerunBadge
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.rerunBadgeText
+                                                            }
+                                                        >
+                                                            Rerun
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                                {test.payment_status ===
+                                                    "refunded" && (
+                                                    <View
+                                                        style={
+                                                            styles.refundedBadge
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.refundedBadgeText
+                                                            }
+                                                        >
+                                                            Refunded
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            <View style={styles.testActionRow}>
+                                                <TouchableOpacity
+                                                    style={
+                                                        styles.viewResultButton
+                                                    }
+                                                    onPress={() =>
+                                                        loadTestDetails(test.id)
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.viewResultButtonText
+                                                        }
+                                                    >
+                                                        View Result
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                {test.result_quality ===
+                                                    "recollect_specimen" &&
+                                                    !!patient.email && (
+                                                        <TouchableOpacity
+                                                            style={
+                                                                styles.notifyButton
+                                                            }
+                                                            onPress={() =>
+                                                                notifySpecimenRecollect(
+                                                                    {
+                                                                        id: test.id,
+                                                                        result_quality:
+                                                                            test.result_quality,
+                                                                    },
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                notifyingTestId ===
+                                                                    test.id ||
+                                                                notifiedTests.includes(
+                                                                    test.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.notifyButtonText
+                                                                }
+                                                            >
+                                                                {notifiedTests.includes(
+                                                                    test.id,
+                                                                )
+                                                                    ? "Notified"
+                                                                    : notifyingTestId ===
+                                                                        test.id
+                                                                      ? "Sending..."
+                                                                      : "Notify"}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                            </View>
+                                        </View>
+                                    ) : null}
                                 </View>
-                            </TouchableOpacity>
-                        ))
+                            );
+                        })
                     ) : (
                         <Text style={styles.emptyState}>
                             No test history available.
@@ -2108,6 +2221,17 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         color: "#111827",
     },
+    sectionHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+    },
+    collapsedHintText: {
+        color: "#6B7280",
+        fontSize: 13,
+        fontStyle: "italic",
+    },
     transaction: {
         borderBottomWidth: 1,
         borderBottomColor: "#F3F4F6",
@@ -2156,10 +2280,16 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F3F4F6",
+        paddingVertical: 10,
         gap: 10,
+    },
+    testHistoryCard: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        marginTop: 8,
+        backgroundColor: "#FFFFFF",
     },
     testHistoryLeft: {
         flexDirection: "row",
@@ -2185,6 +2315,19 @@ const styles = StyleSheet.create({
         color: "#6B7280",
         marginTop: 2,
     },
+    testHistoryExpandedArea: {
+        borderTopWidth: 1,
+        borderTopColor: "#F3F4F6",
+        paddingTop: 10,
+        paddingBottom: 12,
+        gap: 10,
+    },
+    testTagWrap: {
+        flexDirection: "row",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 6,
+    },
     recollectSpecimenBadge: {
         backgroundColor: "#FEF3C7",
         borderRadius: 12,
@@ -2206,6 +2349,37 @@ const styles = StyleSheet.create({
         color: "#991B1B",
         fontSize: 11,
         fontWeight: "600",
+    },
+    refundedBadge: {
+        backgroundColor: "#FED7AA",
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    refundedBadgeText: {
+        color: "#92400E",
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    testActionRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+    },
+    viewResultButton: {
+        flex: 1,
+        backgroundColor: "#EFF6FF",
+        borderColor: "#BFDBFE",
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingVertical: 8,
+        alignItems: "center",
+    },
+    viewResultButtonText: {
+        color: "#1D4ED8",
+        fontSize: 12,
+        fontWeight: "700",
     },
     notifyButton: {
         backgroundColor: "#D97706",

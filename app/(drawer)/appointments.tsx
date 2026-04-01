@@ -41,11 +41,26 @@ import { getApiErrorMessage } from "@/utils";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 
 const CLOSURE_PRESETS = [
-    { label: "Public Holiday",         value: "The clinic is closed for a public holiday." },
-    { label: "System Maintenance",     value: "The system is currently under maintenance. Please try again later." },
-    { label: "Staff Training",         value: "The clinic is closed for staff training today." },
-    { label: "Emergency Closure",      value: "The clinic is temporarily closed due to an emergency." },
-    { label: "Special Event",          value: "The clinic is closed for a special event." },
+    {
+        label: "Public Holiday",
+        value: "The clinic is closed for a public holiday.",
+    },
+    {
+        label: "System Maintenance",
+        value: "The system is currently under maintenance. Please try again later.",
+    },
+    {
+        label: "Staff Training",
+        value: "The clinic is closed for staff training today.",
+    },
+    {
+        label: "Emergency Closure",
+        value: "The clinic is temporarily closed due to an emergency.",
+    },
+    {
+        label: "Special Event",
+        value: "The clinic is closed for a special event.",
+    },
     { label: "Other (custom message)", value: "Other" },
 ];
 
@@ -155,20 +170,33 @@ function formatAppointmentDate(val: string | undefined | null): string {
     const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (!m) return s;
     const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
-    return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+    });
 }
 
 function DemographicBadge({ category }: { category?: string | null }) {
     const cfg: Record<string, { color: string; bg: string }> = {
-        PWD:              { color: "#1E40AF", bg: "#DBEAFE" },
+        PWD: { color: "#1E40AF", bg: "#DBEAFE" },
         "Senior Citizen": { color: "#5B21B6", bg: "#EDE9FE" },
-        Pregnant:         { color: "#9D174D", bg: "#FCE7F3" },
-        Regular:          { color: "#374151", bg: "#F3F4F6" },
+        Pregnant: { color: "#9D174D", bg: "#FCE7F3" },
+        Regular: { color: "#374151", bg: "#F3F4F6" },
     };
     const c = cfg[category ?? "Regular"] ?? cfg.Regular;
     return (
-        <View style={{ backgroundColor: c.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>{category ?? "Regular"}</Text>
+        <View
+            style={{
+                backgroundColor: c.bg,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 99,
+            }}
+        >
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>
+                {category ?? "Regular"}
+            </Text>
         </View>
     );
 }
@@ -176,15 +204,24 @@ function DemographicBadge({ category }: { category?: string | null }) {
 function PriorityBadge({ level }: { level?: string | null }) {
     if (!level) return null;
     const cfg: Record<string, { label: string; color: string; bg: string }> = {
-        HIGH:   { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
-        MEDIUM: { label: "Grace",   color: "#92400E", bg: "#FEF3C7" },
-        NONE:   { label: "Late",    color: "#991B1B", bg: "#FEE2E2" },
+        HIGH: { label: "On Time", color: "#065F46", bg: "#D1FAE5" },
+        MEDIUM: { label: "Grace", color: "#92400E", bg: "#FEF3C7" },
+        NONE: { label: "Late", color: "#991B1B", bg: "#FEE2E2" },
     };
     const c = cfg[level];
     if (!c) return null;
     return (
-        <View style={{ backgroundColor: c.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>{c.label}</Text>
+        <View
+            style={{
+                backgroundColor: c.bg,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 99,
+            }}
+        >
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.color }}>
+                {c.label}
+            </Text>
         </View>
     );
 }
@@ -227,7 +264,9 @@ export default function AppointmentsScreen() {
         reason: "",
     });
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [availableSlots, setAvailableSlots] = useState<{ value: string; label: string }[]>([]);
+    const [availableSlots, setAvailableSlots] = useState<
+        { value: string; label: string }[]
+    >([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [holidays, setHolidays] = useState<string[]>([]); // YYYY-MM-DD strings
     const [rescheduleDateError, setRescheduleDateError] = useState("");
@@ -236,7 +275,9 @@ export default function AppointmentsScreen() {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsSaving, setSettingsSaving] = useState(false);
-    const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
+    const [settingsErrors, setSettingsErrors] = useState<
+        Record<string, string>
+    >({});
     const [settingsForm, setSettingsForm] = useState({
         booking_enabled: true,
         closure_reason: "",
@@ -250,7 +291,9 @@ export default function AppointmentsScreen() {
     const [closureReasonPreset, setClosureReasonPreset] = useState("");
 
     // Time picker for settings
-    const [showTimePicker, setShowTimePicker] = useState<null | "open_time" | "close_time" | "same_day_cutoff">(null);
+    const [showTimePicker, setShowTimePicker] = useState<
+        null | "open_time" | "close_time" | "same_day_cutoff"
+    >(null);
 
     const loadSettings = useCallback(async () => {
         setSettingsLoading(true);
@@ -267,10 +310,15 @@ export default function AppointmentsScreen() {
                 advance_days: s.advance_days ?? 30,
                 same_day_cutoff: s.same_day_cutoff ?? "12:00",
             });
-            const presetValues = CLOSURE_PRESETS.filter(p => p.value !== "Other").map(p => p.value);
+            const presetValues = CLOSURE_PRESETS.filter(
+                (p) => p.value !== "Other",
+            ).map((p) => p.value);
             setClosureReasonPreset(
-                presetValues.includes(s.closure_reason) ? s.closure_reason
-                : s.closure_reason ? "Other" : ""
+                presetValues.includes(s.closure_reason)
+                    ? s.closure_reason
+                    : s.closure_reason
+                      ? "Other"
+                      : "",
             );
         } catch {
             // silent — modal will show empty defaults
@@ -299,15 +347,25 @@ export default function AppointmentsScreen() {
 
     const saveSettings = async () => {
         const errors: Record<string, string> = {};
-        const openM  = toMinutes(settingsForm.open_time);
+        const openM = toMinutes(settingsForm.open_time);
         const closeM = toMinutes(settingsForm.close_time);
         const cutoffM = toMinutes(settingsForm.same_day_cutoff);
 
-        if (closeM <= openM) errors.close_time = "Close time must be after open time.";
-        if (cutoffM < openM || cutoffM >= closeM) errors.same_day_cutoff = "Same-day cutoff must be within operating hours and before close time.";
-        if (settingsForm.slot_limit < 0 || settingsForm.slot_limit > 999) errors.slot_limit = "Must be between 0 and 999.";
-        if (settingsForm.advance_days < 1 || settingsForm.advance_days > 365) errors.advance_days = "Must be between 1 and 365.";
-        if (!settingsForm.booking_enabled && !settingsForm.closure_reason.trim()) errors.closure_reason = "Please provide a reason for closing online booking.";
+        if (closeM <= openM)
+            errors.close_time = "Close time must be after open time.";
+        if (cutoffM < openM || cutoffM >= closeM)
+            errors.same_day_cutoff =
+                "Same-day cutoff must be within operating hours and before close time.";
+        if (settingsForm.slot_limit < 0 || settingsForm.slot_limit > 999)
+            errors.slot_limit = "Must be between 0 and 999.";
+        if (settingsForm.advance_days < 1 || settingsForm.advance_days > 365)
+            errors.advance_days = "Must be between 1 and 365.";
+        if (
+            !settingsForm.booking_enabled &&
+            !settingsForm.closure_reason.trim()
+        )
+            errors.closure_reason =
+                "Please provide a reason for closing online booking.";
 
         setSettingsErrors(errors);
         if (Object.keys(errors).length > 0) return;
@@ -316,16 +374,31 @@ export default function AppointmentsScreen() {
         try {
             await api.post("/appointments/settings", settingsForm);
             setShowSettingsModal(false);
-            setSuccessDialog({ visible: true, title: "Saved", message: "Appointment settings updated successfully.", type: "success" });
+            setSuccessDialog({
+                visible: true,
+                title: "Saved",
+                message: "Appointment settings updated successfully.",
+                type: "success",
+            });
             loadAppointments(1, true);
         } catch (err: any) {
             const data = err?.response?.data;
             if (data?.errors) {
                 const mapped: Record<string, string> = {};
-                Object.entries(data.errors).forEach(([k, v]: any) => { mapped[k] = v[0]; });
+                Object.entries(data.errors).forEach(([k, v]: any) => {
+                    mapped[k] = v[0];
+                });
                 setSettingsErrors(mapped);
             } else {
-                setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to save settings."), type: "error" });
+                setSuccessDialog({
+                    visible: true,
+                    title: "Error",
+                    message: getApiErrorMessage(
+                        err,
+                        "Failed to save settings.",
+                    ),
+                    type: "error",
+                });
             }
         } finally {
             setSettingsSaving(false);
@@ -481,8 +554,7 @@ export default function AppointmentsScreen() {
                     `/appointments/${selected.id}/available-slots`,
                     { params: { date: rescheduleForm.new_date } },
                 );
-                if (!cancelled)
-                    setAvailableSlots(res.data.slots ?? []);
+                if (!cancelled) setAvailableSlots(res.data.slots ?? []);
             } catch (err: any) {
                 if (!cancelled) {
                     setAvailableSlots([]);
@@ -608,7 +680,9 @@ export default function AppointmentsScreen() {
                 {/* Date + Time */}
                 <View style={styles.cardRow}>
                     <Calendar size={13} color="#9CA3AF" />
-                    <Text style={styles.cardSub}>{formatAppointmentDate(item.appointment_date)}</Text>
+                    <Text style={styles.cardSub}>
+                        {formatAppointmentDate(item.appointment_date)}
+                    </Text>
                     <Clock size={13} color="#9CA3AF" />
                     <Text style={styles.cardSub}>
                         {formatTime(String(item.appointment_time))}
@@ -617,7 +691,9 @@ export default function AppointmentsScreen() {
                 {/* Priority + Amount */}
                 <View style={styles.cardRow}>
                     <PriorityBadge level={item.priority_level} />
-                    <DemographicBadge category={(item as any).priority_category} />
+                    <DemographicBadge
+                        category={(item as any).priority_category}
+                    />
                     <View style={{ flex: 1 }} />
                     <Text style={styles.cardAmount}>
                         ₱
@@ -726,13 +802,41 @@ export default function AppointmentsScreen() {
             {/* Queue Type Legend */}
             <View style={styles.legendCard}>
                 <View style={styles.legendRow}>
-                    <View style={[styles.legendItem, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
-                        <Text style={[styles.legendTitle, { color: "#92400E" }]}>PA — Priority + Appointment</Text>
-                        <Text style={[styles.legendSub, { color: "#78350F" }]}>Verified demographic priority with appointment</Text>
+                    <View
+                        style={[
+                            styles.legendItem,
+                            {
+                                backgroundColor: "#FFFBEB",
+                                borderColor: "#FDE68A",
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[styles.legendTitle, { color: "#92400E" }]}
+                        >
+                            PA — Priority + Appointment
+                        </Text>
+                        <Text style={[styles.legendSub, { color: "#78350F" }]}>
+                            Verified demographic priority with appointment
+                        </Text>
                     </View>
-                    <View style={[styles.legendItem, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
-                        <Text style={[styles.legendTitle, { color: "#1E40AF" }]}>A — Regular Appointment</Text>
-                        <Text style={[styles.legendSub, { color: "#1E3A8A" }]}>Standard appointment without priority</Text>
+                    <View
+                        style={[
+                            styles.legendItem,
+                            {
+                                backgroundColor: "#EFF6FF",
+                                borderColor: "#BFDBFE",
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[styles.legendTitle, { color: "#1E40AF" }]}
+                        >
+                            A — Regular Appointment
+                        </Text>
+                        <Text style={[styles.legendSub, { color: "#1E3A8A" }]}>
+                            Standard appointment without priority
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -775,12 +879,10 @@ export default function AppointmentsScreen() {
                             style={{ marginRight: 6 }}
                         />
                         <Text
-                            style={[
-                                styles.pickerButtonText,
-                            ]}
+                            style={[styles.pickerButtonText]}
                             numberOfLines={1}
                         >
-                            {fmtDateDisplay(filterDate)}
+                            {fmtDateDisplay(filterDate ?? new Date())}
                         </Text>
                         <TouchableOpacity
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -882,16 +984,25 @@ export default function AppointmentsScreen() {
                 visible={!!idViewerUrl}
                 transparent
                 animationType="fade"
-                onRequestClose={() => { setIdViewerUrl(null); setIdViewerName(null); }}
+                onRequestClose={() => {
+                    setIdViewerUrl(null);
+                    setIdViewerName(null);
+                }}
             >
                 <View style={styles.idViewerOverlay}>
                     <View style={styles.idViewerBox}>
                         <View style={styles.idViewerHeader}>
-                            <Text style={styles.idViewerTitle} numberOfLines={1}>
+                            <Text
+                                style={styles.idViewerTitle}
+                                numberOfLines={1}
+                            >
                                 ID — {idViewerName}
                             </Text>
                             <TouchableOpacity
-                                onPress={() => { setIdViewerUrl(null); setIdViewerName(null); }}
+                                onPress={() => {
+                                    setIdViewerUrl(null);
+                                    setIdViewerName(null);
+                                }}
                                 style={{ padding: 4 }}
                             >
                                 <X size={22} color="#6B7280" />
@@ -900,7 +1011,7 @@ export default function AppointmentsScreen() {
                         {idViewerUrl && (
                             <Image
                                 source={{
-                                    uri: idViewerUrl.startsWith('http')
+                                    uri: idViewerUrl.startsWith("http")
                                         ? idViewerUrl
                                         : `${API_BASE_URL}/${idViewerUrl}`,
                                 }}
@@ -963,7 +1074,9 @@ export default function AppointmentsScreen() {
                                             Date
                                         </Text>
                                         <Text style={styles.detailCardValue}>
-                                            {formatAppointmentDate(selected.appointment_date)}
+                                            {formatAppointmentDate(
+                                                selected.appointment_date,
+                                            )}
                                         </Text>
                                     </View>
                                     <View style={styles.detailCardRow}>
@@ -1016,16 +1129,88 @@ export default function AppointmentsScreen() {
                                 </View>
 
                                 {/* Queue type legend */}
-                                <View style={[styles.detailCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
-                                    <Text style={[styles.detailCardTitle, { color: "#92400E", marginBottom: 6 }]}>Queue Type Legend</Text>
-                                    <View style={{ flexDirection: "row", gap: 8 }}>
-                                        <View style={{ flex: 1, backgroundColor: "#FEF3C7", borderRadius: 8, borderWidth: 1, borderColor: "#FDE68A", padding: 8 }}>
-                                            <Text style={{ fontSize: 12, fontWeight: "700", color: "#92400E" }}>PA — Priority + Appointment</Text>
-                                            <Text style={{ fontSize: 11, color: "#78350F", marginTop: 2 }}>Verified demographic priority with appointment</Text>
+                                <View
+                                    style={[
+                                        styles.detailCard,
+                                        {
+                                            backgroundColor: "#FFFBEB",
+                                            borderColor: "#FDE68A",
+                                        },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.detailCardTitle,
+                                            {
+                                                color: "#92400E",
+                                                marginBottom: 6,
+                                            },
+                                        ]}
+                                    >
+                                        Queue Type Legend
+                                    </Text>
+                                    <View
+                                        style={{ flexDirection: "row", gap: 8 }}
+                                    >
+                                        <View
+                                            style={{
+                                                flex: 1,
+                                                backgroundColor: "#FEF3C7",
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: "#FDE68A",
+                                                padding: 8,
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    fontWeight: "700",
+                                                    color: "#92400E",
+                                                }}
+                                            >
+                                                PA — Priority + Appointment
+                                            </Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 11,
+                                                    color: "#78350F",
+                                                    marginTop: 2,
+                                                }}
+                                            >
+                                                Verified demographic priority
+                                                with appointment
+                                            </Text>
                                         </View>
-                                        <View style={{ flex: 1, backgroundColor: "#EFF6FF", borderRadius: 8, borderWidth: 1, borderColor: "#BFDBFE", padding: 8 }}>
-                                            <Text style={{ fontSize: 12, fontWeight: "700", color: "#1E40AF" }}>A — Regular Appointment</Text>
-                                            <Text style={{ fontSize: 11, color: "#1E3A8A", marginTop: 2 }}>Standard appointment without priority</Text>
+                                        <View
+                                            style={{
+                                                flex: 1,
+                                                backgroundColor: "#EFF6FF",
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: "#BFDBFE",
+                                                padding: 8,
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    fontWeight: "700",
+                                                    color: "#1E40AF",
+                                                }}
+                                            >
+                                                A — Regular Appointment
+                                            </Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 11,
+                                                    color: "#1E3A8A",
+                                                    marginTop: 2,
+                                                }}
+                                            >
+                                                Standard appointment without
+                                                priority
+                                            </Text>
                                         </View>
                                     </View>
                                 </View>
@@ -1038,9 +1223,17 @@ export default function AppointmentsScreen() {
                                     {(selected as any).age ? (
                                         <View style={styles.detailCardRow}>
                                             <User size={14} color="#6B7280" />
-                                            <Text style={styles.detailCardLabel}>Age</Text>
-                                            <Text style={styles.detailCardValue}>
-                                                {(selected as any).age} yrs • {(selected as any).gender ?? "—"}
+                                            <Text
+                                                style={styles.detailCardLabel}
+                                            >
+                                                Age
+                                            </Text>
+                                            <Text
+                                                style={styles.detailCardValue}
+                                            >
+                                                {(selected as any).age} yrs •{" "}
+                                                {(selected as any).gender ??
+                                                    "—"}
                                             </Text>
                                         </View>
                                     ) : null}
@@ -1101,28 +1294,81 @@ export default function AppointmentsScreen() {
                                 </View>
 
                                 {/* Demographic priority + ID */}
-                                {((selected as any).priority_category && (selected as any).priority_category !== "Regular") || (selected as any).id_picture_url ? (
+                                {((selected as any).priority_category &&
+                                    (selected as any).priority_category !==
+                                        "Regular") ||
+                                (selected as any).id_picture_url ? (
                                     <View style={styles.detailCard}>
-                                        <Text style={styles.detailCardTitle}>Identification</Text>
-                                        {(selected as any).priority_category && (selected as any).priority_category !== "Regular" && (
-                                            <View style={styles.detailCardRow}>
-                                                <Text style={styles.detailCardLabel}>Priority</Text>
-                                                <DemographicBadge category={(selected as any).priority_category} />
-                                            </View>
-                                        )}
+                                        <Text style={styles.detailCardTitle}>
+                                            Identification
+                                        </Text>
+                                        {(selected as any).priority_category &&
+                                            (selected as any)
+                                                .priority_category !==
+                                                "Regular" && (
+                                                <View
+                                                    style={styles.detailCardRow}
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.detailCardLabel
+                                                        }
+                                                    >
+                                                        Priority
+                                                    </Text>
+                                                    <DemographicBadge
+                                                        category={
+                                                            (selected as any)
+                                                                .priority_category
+                                                        }
+                                                    />
+                                                </View>
+                                            )}
                                         {(selected as any).id_picture_url ? (
                                             <TouchableOpacity
-                                                style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, backgroundColor: "#EFF6FF", borderRadius: 8, padding: 10 }}
+                                                style={{
+                                                    flexDirection: "row",
+                                                    alignItems: "center",
+                                                    gap: 8,
+                                                    marginTop: 6,
+                                                    backgroundColor: "#EFF6FF",
+                                                    borderRadius: 8,
+                                                    padding: 10,
+                                                }}
                                                 onPress={() => {
-                                                    setIdViewerUrl((selected as any).id_picture_url);
-                                                    setIdViewerName(selected.patient_name);
+                                                    setIdViewerUrl(
+                                                        (selected as any)
+                                                            .id_picture_url,
+                                                    );
+                                                    setIdViewerName(
+                                                        selected.patient_name,
+                                                    );
                                                 }}
                                             >
-                                                <Eye size={16} color="#2563EB" />
-                                                <Text style={{ fontSize: 13, fontWeight: "600", color: "#2563EB" }}>View Uploaded ID</Text>
+                                                <Eye
+                                                    size={16}
+                                                    color="#2563EB"
+                                                />
+                                                <Text
+                                                    style={{
+                                                        fontSize: 13,
+                                                        fontWeight: "600",
+                                                        color: "#2563EB",
+                                                    }}
+                                                >
+                                                    View Uploaded ID
+                                                </Text>
                                             </TouchableOpacity>
                                         ) : (
-                                            <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 4 }}>No ID uploaded</Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    color: "#9CA3AF",
+                                                    marginTop: 4,
+                                                }}
+                                            >
+                                                No ID uploaded
+                                            </Text>
                                         )}
                                     </View>
                                 ) : null}
@@ -1472,14 +1718,26 @@ export default function AppointmentsScreen() {
                                         // Use local date to avoid UTC off-by-one
                                         const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
                                         if (date.getDay() === 0) {
-                                            setRescheduleDateError("Sundays are unavailable for appointments.");
-                                            setRescheduleForm((f) => ({ ...f, new_date: "", new_time: "" }));
+                                            setRescheduleDateError(
+                                                "Sundays are unavailable for appointments.",
+                                            );
+                                            setRescheduleForm((f) => ({
+                                                ...f,
+                                                new_date: "",
+                                                new_time: "",
+                                            }));
                                             setAvailableSlots([]);
                                             return;
                                         }
                                         if (holidays.includes(iso)) {
-                                            setRescheduleDateError("This date is a holiday and unavailable.");
-                                            setRescheduleForm((f) => ({ ...f, new_date: "", new_time: "" }));
+                                            setRescheduleDateError(
+                                                "This date is a holiday and unavailable.",
+                                            );
+                                            setRescheduleForm((f) => ({
+                                                ...f,
+                                                new_date: "",
+                                                new_time: "",
+                                            }));
                                             setAvailableSlots([]);
                                             return;
                                         }
@@ -1504,7 +1762,14 @@ export default function AppointmentsScreen() {
                             </TouchableOpacity>
                         )}
                         {rescheduleDateError ? (
-                            <Text style={{ color: "#DC2626", fontSize: 12, marginTop: 4, marginBottom: 4 }}>
+                            <Text
+                                style={{
+                                    color: "#DC2626",
+                                    fontSize: 12,
+                                    marginTop: 4,
+                                    marginBottom: 4,
+                                }}
+                            >
                                 {rescheduleDateError}
                             </Text>
                         ) : null}
@@ -1538,7 +1803,8 @@ export default function AppointmentsScreen() {
                                         key={slot.value}
                                         style={[
                                             styles.slotBtn,
-                                            rescheduleForm.new_time === slot.value &&
+                                            rescheduleForm.new_time ===
+                                                slot.value &&
                                                 styles.slotBtnActive,
                                         ]}
                                         onPress={() =>
@@ -1551,7 +1817,8 @@ export default function AppointmentsScreen() {
                                         <Text
                                             style={[
                                                 styles.slotBtnText,
-                                                rescheduleForm.new_time === slot.value &&
+                                                rescheduleForm.new_time ===
+                                                    slot.value &&
                                                     styles.slotBtnTextActive,
                                             ]}
                                         >
@@ -1631,61 +1898,127 @@ export default function AppointmentsScreen() {
                     <View style={[styles.modal, { maxHeight: "92%" }]}>
                         <View style={styles.modalHeader}>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.modalTitle}>Appointment Settings</Text>
-                                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>Configure online booking behavior</Text>
+                                <Text style={styles.modalTitle}>
+                                    Appointment Settings
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 12,
+                                        color: "#9CA3AF",
+                                        marginTop: 2,
+                                    }}
+                                >
+                                    Configure online booking behavior
+                                </Text>
                             </View>
-                            <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+                            <TouchableOpacity
+                                onPress={() => setShowSettingsModal(false)}
+                            >
                                 <X size={20} color="#6B7280" />
                             </TouchableOpacity>
                         </View>
 
                         {settingsLoading ? (
-                            <ActivityIndicator size="large" color="#ac3434" style={{ marginVertical: 32 }} />
+                            <ActivityIndicator
+                                size="large"
+                                color="#ac3434"
+                                style={{ marginVertical: 32 }}
+                            />
                         ) : (
                             <ScrollView showsVerticalScrollIndicator={false}>
-
                                 {/* ── Booking Status ── */}
-                                <Text style={styles.settingsSectionLabel}>Booking Status</Text>
+                                <Text style={styles.settingsSectionLabel}>
+                                    Booking Status
+                                </Text>
                                 <View style={styles.settingsRow}>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.settingsRowTitle}>Online Booking</Text>
-                                        <Text style={styles.settingsRowSub}>Allow patients to book appointments online</Text>
+                                        <Text style={styles.settingsRowTitle}>
+                                            Online Booking
+                                        </Text>
+                                        <Text style={styles.settingsRowSub}>
+                                            Allow patients to book appointments
+                                            online
+                                        </Text>
                                     </View>
-                                    <TouchableOpacity onPress={() => setSettingsForm(f => ({ ...f, booking_enabled: !f.booking_enabled }))}>
-                                        {settingsForm.booking_enabled
-                                            ? <ToggleRight size={36} color="#22C55E" />
-                                            : <ToggleLeft size={36} color="#9CA3AF" />}
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            setSettingsForm((f) => ({
+                                                ...f,
+                                                booking_enabled:
+                                                    !f.booking_enabled,
+                                            }))
+                                        }
+                                    >
+                                        {settingsForm.booking_enabled ? (
+                                            <ToggleRight
+                                                size={36}
+                                                color="#22C55E"
+                                            />
+                                        ) : (
+                                            <ToggleLeft
+                                                size={36}
+                                                color="#9CA3AF"
+                                            />
+                                        )}
                                     </TouchableOpacity>
                                 </View>
 
                                 {!settingsForm.booking_enabled && (
                                     <View style={{ marginBottom: 12 }}>
-                                        <Text style={styles.inputLabel}>Closure Reason</Text>
+                                        <Text style={styles.inputLabel}>
+                                            Closure Reason
+                                        </Text>
                                         {/* Preset picker */}
                                         <FilterPicker
                                             label="Select a reason..."
                                             value={closureReasonPreset}
                                             options={[
-                                                { label: "Select a reason...", value: "" },
+                                                {
+                                                    label: "Select a reason...",
+                                                    value: "",
+                                                },
                                                 ...CLOSURE_PRESETS,
                                             ]}
                                             onChange={(v) => {
                                                 setClosureReasonPreset(v);
-                                                if (v !== "Other") setSettingsForm(f => ({ ...f, closure_reason: v }));
-                                                else setSettingsForm(f => ({ ...f, closure_reason: "" }));
+                                                if (v !== "Other")
+                                                    setSettingsForm((f) => ({
+                                                        ...f,
+                                                        closure_reason: v,
+                                                    }));
+                                                else
+                                                    setSettingsForm((f) => ({
+                                                        ...f,
+                                                        closure_reason: "",
+                                                    }));
                                             }}
                                         />
                                         {closureReasonPreset === "Other" && (
                                             <TextInput
-                                                style={[styles.input, { marginTop: 8 }, settingsErrors.closure_reason ? styles.inputError : null]}
+                                                style={[
+                                                    styles.input,
+                                                    { marginTop: 8 },
+                                                    settingsErrors.closure_reason
+                                                        ? styles.inputError
+                                                        : null,
+                                                ]}
                                                 placeholder="Describe the reason..."
-                                                value={settingsForm.closure_reason}
-                                                onChangeText={t => setSettingsForm(f => ({ ...f, closure_reason: t }))}
+                                                value={
+                                                    settingsForm.closure_reason
+                                                }
+                                                onChangeText={(t) =>
+                                                    setSettingsForm((f) => ({
+                                                        ...f,
+                                                        closure_reason: t,
+                                                    }))
+                                                }
                                                 maxLength={255}
                                             />
                                         )}
                                         {settingsErrors.closure_reason ? (
-                                            <Text style={styles.fieldError}>{settingsErrors.closure_reason}</Text>
+                                            <Text style={styles.fieldError}>
+                                                {settingsErrors.closure_reason}
+                                            </Text>
                                         ) : null}
                                     </View>
                                 )}
@@ -1693,52 +2026,126 @@ export default function AppointmentsScreen() {
                                 <View style={styles.settingsDivider} />
 
                                 {/* ── Operating Hours ── */}
-                                <Text style={styles.settingsSectionLabel}>Operating Hours</Text>
-                                {([
-                                    { key: "open_time",       label: "Open Time" },
-                                    { key: "close_time",      label: "Close Time" },
-                                    { key: "same_day_cutoff", label: "Same-day Cutoff" },
-                                ] as const).map(({ key, label }) => (
-                                    <View key={key} style={{ marginBottom: 12 }}>
-                                        <Text style={styles.inputLabel}>{label}</Text>
+                                <Text style={styles.settingsSectionLabel}>
+                                    Operating Hours
+                                </Text>
+                                {(
+                                    [
+                                        {
+                                            key: "open_time",
+                                            label: "Open Time",
+                                        },
+                                        {
+                                            key: "close_time",
+                                            label: "Close Time",
+                                        },
+                                        {
+                                            key: "same_day_cutoff",
+                                            label: "Same-day Cutoff",
+                                        },
+                                    ] as const
+                                ).map(({ key, label }) => (
+                                    <View
+                                        key={key}
+                                        style={{ marginBottom: 12 }}
+                                    >
+                                        <Text style={styles.inputLabel}>
+                                            {label}
+                                        </Text>
                                         <TouchableOpacity
-                                            style={[styles.datePickerBtn, settingsErrors[key] ? styles.inputError : null]}
-                                            onPress={() => setShowTimePicker(key)}
+                                            style={[
+                                                styles.datePickerBtn,
+                                                settingsErrors[key]
+                                                    ? styles.inputError
+                                                    : null,
+                                            ]}
+                                            onPress={() =>
+                                                setShowTimePicker(key)
+                                            }
                                         >
                                             <Clock size={16} color="#6B7280" />
-                                            <Text style={styles.datePickerBtnText}>
-                                                {formatTimeLabel(settingsForm[key])}
+                                            <Text
+                                                style={styles.datePickerBtnText}
+                                            >
+                                                {formatTimeLabel(
+                                                    settingsForm[key],
+                                                )}
                                             </Text>
                                         </TouchableOpacity>
                                         {showTimePicker === key && (
                                             <DateTimePicker
                                                 value={(() => {
-                                                    const [h, m] = settingsForm[key].split(":").map(Number);
+                                                    const [h, m] = settingsForm[
+                                                        key
+                                                    ]
+                                                        .split(":")
+                                                        .map(Number);
                                                     const d = new Date();
                                                     d.setHours(h, m, 0, 0);
                                                     return d;
                                                 })()}
                                                 mode="time"
                                                 is24Hour
-                                                display={Platform.OS === "ios" ? "spinner" : "default"}
+                                                display={
+                                                    Platform.OS === "ios"
+                                                        ? "spinner"
+                                                        : "default"
+                                                }
                                                 onChange={(e, date) => {
-                                                    if (Platform.OS === "android") setShowTimePicker(null);
-                                                    if (date && e.type !== "dismissed") {
-                                                        const hh = String(date.getHours()).padStart(2, "0");
-                                                        const mm = String(date.getMinutes()).padStart(2, "0");
-                                                        setSettingsForm(f => ({ ...f, [key]: `${hh}:${mm}` }));
+                                                    if (
+                                                        Platform.OS ===
+                                                        "android"
+                                                    )
+                                                        setShowTimePicker(null);
+                                                    if (
+                                                        date &&
+                                                        e.type !== "dismissed"
+                                                    ) {
+                                                        const hh = String(
+                                                            date.getHours(),
+                                                        ).padStart(2, "0");
+                                                        const mm = String(
+                                                            date.getMinutes(),
+                                                        ).padStart(2, "0");
+                                                        setSettingsForm(
+                                                            (f) => ({
+                                                                ...f,
+                                                                [key]: `${hh}:${mm}`,
+                                                            }),
+                                                        );
                                                     }
                                                 }}
                                             />
                                         )}
-                                        {Platform.OS === "ios" && showTimePicker === key && (
-                                            <TouchableOpacity style={styles.datePickerDone} onPress={() => setShowTimePicker(null)}>
-                                                <Text style={styles.datePickerDoneText}>Done</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        {settingsErrors[key] ? <Text style={styles.fieldError}>{settingsErrors[key]}</Text> : null}
-                                        {key === "same_day_cutoff" && !settingsErrors[key] ? (
-                                            <Text style={styles.fieldHint}>Last time to book same-day</Text>
+                                        {Platform.OS === "ios" &&
+                                            showTimePicker === key && (
+                                                <TouchableOpacity
+                                                    style={
+                                                        styles.datePickerDone
+                                                    }
+                                                    onPress={() =>
+                                                        setShowTimePicker(null)
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.datePickerDoneText
+                                                        }
+                                                    >
+                                                        Done
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        {settingsErrors[key] ? (
+                                            <Text style={styles.fieldError}>
+                                                {settingsErrors[key]}
+                                            </Text>
+                                        ) : null}
+                                        {key === "same_day_cutoff" &&
+                                        !settingsErrors[key] ? (
+                                            <Text style={styles.fieldHint}>
+                                                Last time to book same-day
+                                            </Text>
                                         ) : null}
                                     </View>
                                 ))}
@@ -1746,84 +2153,231 @@ export default function AppointmentsScreen() {
                                 <View style={styles.settingsDivider} />
 
                                 {/* ── Capacity & Scheduling ── */}
-                                <Text style={styles.settingsSectionLabel}>Capacity & Scheduling</Text>
+                                <Text style={styles.settingsSectionLabel}>
+                                    Capacity & Scheduling
+                                </Text>
 
                                 {/* Slot Interval */}
                                 <View style={{ marginBottom: 12 }}>
-                                    <Text style={styles.inputLabel}>Slot Interval</Text>
+                                    <Text style={styles.inputLabel}>
+                                        Slot Interval
+                                    </Text>
                                     <View style={styles.segmentRow}>
-                                        {[15, 30, 60].map(v => (
+                                        {[15, 30, 60].map((v) => (
                                             <TouchableOpacity
                                                 key={v}
-                                                style={[styles.segmentBtn, settingsForm.slot_interval === v && styles.segmentBtnActive]}
-                                                onPress={() => setSettingsForm(f => ({ ...f, slot_interval: v }))}
+                                                style={[
+                                                    styles.segmentBtn,
+                                                    settingsForm.slot_interval ===
+                                                        v &&
+                                                        styles.segmentBtnActive,
+                                                ]}
+                                                onPress={() =>
+                                                    setSettingsForm((f) => ({
+                                                        ...f,
+                                                        slot_interval: v,
+                                                    }))
+                                                }
                                             >
-                                                <Text style={[styles.segmentBtnText, settingsForm.slot_interval === v && styles.segmentBtnTextActive]}>
+                                                <Text
+                                                    style={[
+                                                        styles.segmentBtnText,
+                                                        settingsForm.slot_interval ===
+                                                            v &&
+                                                            styles.segmentBtnTextActive,
+                                                    ]}
+                                                >
                                                     {v} min
                                                 </Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
-                                    <Text style={styles.fieldHint}>Time between each slot</Text>
+                                    <Text style={styles.fieldHint}>
+                                        Time between each slot
+                                    </Text>
                                 </View>
 
                                 {/* Patients per Slot */}
                                 <View style={{ marginBottom: 12 }}>
-                                    <Text style={styles.inputLabel}>Patients per Slot</Text>
+                                    <Text style={styles.inputLabel}>
+                                        Patients per Slot
+                                    </Text>
                                     <TextInput
-                                        style={[styles.input, settingsErrors.slot_limit ? styles.inputError : null]}
+                                        style={[
+                                            styles.input,
+                                            settingsErrors.slot_limit
+                                                ? styles.inputError
+                                                : null,
+                                        ]}
                                         keyboardType="number-pad"
-                                        value={settingsForm.slot_limit === 0 ? "" : String(settingsForm.slot_limit)}
-                                        onChangeText={t => setSettingsForm(f => ({ ...f, slot_limit: Math.min(999, parseInt(t) || 0) }))}
+                                        value={
+                                            settingsForm.slot_limit === 0
+                                                ? ""
+                                                : String(
+                                                      settingsForm.slot_limit,
+                                                  )
+                                        }
+                                        onChangeText={(t) =>
+                                            setSettingsForm((f) => ({
+                                                ...f,
+                                                slot_limit: Math.min(
+                                                    999,
+                                                    parseInt(t) || 0,
+                                                ),
+                                            }))
+                                        }
                                         placeholder="0 = unlimited"
                                         maxLength={3}
                                     />
-                                    {settingsErrors.slot_limit
-                                        ? <Text style={styles.fieldError}>{settingsErrors.slot_limit}</Text>
-                                        : <Text style={styles.fieldHint}>Max per time slot. 0 = unlimited</Text>}
+                                    {settingsErrors.slot_limit ? (
+                                        <Text style={styles.fieldError}>
+                                            {settingsErrors.slot_limit}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.fieldHint}>
+                                            Max per time slot. 0 = unlimited
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Advance Booking Days */}
                                 <View style={{ marginBottom: 12 }}>
-                                    <Text style={styles.inputLabel}>Advance Booking Days</Text>
+                                    <Text style={styles.inputLabel}>
+                                        Advance Booking Days
+                                    </Text>
                                     <TextInput
-                                        style={[styles.input, settingsErrors.advance_days ? styles.inputError : null]}
+                                        style={[
+                                            styles.input,
+                                            settingsErrors.advance_days
+                                                ? styles.inputError
+                                                : null,
+                                        ]}
                                         keyboardType="number-pad"
-                                        value={String(settingsForm.advance_days)}
-                                        onChangeText={t => setSettingsForm(f => ({ ...f, advance_days: parseInt(t) || 1 }))}
+                                        value={String(
+                                            settingsForm.advance_days,
+                                        )}
+                                        onChangeText={(t) =>
+                                            setSettingsForm((f) => ({
+                                                ...f,
+                                                advance_days: parseInt(t) || 1,
+                                            }))
+                                        }
                                         placeholder="30"
                                         maxLength={3}
                                     />
-                                    {settingsErrors.advance_days
-                                        ? <Text style={styles.fieldError}>{settingsErrors.advance_days}</Text>
-                                        : <Text style={styles.fieldHint}>Days ahead allowed</Text>}
+                                    {settingsErrors.advance_days ? (
+                                        <Text style={styles.fieldError}>
+                                            {settingsErrors.advance_days}
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.fieldHint}>
+                                            Days ahead allowed
+                                        </Text>
+                                    )}
                                 </View>
 
                                 {/* Capacity Preview */}
                                 {(() => {
-                                    const openM  = toMinutes(settingsForm.open_time);
-                                    const closeM = toMinutes(settingsForm.close_time);
+                                    const openM = toMinutes(
+                                        settingsForm.open_time,
+                                    );
+                                    const closeM = toMinutes(
+                                        settingsForm.close_time,
+                                    );
                                     if (closeM <= openM) return null;
-                                    const totalSlots = Math.floor((closeM - openM) / settingsForm.slot_interval) + 1;
-                                    const daily = settingsForm.slot_limit === 0 ? null : totalSlots * settingsForm.slot_limit;
+                                    const totalSlots =
+                                        Math.floor(
+                                            (closeM - openM) /
+                                                settingsForm.slot_interval,
+                                        ) + 1;
+                                    const daily =
+                                        settingsForm.slot_limit === 0
+                                            ? null
+                                            : totalSlots *
+                                              settingsForm.slot_limit;
                                     return (
                                         <View style={styles.capacityPreview}>
-                                            <Text style={styles.capacityTitle}>Capacity Preview</Text>
+                                            <Text style={styles.capacityTitle}>
+                                                Capacity Preview
+                                            </Text>
                                             {[
-                                                ["Operating hours", `${formatTimeLabel(settingsForm.open_time)} – ${formatTimeLabel(settingsForm.close_time)}`],
-                                                ["Slot interval",   `${settingsForm.slot_interval} min`],
-                                                ["Total time slots", `${totalSlots} slots`],
-                                                ["Patients per slot", settingsForm.slot_limit === 0 ? "Unlimited" : String(settingsForm.slot_limit)],
+                                                [
+                                                    "Operating hours",
+                                                    `${formatTimeLabel(settingsForm.open_time)} – ${formatTimeLabel(settingsForm.close_time)}`,
+                                                ],
+                                                [
+                                                    "Slot interval",
+                                                    `${settingsForm.slot_interval} min`,
+                                                ],
+                                                [
+                                                    "Total time slots",
+                                                    `${totalSlots} slots`,
+                                                ],
+                                                [
+                                                    "Patients per slot",
+                                                    settingsForm.slot_limit ===
+                                                    0
+                                                        ? "Unlimited"
+                                                        : String(
+                                                              settingsForm.slot_limit,
+                                                          ),
+                                                ],
                                             ].map(([label, val]) => (
-                                                <View key={label} style={styles.capacityRow}>
-                                                    <Text style={styles.capacityLabel}>{label}</Text>
-                                                    <Text style={styles.capacityValue}>{val}</Text>
+                                                <View
+                                                    key={label}
+                                                    style={styles.capacityRow}
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.capacityLabel
+                                                        }
+                                                    >
+                                                        {label}
+                                                    </Text>
+                                                    <Text
+                                                        style={
+                                                            styles.capacityValue
+                                                        }
+                                                    >
+                                                        {val}
+                                                    </Text>
                                                 </View>
                                             ))}
-                                            <View style={[styles.capacityRow, { borderTopWidth: 1, borderTopColor: "#BFDBFE", paddingTop: 8, marginTop: 4 }]}>
-                                                <Text style={[styles.capacityLabel, { fontWeight: "700", color: "#1D4ED8" }]}>Estimated daily capacity</Text>
-                                                <Text style={[styles.capacityValue, { fontWeight: "700", color: "#1E3A8A" }]}>
-                                                    {daily === null ? "Unlimited" : `${daily} patients/day`}
+                                            <View
+                                                style={[
+                                                    styles.capacityRow,
+                                                    {
+                                                        borderTopWidth: 1,
+                                                        borderTopColor:
+                                                            "#BFDBFE",
+                                                        paddingTop: 8,
+                                                        marginTop: 4,
+                                                    },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.capacityLabel,
+                                                        {
+                                                            fontWeight: "700",
+                                                            color: "#1D4ED8",
+                                                        },
+                                                    ]}
+                                                >
+                                                    Estimated daily capacity
+                                                </Text>
+                                                <Text
+                                                    style={[
+                                                        styles.capacityValue,
+                                                        {
+                                                            fontWeight: "700",
+                                                            color: "#1E3A8A",
+                                                        },
+                                                    ]}
+                                                >
+                                                    {daily === null
+                                                        ? "Unlimited"
+                                                        : `${daily} patients/day`}
                                                 </Text>
                                             </View>
                                         </View>
@@ -1831,14 +2385,38 @@ export default function AppointmentsScreen() {
                                 })()}
 
                                 {/* Actions */}
-                                <View style={[styles.modalActions, { marginTop: 16 }]}>
-                                    <TouchableOpacity style={styles.cancelBtnAlt} onPress={() => setShowSettingsModal(false)} disabled={settingsSaving}>
-                                        <Text style={styles.cancelBtnAltText}>Cancel</Text>
+                                <View
+                                    style={[
+                                        styles.modalActions,
+                                        { marginTop: 16 },
+                                    ]}
+                                >
+                                    <TouchableOpacity
+                                        style={styles.cancelBtnAlt}
+                                        onPress={() =>
+                                            setShowSettingsModal(false)
+                                        }
+                                        disabled={settingsSaving}
+                                    >
+                                        <Text style={styles.cancelBtnAltText}>
+                                            Cancel
+                                        </Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.saveBtn} onPress={saveSettings} disabled={settingsSaving}>
-                                        {settingsSaving
-                                            ? <ActivityIndicator size="small" color="#fff" />
-                                            : <Text style={styles.saveBtnText}>Save Settings</Text>}
+                                    <TouchableOpacity
+                                        style={styles.saveBtn}
+                                        onPress={saveSettings}
+                                        disabled={settingsSaving}
+                                    >
+                                        {settingsSaving ? (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#fff"
+                                            />
+                                        ) : (
+                                            <Text style={styles.saveBtnText}>
+                                                Save Settings
+                                            </Text>
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                             </ScrollView>
@@ -1908,7 +2486,11 @@ const styles = StyleSheet.create({
     },
     settingsRowTitle: { fontSize: 14, fontWeight: "600", color: "#111827" },
     settingsRowSub: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
-    settingsDivider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
+    settingsDivider: {
+        height: 1,
+        backgroundColor: "#F3F4F6",
+        marginVertical: 12,
+    },
     inputError: { borderColor: "#EF4444" },
     fieldError: { fontSize: 11, color: "#EF4444", marginTop: 3 },
     fieldHint: { fontSize: 11, color: "#9CA3AF", marginTop: 3 },
@@ -1933,8 +2515,19 @@ const styles = StyleSheet.create({
         padding: 14,
         marginBottom: 12,
     },
-    capacityTitle: { fontSize: 11, fontWeight: "700", color: "#1D4ED8", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 },
-    capacityRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+    capacityTitle: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#1D4ED8",
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+        marginBottom: 10,
+    },
+    capacityRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 6,
+    },
     capacityLabel: { fontSize: 12, color: "#3B82F6" },
     capacityValue: { fontSize: 12, fontWeight: "600", color: "#1E3A8A" },
     legendCard: {
@@ -2179,7 +2772,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "#E5E7EB",
     },
-    idViewerTitle: { fontSize: 15, fontWeight: "700", color: "#111827", flex: 1, marginRight: 8 },
+    idViewerTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#111827",
+        flex: 1,
+        marginRight: 8,
+    },
     idViewerImage: { width: "100%", height: 300, backgroundColor: "#F3F4F6" },
     empty: { flex: 1, alignItems: "center", paddingTop: 60, gap: 12 },
     emptyText: { fontSize: 15, color: "#9CA3AF" },

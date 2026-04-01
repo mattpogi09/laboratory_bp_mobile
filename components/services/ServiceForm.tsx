@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
-import { SERVICE_CATEGORIES } from "@/app/types/services";
+import React from "react";
+import { StyleSheet, Text, TextInput, View } from "react-native";
+import { SERVICE_CATEGORIES } from "@/types/services";
 
 type ServiceFormData = {
     name: string;
@@ -11,7 +11,7 @@ type ServiceFormData = {
 
 type ServiceFormProps = {
     initialData?: ServiceFormData;
-    categories?: string[];
+    categories?: readonly string[];
     onDataChange: (data: ServiceFormData) => void;
 };
 
@@ -86,8 +86,18 @@ export const ServiceForm = ({
     );
 };
 
-// CategoryPicker placeholder - you'll need to implement this based on your existing picker
-const CategoryPicker = ({ selectedValue, onValueChange, categories }: any) => (
+type CategoryPickerProps = {
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+    categories: readonly string[];
+};
+
+// CategoryPicker placeholder - kept lightweight until full picker wiring is implemented
+const CategoryPicker = ({
+    selectedValue,
+    onValueChange,
+    categories,
+}: CategoryPickerProps) => (
     <View style={styles.pickerContainer}>
         <Text style={styles.pickerText}>
             {selectedValue || "Select Category"}
