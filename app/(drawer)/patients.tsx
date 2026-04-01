@@ -242,33 +242,24 @@ export default function PatientsScreen() {
                             {item.age} yrs
                         </Text>
                     </View>
-                    <View style={styles.headerRightWrap}>
-                        <View
+                    <View
+                        style={[
+                            styles.statusBadge,
+                            (item.is_active ?? true)
+                                ? styles.statusActive
+                                : styles.statusInactive,
+                        ]}
+                    >
+                        <Text
                             style={[
-                                styles.statusBadge,
+                                styles.statusBadgeText,
                                 (item.is_active ?? true)
-                                    ? styles.statusActive
-                                    : styles.statusInactive,
+                                    ? { color: "#166534" }
+                                    : { color: "#991B1B" },
                             ]}
                         >
-                            <Text
-                                style={[
-                                    styles.statusBadgeText,
-                                    (item.is_active ?? true)
-                                        ? { color: "#166534" }
-                                        : { color: "#991B1B" },
-                                ]}
-                            >
-                                {(item.is_active ?? true)
-                                    ? "Active"
-                                    : "Inactive"}
-                            </Text>
-                        </View>
-                        {isExpanded ? (
-                            <ChevronDown size={16} color="#6B7280" />
-                        ) : (
-                            <ChevronRight size={16} color="#6B7280" />
-                        )}
+                            {(item.is_active ?? true) ? "Active" : "Inactive"}
+                        </Text>
                     </View>
                 </View>
 
@@ -716,12 +707,6 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "flex-start",
         marginBottom: 12,
-    },
-    headerRightWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        marginLeft: 8,
     },
     name: { fontSize: 16, fontWeight: "700", color: "#111827" },
     meta: { color: "#6B7280", marginTop: 2, fontSize: 11 },
