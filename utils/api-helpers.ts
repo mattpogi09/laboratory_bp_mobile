@@ -1,5 +1,3 @@
-import { Alert } from "react-native";
-
 /**
  * Extracts a human-readable error message from an API error.
  * Detects network failures and returns a specific offline message.
@@ -28,5 +26,5 @@ export const showApiError = (
     title: string = "Error",
 ) => {
     const message = getApiErrorMessage(error, defaultMessage);
-    Alert.alert(title, message);
+    return { title, message };
 };

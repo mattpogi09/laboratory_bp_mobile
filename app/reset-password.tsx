@@ -3,7 +3,6 @@ import { Lock, Eye, EyeOff } from "lucide-react-native";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import axios from "axios";
 import { API_BASE_URL } from "@/app/services/api";
+import { SuccessDialog } from "@/components";
 
 export default function ResetPassword() {
     const params = useLocalSearchParams();
@@ -31,6 +31,27 @@ export default function ResetPassword() {
         password: "",
         password_confirmation: "",
     });
+    const [dialog, setDialog] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: "success" | "error" | "info" | "warning";
+    }>({
+        visible: false,
+        title: "",
+        message: "",
+        type: "error",
+    });
+    const [navigateOnDialogClose, setNavigateOnDialogClose] = useState(false);
+
+    const closeDialog = () => {
+        const shouldNavigate = navigateOnDialogClose;
+        setDialog((prev) => ({ ...prev, visible: false }));
+        setNavigateOnDialogClose(false);
+        if (shouldNavigate) {
+            router.replace("/login");
+        }
+    };
 
     const handleResetPassword = async () => {
         if (!password || !passwordConfirmation) return;
@@ -49,16 +70,14 @@ export default function ResetPassword() {
                 },
             );
 
-            Alert.alert(
-                "Success",
-                "Your password has been reset successfully. Please login with your new password.",
-                [
-                    {
-                        text: "OK",
-                        onPress: () => router.replace("/login"),
-                    },
-                ],
-            );
+            setNavigateOnDialogClose(true);
+            setDialog({
+                visible: true,
+                title: "Success",
+                message:
+                    "Your password has been reset successfully. Please login with your new password.",
+                type: "success",
+            });
         } catch (error: any) {
             console.log("Reset Password Error:", error);
 
@@ -74,7 +93,13 @@ export default function ResetPassword() {
                         fieldErrors.password_confirmation?.[0] || "",
                 });
             } else {
-                Alert.alert("Error", message);
+                setNavigateOnDialogClose(false);
+                setDialog({
+                    visible: true,
+                    title: "Error",
+                    message,
+                    type: "error",
+                });
             }
         } finally {
             setIsLoading(false);
@@ -255,6 +280,14 @@ export default function ResetPassword() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <SuccessDialog
+                visible={dialog.visible}
+                title={dialog.title}
+                message={dialog.message}
+                type={dialog.type}
+                onClose={closeDialog}
+            />
         </SafeAreaView>
     );
 }

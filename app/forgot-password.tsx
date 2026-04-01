@@ -3,7 +3,6 @@ import { Mail, KeyRound, CheckCircle, ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import axios from "axios";
 import { API_BASE_URL } from "@/app/services/api";
+import { SuccessDialog } from "@/components";
 
 export default function ForgotPassword() {
     const [step, setStep] = useState(1); // 1 = Email entry, 2 = OTP verification
@@ -25,6 +25,17 @@ export default function ForgotPassword() {
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({ email: "", otp: "" });
     const [status, setStatus] = useState("");
+    const [dialog, setDialog] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: "success" | "error" | "info" | "warning";
+    }>({
+        visible: false,
+        title: "",
+        message: "",
+        type: "error",
+    });
 
     // Handle Email Submission (Step 1)
     const handleSendOtp = async () => {
@@ -57,7 +68,12 @@ export default function ForgotPassword() {
             if (fieldErrors?.email) {
                 setErrors({ ...errors, email: fieldErrors.email[0] });
             } else {
-                Alert.alert("Error", message);
+                setDialog({
+                    visible: true,
+                    title: "Error",
+                    message,
+                    type: "error",
+                });
             }
         } finally {
             setIsLoading(false);
@@ -94,7 +110,12 @@ export default function ForgotPassword() {
             if (fieldErrors?.otp) {
                 setErrors({ ...errors, otp: fieldErrors.otp[0] });
             } else {
-                Alert.alert("Error", message);
+                setDialog({
+                    visible: true,
+                    title: "Error",
+                    message,
+                    type: "error",
+                });
             }
         } finally {
             setIsLoading(false);
@@ -410,6 +431,16 @@ export default function ForgotPassword() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <SuccessDialog
+                visible={dialog.visible}
+                title={dialog.title}
+                message={dialog.message}
+                type={dialog.type}
+                onClose={() =>
+                    setDialog((prev) => ({ ...prev, visible: false }))
+                }
+            />
         </SafeAreaView>
     );
 }

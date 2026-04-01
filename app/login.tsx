@@ -5,7 +5,6 @@ import { Eye, EyeOff } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -153,10 +152,11 @@ export default function Login() {
         if (biometricEnabled) {
             handleBiometricLogin();
         } else {
-            Alert.alert(
-                "",
-                "Please enable fingerprint login in Settings first",
-            );
+            setErrorDialog({
+                visible: true,
+                title: "Fingerprint Login Off",
+                message: "Please enable fingerprint login in Settings first.",
+            });
         }
     }, [biometricEnabled, handleBiometricLogin]);
 
