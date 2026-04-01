@@ -1,6 +1,11 @@
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
 import { router } from "expo-router";
 import {
@@ -11,7 +16,6 @@ import {
     Clipboard,
     DollarSign,
     FileBarChart,
-    Search,
     TrendingDown,
     TrendingUp,
     User,
@@ -624,16 +628,11 @@ export default function ReconciliationScreen() {
 
             {/* Search and Filter */}
             <View style={styles.searchContainer}>
-                <View style={styles.searchBox}>
-                    <Search color="#6B7280" size={20} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search by cashier or date..."
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        placeholderTextColor="#9CA3AF"
-                    />
-                </View>
+                <SearchBar
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search reconciliations..."
+                />
             </View>
 
             {/* Filter Dropdown */}
@@ -773,7 +772,9 @@ export default function ReconciliationScreen() {
                 onPress={fetchCreateData}
                 activeOpacity={0.8}
             >
-                <Text style={{ color: '#fff', fontSize: 28, lineHeight: 30 }}>+</Text>
+                <Text style={{ color: "#fff", fontSize: 28, lineHeight: 30 }}>
+                    +
+                </Text>
             </TouchableOpacity>
 
             {/* Create Modal */}
@@ -980,22 +981,6 @@ const styles = StyleSheet.create({
     searchContainer: {
         padding: 16,
         paddingTop: 8,
-    },
-    searchBox: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        gap: 12,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 15,
-        color: "#111827",
     },
     filterContainer: {
         paddingHorizontal: 16,

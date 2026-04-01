@@ -1,4 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { router } from "expo-router";
 import {
     AlertCircle,
     ChevronDown,
@@ -6,7 +7,6 @@ import {
     FlaskConical,
     Power,
     PowerOff,
-    Search,
     Users,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import {
     FlatList,
     Image,
     Modal,
-    Pressable,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -26,7 +26,12 @@ import {
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 
 type Patient = {
     id: number;
@@ -228,10 +233,7 @@ export default function PatientsScreen() {
         const isExpanded = expandedPatientIds.includes(item.id);
 
         return (
-            <Pressable
-                style={styles.card}
-                onPress={() => toggleExpanded(item.id)}
-            >
+            <View style={styles.card}>
                 <View style={styles.cardHeader}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.name}>{item.full_name}</Text>
@@ -322,8 +324,7 @@ export default function PatientsScreen() {
                         <Text style={styles.label}>Valid ID</Text>
                         {item.id_picture_url ? (
                             <TouchableOpacity
-                                onPress={(e) => {
-                                    e.stopPropagation();
+                                onPress={() => {
                                     setIdViewer({
                                         visible: true,
                                         url: item.id_picture_url ?? null,
@@ -411,22 +412,31 @@ export default function PatientsScreen() {
 
                 <View style={styles.cardActions}>
                     <TouchableOpacity
-                        style={[
-                            styles.detailsBtn,
-                            isExpanded && styles.detailsBtnActive,
-                        ]}
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            toggleExpanded(item.id);
-                        }}
+                        style={styles.detailsBtn}
+                        onPress={() => router.push(`/patients/${item.id}`)}
                     >
+                        <Text style={styles.detailsBtnText}>View Details</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.expandBtn,
+                            isExpanded && styles.expandBtnActive,
+                        ]}
+                        onPress={() => toggleExpanded(item.id)}
+                    >
+                        {isExpanded ? (
+                            <ChevronDown size={14} color="#1E40AF" />
+                        ) : (
+                            <ChevronRight size={14} color="#1E40AF" />
+                        )}
                         <Text
                             style={[
-                                styles.detailsBtnText,
-                                isExpanded && styles.detailsBtnTextActive,
+                                styles.expandBtnText,
+                                isExpanded && styles.expandBtnTextActive,
                             ]}
                         >
-                            {isExpanded ? "Hide Details" : "View Details"}
+                            {isExpanded ? "Collapse" : "Expand"}
                         </Text>
                     </TouchableOpacity>
 
@@ -437,10 +447,7 @@ export default function PatientsScreen() {
                                 ? styles.toggleBtnDanger
                                 : styles.toggleBtnSuccess,
                         ]}
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            handleTogglePatient(item);
-                        }}
+                        onPress={() => handleTogglePatient(item)}
                     >
                         {(item.is_active ?? true) ? (
                             <PowerOff size={14} color="#EF4444" />
@@ -461,7 +468,7 @@ export default function PatientsScreen() {
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </Pressable>
+            </View>
         );
     };
 
@@ -469,34 +476,40 @@ export default function PatientsScreen() {
         () => (
             <>
                 <View style={styles.actionsRow}>
-                    <View style={[styles.searchContainer, { flex: 1 }]}>
-                        <Search color="#9CA3AF" size={18} />
-                        <TextInput
-                            placeholder="Search patients"
-                            placeholderTextColor="#9CA3AF"
-                            style={styles.searchInput}
+                    <View style={{ flex: 1 }}>
+                        <SearchBar
+                            placeholder="Search patients..."
                             value={search}
                             onChangeText={setSearch}
                             autoCorrect={false}
                         />
                     </View>
                 </View>
-                <View style={styles.sortRow}>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.pillsRow}
+                    contentContainerStyle={{
+                        gap: 6,
+                        paddingHorizontal: 0,
+                        paddingVertical: 10,
+                    }}
+                >
                     {SORT_OPTIONS.map((option) => (
                         <TouchableOpacity
                             key={option.value}
                             style={[
-                                styles.sortChip,
-                                sortBy === option.value &&
-                                    styles.sortChipActive,
+                                styles.pill,
+                                sortBy === option.value && styles.pillActive,
                             ]}
                             onPress={() => setSortBy(option.value)}
                         >
                             <Text
                                 style={[
-                                    styles.sortChipText,
+                                    styles.pillText,
                                     sortBy === option.value &&
-                                        styles.sortChipTextActive,
+                                        styles.pillTextActive,
                                 ]}
                             >
                                 {option.label}
@@ -504,18 +517,18 @@ export default function PatientsScreen() {
                         </TouchableOpacity>
                     ))}
                     <TouchableOpacity
-                        style={styles.sortOrderButton}
+                        style={styles.pill}
                         onPress={() =>
                             setSortOrder((prev) =>
                                 prev === "asc" ? "desc" : "asc",
                             )
                         }
                     >
-                        <Text style={styles.sortOrderText}>
-                            {sortOrder === "asc" ? "Asc" : "Desc"}
+                        <Text style={styles.pillText}>
+                            {sortOrder === "asc" ? "Order: Asc" : "Order: Desc"}
                         </Text>
                     </TouchableOpacity>
-                </View>
+                </ScrollView>
             </>
         ),
         [search, sortBy, sortOrder],
@@ -652,65 +665,40 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#fff",
+        backgroundColor: "#F9FAFB",
         borderRadius: 12,
         paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
     },
+    searchIcon: { marginRight: 8 },
     searchInput: {
         flex: 1,
-        marginLeft: 8,
-        color: "#111827",
+        paddingVertical: 10,
         fontSize: 16,
+        color: "#111827",
     },
     actionsRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        marginBottom: 8,
+        marginBottom: 16,
     },
-    sortRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
+    pillsRow: {
+        marginTop: 0,
+        borderTopWidth: 1,
+        borderTopColor: "#F3F4F6",
         marginBottom: 12,
     },
-    sortChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+    pill: {
+        paddingHorizontal: 16,
+        paddingVertical: 7,
         borderRadius: 999,
+        backgroundColor: "#F3F4F6",
         borderWidth: 1,
-        borderColor: "#D1D5DB",
-        backgroundColor: "#FFFFFF",
+        borderColor: "#E5E7EB",
     },
-    sortChipActive: {
-        backgroundColor: "#FEE2E2",
-        borderColor: "#FCA5A5",
-    },
-    sortChipText: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: "#6B7280",
-    },
-    sortChipTextActive: {
-        color: "#991B1B",
-    },
-    sortOrderButton: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: "#FCA5A5",
-        backgroundColor: "#FFF1F2",
-    },
-    sortOrderText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#9F1239",
-    },
+    pillActive: { backgroundColor: "#ac3434", borderColor: "#ac3434" },
+    pillText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    pillTextActive: { color: "#fff" },
     card: {
         backgroundColor: "#fff",
         borderRadius: 16,
@@ -859,17 +847,35 @@ const styles = StyleSheet.create({
         minHeight: 38,
         paddingHorizontal: 10,
     },
-    detailsBtnActive: {
-        backgroundColor: "#FFF1F2",
-        borderColor: "#FDA4AF",
-    },
     detailsBtnText: {
         fontSize: 12,
         fontWeight: "700",
         color: "#FFFFFF",
     },
-    detailsBtnTextActive: {
-        color: "#9F1239",
+    expandBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        flex: 0.9,
+        minHeight: 38,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        backgroundColor: "#EFF6FF",
+        paddingHorizontal: 8,
+    },
+    expandBtnActive: {
+        borderColor: "#93C5FD",
+        backgroundColor: "#DBEAFE",
+    },
+    expandBtnText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#1E40AF",
+    },
+    expandBtnTextActive: {
+        color: "#1D4ED8",
     },
     label: { color: "#6B7280", fontSize: 11, fontWeight: "600" },
     value: { color: "#111827", fontWeight: "700", fontSize: 13 },

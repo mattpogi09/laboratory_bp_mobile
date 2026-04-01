@@ -12,7 +12,7 @@ import {
     User,
     X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -127,6 +127,7 @@ export default function PatientDetails() {
     const [expandedTestRows, setExpandedTestRows] = useState<
         Record<number, boolean>
     >({});
+    const hasInitializedHistoryExpansion = useRef(false);
     const [idViewer, setIdViewer] = useState<{
         visible: boolean;
         url: string | null;
@@ -234,6 +235,30 @@ export default function PatientDetails() {
     useEffect(() => {
         loadDetails();
     }, [loadDetails]);
+
+    useEffect(() => {
+        hasInitializedHistoryExpansion.current = false;
+        setIsTestHistoryExpanded(false);
+        setExpandedTestRows({});
+    }, [id]);
+
+    useEffect(() => {
+        const history = data?.test_history || [];
+
+        if (!history.length) {
+            if (!hasInitializedHistoryExpansion.current) {
+                setIsTestHistoryExpanded(false);
+                setExpandedTestRows({});
+            }
+            return;
+        }
+
+        if (!hasInitializedHistoryExpansion.current) {
+            setIsTestHistoryExpanded(true);
+            setExpandedTestRows({ [history[0].id]: true });
+            hasInitializedHistoryExpansion.current = true;
+        }
+    }, [data?.test_history]);
 
     const onRefresh = () => {
         setRefreshing(true);

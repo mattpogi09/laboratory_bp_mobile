@@ -12,7 +12,6 @@ import {
     Mail,
     Phone,
     RefreshCw,
-    Search,
     Settings,
     ToggleLeft,
     ToggleRight,
@@ -38,7 +37,12 @@ import { Image } from "react-native";
 import api, { API_BASE_URL } from "@/app/services/api";
 import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 
 const CLOSURE_PRESETS = [
     {
@@ -843,16 +847,13 @@ export default function AppointmentsScreen() {
 
             {/* Search */}
             <View style={styles.searchRow}>
-                <View style={styles.searchBox}>
-                    <Search size={16} color="#9CA3AF" />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search name, ref, phone..."
-                        value={search}
-                        onChangeText={setSearch}
-                        returnKeyType="search"
-                    />
-                </View>
+                <SearchBar
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search appointments..."
+                    returnKeyType="search"
+                    containerStyle={styles.searchBox}
+                />
             </View>
 
             {/* Filter row: Status + Date */}
@@ -2651,16 +2652,12 @@ const styles = StyleSheet.create({
     },
     searchBox: {
         flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
     },
-    searchInput: { flex: 1, fontSize: 14, color: "#111827" },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: "#111827",
+    },
     dateInput: { flex: 0, minWidth: 120 },
     filterRow: {
         flexDirection: "row",

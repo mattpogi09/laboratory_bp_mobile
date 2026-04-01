@@ -6,7 +6,6 @@ import {
     MapPin,
     Phone,
     Plus,
-    Search,
     User,
     X,
 } from "lucide-react-native";
@@ -26,7 +25,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import { ConfirmDialog } from "@/components";
+import { ConfirmDialog, SearchBar } from "@/components";
 import { EmptyState } from "@/components";
 import { getApiErrorMessage } from "@/utils";
 
@@ -301,19 +300,12 @@ export default function SupplierScreen() {
             {/* Search + Add */}
             <View style={styles.topBar}>
                 <View style={styles.searchBox}>
-                    <Search color="#9CA3AF" size={16} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search suppliers..."
-                        placeholderTextColor="#9CA3AF"
+                    <SearchBar
                         value={search}
                         onChangeText={handleSearch}
+                        placeholder="Search suppliers..."
+                        onClear={() => handleSearch("")}
                     />
-                    {search.length > 0 && (
-                        <TouchableOpacity onPress={() => handleSearch("")}>
-                            <X color="#9CA3AF" size={16} />
-                        </TouchableOpacity>
-                    )}
                 </View>
                 <TouchableOpacity style={styles.addBtn} onPress={openCreate}>
                     <Plus color="#fff" size={20} />
@@ -503,17 +495,7 @@ const styles = StyleSheet.create({
     },
     searchBox: {
         flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        backgroundColor: "#F9FAFB",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
     },
-    searchInput: { flex: 1, fontSize: 14, color: "#111827" },
     addBtn: {
         backgroundColor: "#ac3434",
         borderRadius: 8,

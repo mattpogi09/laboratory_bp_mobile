@@ -8,7 +8,6 @@ import {
     Plus,
     Power,
     PowerOff,
-    Search,
     Settings2,
     SlidersHorizontal,
     TestTube,
@@ -33,7 +32,12 @@ import { router } from "expo-router";
 import api from "@/app/services/api";
 import type { GroupedServices, Service, ServicesResponse } from "@/types";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 
 export default function ServicesScreen() {
     const [services, setServices] = useState<Service[]>([]);
@@ -74,7 +78,8 @@ export default function ServicesScreen() {
     const [loadError, setLoadError] = useState<string | null>(null);
 
     // Interpretation settings
-    const [showInterpretationModal, setShowInterpretationModal] = useState(false);
+    const [showInterpretationModal, setShowInterpretationModal] =
+        useState(false);
     const [interpretationForm, setInterpretationForm] = useState({
         engine_enabled: false,
         show_in_lab_entry: false,
@@ -174,14 +179,17 @@ export default function ServicesScreen() {
             loadFormCategories();
             loadServices(1, true);
             // Load interpretation settings
-            api.get("/settings").then((res) => {
-                const s = res.data.interpretation_settings;
-                if (s) setInterpretationForm({
-                    engine_enabled: !!s.engine_enabled,
-                    show_in_lab_entry: !!s.show_in_lab_entry,
-                    show_in_pdf: !!s.show_in_pdf,
-                });
-            }).catch(() => {});
+            api.get("/settings")
+                .then((res) => {
+                    const s = res.data.interpretation_settings;
+                    if (s)
+                        setInterpretationForm({
+                            engine_enabled: !!s.engine_enabled,
+                            show_in_lab_entry: !!s.show_in_lab_entry,
+                            show_in_pdf: !!s.show_in_pdf,
+                        });
+                })
+                .catch(() => {});
         }, [loadCategories, loadFormCategories, loadServices]),
     );
 
@@ -189,14 +197,24 @@ export default function ServicesScreen() {
         setSavingInterpretation(true);
         try {
             await api.post("/services/interpretation-settings", {
-                engine_enabled:    interpretationForm.engine_enabled,
+                engine_enabled: interpretationForm.engine_enabled,
                 show_in_lab_entry: interpretationForm.show_in_lab_entry,
-                show_in_pdf:       interpretationForm.show_in_pdf,
+                show_in_pdf: interpretationForm.show_in_pdf,
             });
             setShowInterpretationModal(false);
-            setSuccessDialog({ visible: true, title: "Success", message: "Interpretation settings saved.", type: "success" });
+            setSuccessDialog({
+                visible: true,
+                title: "Success",
+                message: "Interpretation settings saved.",
+                type: "success",
+            });
         } catch (err: any) {
-            setSuccessDialog({ visible: true, title: "Error", message: getApiErrorMessage(err, "Failed to save settings."), type: "error" });
+            setSuccessDialog({
+                visible: true,
+                title: "Error",
+                message: getApiErrorMessage(err, "Failed to save settings."),
+                type: "error",
+            });
         } finally {
             setSavingInterpretation(false);
         }
@@ -331,20 +349,13 @@ export default function ServicesScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <View style={styles.searchContainer}>
-                    <Search
-                        color="#6B7280"
-                        size={18}
-                        style={styles.searchIcon}
-                    />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search services..."
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        onSubmitEditing={() => loadServices(1, true)}
-                    />
-                </View>
+                <SearchBar
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search services..."
+                    onSubmitEditing={() => loadServices(1, true)}
+                    containerStyle={styles.searchContainer}
+                />
                 <View style={styles.filterRow}>
                     <View style={styles.categoryFilter}>
                         <Text style={styles.filterLabel}>Category:</Text>
@@ -369,11 +380,22 @@ export default function ServicesScreen() {
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.manageCategoriesButton, { borderColor: "#D97706", backgroundColor: "#FFFBEB" }]}
+                        style={[
+                            styles.manageCategoriesButton,
+                            {
+                                borderColor: "#D97706",
+                                backgroundColor: "#FFFBEB",
+                            },
+                        ]}
                         onPress={() => setShowInterpretationModal(true)}
                     >
                         <SlidersHorizontal color="#D97706" size={15} />
-                        <Text style={[styles.manageCategoriesText, { color: "#92400E" }]}>
+                        <Text
+                            style={[
+                                styles.manageCategoriesText,
+                                { color: "#92400E" },
+                            ]}
+                        >
                             Interpretation
                         </Text>
                     </TouchableOpacity>
@@ -628,51 +650,141 @@ export default function ServicesScreen() {
             />
 
             {/* Interpretation Settings Modal */}
-            <Modal visible={showInterpretationModal} transparent animationType="fade">
+            <Modal
+                visible={showInterpretationModal}
+                transparent
+                animationType="fade"
+            >
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { maxHeight: "80%" }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Interpretation Settings</Text>
-                            <TouchableOpacity onPress={() => setShowInterpretationModal(false)}>
+                            <Text style={styles.modalTitle}>
+                                Interpretation Settings
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() =>
+                                    setShowInterpretationModal(false)
+                                }
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={{ fontSize: 13, color: "#6B7280", paddingHorizontal: 16, marginBottom: 12 }}>
+                        <Text
+                            style={{
+                                fontSize: 13,
+                                color: "#6B7280",
+                                paddingHorizontal: 16,
+                                marginBottom: 12,
+                            }}
+                        >
                             Choose where interpretation labels are shown.
                         </Text>
                         <View style={{ paddingHorizontal: 16, gap: 10 }}>
                             {[
-                                { key: "engine_enabled" as const, label: "Interpretation Engine", desc: "Master switch for interpretation labels." },
-                                { key: "show_in_lab_entry" as const, label: "Show in Lab Entry", desc: "Display labels during result encoding." },
-                                { key: "show_in_pdf" as const, label: "Show in PDF", desc: "Display labels in generated PDFs." },
+                                {
+                                    key: "engine_enabled" as const,
+                                    label: "Interpretation Engine",
+                                    desc: "Master switch for interpretation labels.",
+                                },
+                                {
+                                    key: "show_in_lab_entry" as const,
+                                    label: "Show in Lab Entry",
+                                    desc: "Display labels during result encoding.",
+                                },
+                                {
+                                    key: "show_in_pdf" as const,
+                                    label: "Show in PDF",
+                                    desc: "Display labels in generated PDFs.",
+                                },
                             ].map(({ key, label, desc }) => (
-                                <View key={key} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 12 }}>
+                                <View
+                                    key={key}
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        borderWidth: 1,
+                                        borderColor: "#E5E7EB",
+                                        borderRadius: 10,
+                                        padding: 12,
+                                    }}
+                                >
                                     <View style={{ flex: 1, marginRight: 12 }}>
-                                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>{label}</Text>
-                                        <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{desc}</Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 14,
+                                                fontWeight: "600",
+                                                color: "#111827",
+                                            }}
+                                        >
+                                            {label}
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                color: "#6B7280",
+                                                marginTop: 2,
+                                            }}
+                                        >
+                                            {desc}
+                                        </Text>
                                     </View>
                                     <Switch
                                         value={interpretationForm[key]}
-                                        disabled={key !== "engine_enabled" && !interpretationForm.engine_enabled}
+                                        disabled={
+                                            key !== "engine_enabled" &&
+                                            !interpretationForm.engine_enabled
+                                        }
                                         onValueChange={(val) => {
                                             if (key === "engine_enabled") {
-                                                setInterpretationForm({ engine_enabled: val, show_in_lab_entry: val ? interpretationForm.show_in_lab_entry : false, show_in_pdf: val ? interpretationForm.show_in_pdf : false });
+                                                setInterpretationForm({
+                                                    engine_enabled: val,
+                                                    show_in_lab_entry: val
+                                                        ? interpretationForm.show_in_lab_entry
+                                                        : false,
+                                                    show_in_pdf: val
+                                                        ? interpretationForm.show_in_pdf
+                                                        : false,
+                                                });
                                             } else {
-                                                setInterpretationForm({ ...interpretationForm, [key]: val });
+                                                setInterpretationForm({
+                                                    ...interpretationForm,
+                                                    [key]: val,
+                                                });
                                             }
                                         }}
-                                        trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
+                                        trackColor={{
+                                            false: "#D1D5DB",
+                                            true: "#22C55E",
+                                        }}
                                         thumbColor="#fff"
                                     />
                                 </View>
                             ))}
                         </View>
                         <View style={[styles.modalFooter, { marginTop: 16 }]}>
-                            <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowInterpretationModal(false)}>
-                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                            <TouchableOpacity
+                                style={styles.modalButtonSecondary}
+                                onPress={() =>
+                                    setShowInterpretationModal(false)
+                                }
+                            >
+                                <Text style={styles.modalButtonTextSecondary}>
+                                    Cancel
+                                </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButtonPrimary} onPress={handleSaveInterpretation} disabled={savingInterpretation}>
-                                {savingInterpretation ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonTextPrimary}>Save</Text>}
+                            <TouchableOpacity
+                                style={styles.modalButtonPrimary}
+                                onPress={handleSaveInterpretation}
+                                disabled={savingInterpretation}
+                            >
+                                {savingInterpretation ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalButtonTextPrimary}>
+                                        Save
+                                    </Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -781,7 +893,9 @@ function CreateServiceModal({
         price: "",
         description: "",
     });
-    const [referenceRows, setReferenceRows] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }]);
+    const [referenceRows, setReferenceRows] = useState<
+        { key: string; value: string }[]
+    >([{ key: "", value: "" }]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -797,7 +911,8 @@ function CreateServiceModal({
 
     const buildReferenceConfig = (rows: { key: string; value: string }[]) =>
         rows.reduce((acc: Record<string, string>, row) => {
-            if (row.key.trim() && row.value.trim()) acc[row.key.trim()] = row.value.trim();
+            if (row.key.trim() && row.value.trim())
+                acc[row.key.trim()] = row.value.trim();
             return acc;
         }, {});
 
@@ -817,12 +932,18 @@ function CreateServiceModal({
             errs.price = ["Price cannot exceed ₱99,999.99."];
         if (formData.description && formData.description.length > 1000)
             errs.description = ["Description cannot exceed 1000 characters."];
-        const filled = referenceRows.filter(r => r.key.trim() || r.value.trim());
-        if (filled.some(r => !r.key.trim() || !r.value.trim()))
-            errs.reference_config = ["Each reference row needs both a key and value."];
-        const keys = filled.map(r => r.key.trim().toLowerCase());
+        const filled = referenceRows.filter(
+            (r) => r.key.trim() || r.value.trim(),
+        );
+        if (filled.some((r) => !r.key.trim() || !r.value.trim()))
+            errs.reference_config = [
+                "Each reference row needs both a key and value.",
+            ];
+        const keys = filled.map((r) => r.key.trim().toLowerCase());
         if (new Set(keys).size !== keys.length)
-            errs.reference_config = ["Duplicate reference keys are not allowed."];
+            errs.reference_config = [
+                "Duplicate reference keys are not allowed.",
+            ];
         return errs;
     };
 
@@ -866,7 +987,10 @@ function CreateServiceModal({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        style={styles.modalBody}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
@@ -963,7 +1087,14 @@ function CreateServiceModal({
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
-                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
                                 {formData.description.length}/1000
                             </Text>
                             {errors.description?.[0] && (
@@ -1026,7 +1157,10 @@ function EditServiceModal({
 }) {
     const toRows = (cfg: Record<string, string> | null) =>
         cfg && Object.keys(cfg).length > 0
-            ? Object.entries(cfg).map(([key, value]) => ({ key, value: String(value ?? "") }))
+            ? Object.entries(cfg).map(([key, value]) => ({
+                  key,
+                  value: String(value ?? ""),
+              }))
             : [{ key: "", value: "" }];
 
     const [formData, setFormData] = useState({
@@ -1035,9 +1169,9 @@ function EditServiceModal({
         price: service.price.toString(),
         description: service.description || "",
     });
-    const [referenceRows, setReferenceRows] = useState<{ key: string; value: string }[]>(
-        toRows(service.reference_config ?? null)
-    );
+    const [referenceRows, setReferenceRows] = useState<
+        { key: string; value: string }[]
+    >(toRows(service.reference_config ?? null));
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -1065,7 +1199,8 @@ function EditServiceModal({
 
     const buildReferenceConfig = (rows: { key: string; value: string }[]) =>
         rows.reduce((acc: Record<string, string>, row) => {
-            if (row.key.trim() && row.value.trim()) acc[row.key.trim()] = row.value.trim();
+            if (row.key.trim() && row.value.trim())
+                acc[row.key.trim()] = row.value.trim();
             return acc;
         }, {});
 
@@ -1085,12 +1220,18 @@ function EditServiceModal({
             errs.price = ["Price cannot exceed ₱99,999.99."];
         if (formData.description && formData.description.length > 1000)
             errs.description = ["Description cannot exceed 1000 characters."];
-        const filled = referenceRows.filter(r => r.key.trim() || r.value.trim());
-        if (filled.some(r => !r.key.trim() || !r.value.trim()))
-            errs.reference_config = ["Each reference row needs both a key and value."];
-        const keys = filled.map(r => r.key.trim().toLowerCase());
+        const filled = referenceRows.filter(
+            (r) => r.key.trim() || r.value.trim(),
+        );
+        if (filled.some((r) => !r.key.trim() || !r.value.trim()))
+            errs.reference_config = [
+                "Each reference row needs both a key and value.",
+            ];
+        const keys = filled.map((r) => r.key.trim().toLowerCase());
         if (new Set(keys).size !== keys.length)
-            errs.reference_config = ["Duplicate reference keys are not allowed."];
+            errs.reference_config = [
+                "Duplicate reference keys are not allowed.",
+            ];
         return errs;
     };
 
@@ -1132,7 +1273,10 @@ function EditServiceModal({
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        style={styles.modalBody}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>Service Name</Text>
                             <TextInput
@@ -1167,7 +1311,10 @@ function EditServiceModal({
                                 selectedValue={formData.category}
                                 hasError={!!errors.category}
                                 onValueChange={(value) => {
-                                    setFormData({ ...formData, category: value });
+                                    setFormData({
+                                        ...formData,
+                                        category: value,
+                                    });
                                     clearError("category");
                                 }}
                                 categories={categories}
@@ -1191,7 +1338,10 @@ function EditServiceModal({
                                     const filtered = text
                                         .replace(/[^0-9.]/g, "")
                                         .replace(/(\..*)\./g, "$1");
-                                    setFormData({ ...formData, price: filtered });
+                                    setFormData({
+                                        ...formData,
+                                        price: filtered,
+                                    });
                                     clearError("price");
                                 }}
                                 placeholder="Enter price"
@@ -1206,19 +1356,31 @@ function EditServiceModal({
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.formLabel}>Description (Optional)</Text>
+                            <Text style={styles.formLabel}>
+                                Description (Optional)
+                            </Text>
                             <TextInput
                                 style={[styles.formInput, styles.textArea]}
                                 value={formData.description}
                                 onChangeText={(text) =>
-                                    setFormData({ ...formData, description: text })
+                                    setFormData({
+                                        ...formData,
+                                        description: text,
+                                    })
                                 }
                                 placeholder="Enter description"
                                 multiline
                                 numberOfLines={4}
                                 maxLength={1000}
                             />
-                            <Text style={{ fontSize: 12, color: "#9CA3AF", textAlign: "right", marginTop: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#9CA3AF",
+                                    textAlign: "right",
+                                    marginTop: 2,
+                                }}
+                            >
                                 {formData.description.length}/1000
                             </Text>
                             {errors.description?.[0] && (
@@ -1283,8 +1445,14 @@ function parseVariants(value: string): Variant[] {
         });
     }
     return parts.map((part, idx) => {
-        const u = part.match(/(mmol\/L|mg\/dl|g\/L|U\/L|umol\/L|mm\/hr|x10\d|%)/i);
-        return { variant: `unit_${idx}`, label: u ? `(${u[0]})` : `#${idx + 1}`, text: part };
+        const u = part.match(
+            /(mmol\/L|mg\/dl|g\/L|U\/L|umol\/L|mm\/hr|x10\d|%)/i,
+        );
+        return {
+            variant: `unit_${idx}`,
+            label: u ? `(${u[0]})` : `#${idx + 1}`,
+            text: part,
+        };
     });
 }
 
@@ -1293,7 +1461,8 @@ function reconstructValue(variants: Variant[]): string {
         .filter((v) => v.text.trim())
         .map((v) => {
             if (v.variant === "single") return v.text;
-            if (/^(M|F|Child)$/.test(v.variant)) return `${v.variant}: ${v.text}`;
+            if (/^(M|F|Child)$/.test(v.variant))
+                return `${v.variant}: ${v.text}`;
             return v.text;
         })
         .join(" | ");
@@ -1313,29 +1482,57 @@ function ReferenceValuesEditor({
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
     const updateRow = (index: number, field: "key" | "value", text: string) => {
-        onChange(rows.map((r, i) => (i === index ? { ...r, [field]: text } : r)));
+        onChange(
+            rows.map((r, i) => (i === index ? { ...r, [field]: text } : r)),
+        );
         // collapse expand panel when user edits the raw value directly
         if (field === "value") setExpanded((p) => ({ ...p, [index]: false }));
     };
 
-    const updateVariant = (rowIndex: number, variantIdx: number, text: string) => {
+    const updateVariant = (
+        rowIndex: number,
+        variantIdx: number,
+        text: string,
+    ) => {
         const variants = parseVariants(rows[rowIndex].value);
         variants[variantIdx].text = text;
-        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+        onChange(
+            rows.map((r, i) =>
+                i === rowIndex
+                    ? { ...r, value: reconstructValue(variants) }
+                    : r,
+            ),
+        );
     };
 
     const addVariant = (rowIndex: number) => {
         const variants = parseVariants(rows[rowIndex].value);
         // add a blank unit variant
-        variants.push({ variant: `unit_${variants.length}`, label: `#${variants.length + 1}`, text: "" });
-        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+        variants.push({
+            variant: `unit_${variants.length}`,
+            label: `#${variants.length + 1}`,
+            text: "",
+        });
+        onChange(
+            rows.map((r, i) =>
+                i === rowIndex
+                    ? { ...r, value: reconstructValue(variants) }
+                    : r,
+            ),
+        );
     };
 
     const removeVariant = (rowIndex: number, variantIdx: number) => {
         const variants = parseVariants(rows[rowIndex].value);
         if (variants.length <= 1) return;
         variants.splice(variantIdx, 1);
-        onChange(rows.map((r, i) => (i === rowIndex ? { ...r, value: reconstructValue(variants) } : r)));
+        onChange(
+            rows.map((r, i) =>
+                i === rowIndex
+                    ? { ...r, value: reconstructValue(variants) }
+                    : r,
+            ),
+        );
     };
 
     const addRow = () => onChange([...rows, { key: "", value: "" }]);
@@ -1350,21 +1547,64 @@ function ReferenceValuesEditor({
     };
 
     return (
-        <View style={{ borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+        <View
+            style={{
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 12,
+            }}
+        >
             {/* Header */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <View
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: 10,
+                }}
+            >
                 <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>Reference Values</Text>
-                    <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
-                        Tap the expand icon on a row to edit variants (M/F/Child or unit) separately.
+                    <Text
+                        style={{
+                            fontSize: 13,
+                            fontWeight: "600",
+                            color: "#374151",
+                        }}
+                    >
+                        Reference Values
+                    </Text>
+                    <Text
+                        style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}
+                    >
+                        Tap the expand icon on a row to edit variants (M/F/Child
+                        or unit) separately.
                     </Text>
                 </View>
                 <TouchableOpacity
                     onPress={addRow}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8 }}
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderWidth: 1,
+                        borderColor: "#D1D5DB",
+                        borderRadius: 8,
+                    }}
                 >
                     <Plus size={13} color="#374151" />
-                    <Text style={{ fontSize: 12, color: "#374151", fontWeight: "600" }}>Add Row</Text>
+                    <Text
+                        style={{
+                            fontSize: 12,
+                            color: "#374151",
+                            fontWeight: "600",
+                        }}
+                    >
+                        Add Row
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -1375,38 +1615,113 @@ function ReferenceValuesEditor({
                 const isExpanded = !!expanded[index];
 
                 return (
-                    <View key={index} style={{ borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 8, marginBottom: 8, overflow: "hidden", backgroundColor: "#F9FAFB" }}>
+                    <View
+                        key={index}
+                        style={{
+                            borderWidth: 1,
+                            borderColor: "#E5E7EB",
+                            borderRadius: 8,
+                            marginBottom: 8,
+                            overflow: "hidden",
+                            backgroundColor: "#F9FAFB",
+                        }}
+                    >
                         {/* Key + Value + controls */}
                         <View style={{ padding: 10, gap: 6 }}>
                             <TextInput
-                                style={{ borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#111827", backgroundColor: "#fff" }}
+                                style={{
+                                    borderWidth: 1,
+                                    borderColor: "#D1D5DB",
+                                    borderRadius: 8,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 8,
+                                    fontSize: 13,
+                                    color: "#111827",
+                                    backgroundColor: "#fff",
+                                }}
                                 value={row.key}
                                 onChangeText={(t) => updateRow(index, "key", t)}
                                 placeholder="Parameter key (e.g. fbs, rbc)"
                                 placeholderTextColor="#9CA3AF"
                             />
-                            <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                            <View
+                                style={{
+                                    flexDirection: "row",
+                                    gap: 6,
+                                    alignItems: "center",
+                                }}
+                            >
                                 <TextInput
-                                    style={{ flex: 1, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#111827", backgroundColor: "#fff" }}
+                                    style={{
+                                        flex: 1,
+                                        borderWidth: 1,
+                                        borderColor: "#D1D5DB",
+                                        borderRadius: 8,
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 8,
+                                        fontSize: 13,
+                                        color: "#111827",
+                                        backgroundColor: "#fff",
+                                    }}
                                     value={row.value}
-                                    onChangeText={(t) => updateRow(index, "value", t)}
+                                    onChangeText={(t) =>
+                                        updateRow(index, "value", t)
+                                    }
                                     placeholder="Normal value (e.g. 70-104 mg/dl)"
                                     placeholderTextColor="#9CA3AF"
                                 />
                                 {/* Expand variants toggle */}
                                 {hasVariants && (
                                     <TouchableOpacity
-                                        onPress={() => setExpanded((p) => ({ ...p, [index]: !p[index] }))}
-                                        style={{ padding: 8, borderWidth: 1, borderColor: isExpanded ? "#2563EB" : "#D1D5DB", borderRadius: 8, backgroundColor: isExpanded ? "#EFF6FF" : "#fff" }}
+                                        onPress={() =>
+                                            setExpanded((p) => ({
+                                                ...p,
+                                                [index]: !p[index],
+                                            }))
+                                        }
+                                        style={{
+                                            padding: 8,
+                                            borderWidth: 1,
+                                            borderColor: isExpanded
+                                                ? "#2563EB"
+                                                : "#D1D5DB",
+                                            borderRadius: 8,
+                                            backgroundColor: isExpanded
+                                                ? "#EFF6FF"
+                                                : "#fff",
+                                        }}
                                     >
-                                        <ChevronDown size={15} color={isExpanded ? "#2563EB" : "#6B7280"} style={{ transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] }} />
+                                        <ChevronDown
+                                            size={15}
+                                            color={
+                                                isExpanded
+                                                    ? "#2563EB"
+                                                    : "#6B7280"
+                                            }
+                                            style={{
+                                                transform: [
+                                                    {
+                                                        rotate: isExpanded
+                                                            ? "180deg"
+                                                            : "0deg",
+                                                    },
+                                                ],
+                                            }}
+                                        />
                                     </TouchableOpacity>
                                 )}
                                 {/* Remove row */}
                                 <TouchableOpacity
                                     onPress={() => removeRow(index)}
                                     disabled={rows.length === 1}
-                                    style={{ padding: 8, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, backgroundColor: "#fff", opacity: rows.length === 1 ? 0.4 : 1 }}
+                                    style={{
+                                        padding: 8,
+                                        borderWidth: 1,
+                                        borderColor: "#D1D5DB",
+                                        borderRadius: 8,
+                                        backgroundColor: "#fff",
+                                        opacity: rows.length === 1 ? 0.4 : 1,
+                                    }}
                                 >
                                     <Minus size={15} color="#6B7280" />
                                 </TouchableOpacity>
@@ -1415,25 +1730,86 @@ function ReferenceValuesEditor({
 
                         {/* Expanded variant editor */}
                         {hasVariants && isExpanded && (
-                            <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", backgroundColor: "#fff", padding: 10, gap: 8 }}>
-                                <Text style={{ fontSize: 12, fontWeight: "600", color: "#374151", marginBottom: 2 }}>Edit variants separately:</Text>
+                            <View
+                                style={{
+                                    borderTopWidth: 1,
+                                    borderTopColor: "#E5E7EB",
+                                    backgroundColor: "#fff",
+                                    padding: 10,
+                                    gap: 8,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight: "600",
+                                        color: "#374151",
+                                        marginBottom: 2,
+                                    }}
+                                >
+                                    Edit variants separately:
+                                </Text>
                                 {variants.map((v, vi) => (
-                                    <View key={vi} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                    <View
+                                        key={vi}
+                                        style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            gap: 6,
+                                        }}
+                                    >
                                         {/* Label badge */}
-                                        <View style={{ minWidth: 36, paddingHorizontal: 6, paddingVertical: 4, backgroundColor: "#F3F4F6", borderRadius: 6, alignItems: "center" }}>
-                                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#374151" }}>{v.label || `#${vi + 1}`}</Text>
+                                        <View
+                                            style={{
+                                                minWidth: 36,
+                                                paddingHorizontal: 6,
+                                                paddingVertical: 4,
+                                                backgroundColor: "#F3F4F6",
+                                                borderRadius: 6,
+                                                alignItems: "center",
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 11,
+                                                    fontWeight: "700",
+                                                    color: "#374151",
+                                                }}
+                                            >
+                                                {v.label || `#${vi + 1}`}
+                                            </Text>
                                         </View>
                                         <TextInput
-                                            style={{ flex: 1, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 13, color: "#111827", backgroundColor: "#F9FAFB" }}
+                                            style={{
+                                                flex: 1,
+                                                borderWidth: 1,
+                                                borderColor: "#D1D5DB",
+                                                borderRadius: 8,
+                                                paddingHorizontal: 10,
+                                                paddingVertical: 7,
+                                                fontSize: 13,
+                                                color: "#111827",
+                                                backgroundColor: "#F9FAFB",
+                                            }}
                                             value={v.text}
-                                            onChangeText={(t) => updateVariant(index, vi, t)}
+                                            onChangeText={(t) =>
+                                                updateVariant(index, vi, t)
+                                            }
                                             placeholder="e.g. 0-45"
                                             placeholderTextColor="#9CA3AF"
                                         />
                                         <TouchableOpacity
-                                            onPress={() => removeVariant(index, vi)}
+                                            onPress={() =>
+                                                removeVariant(index, vi)
+                                            }
                                             disabled={variants.length <= 1}
-                                            style={{ padding: 6, opacity: variants.length <= 1 ? 0.3 : 1 }}
+                                            style={{
+                                                padding: 6,
+                                                opacity:
+                                                    variants.length <= 1
+                                                        ? 0.3
+                                                        : 1,
+                                            }}
                                         >
                                             <Minus size={13} color="#EF4444" />
                                         </TouchableOpacity>
@@ -1442,10 +1818,28 @@ function ReferenceValuesEditor({
                                 {/* Add variant button */}
                                 <TouchableOpacity
                                     onPress={() => addVariant(index)}
-                                    style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, marginTop: 2 }}
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        alignSelf: "flex-start",
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 6,
+                                        borderWidth: 1,
+                                        borderColor: "#D1D5DB",
+                                        borderRadius: 8,
+                                        marginTop: 2,
+                                    }}
                                 >
                                     <Plus size={12} color="#374151" />
-                                    <Text style={{ fontSize: 12, color: "#374151" }}>Add Variant</Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#374151",
+                                        }}
+                                    >
+                                        Add Variant
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -1453,7 +1847,11 @@ function ReferenceValuesEditor({
                 );
             })}
 
-            {error && <Text style={{ fontSize: 12, color: "#EF4444", marginTop: 4 }}>{error}</Text>}
+            {error && (
+                <Text style={{ fontSize: 12, color: "#EF4444", marginTop: 4 }}>
+                    {error}
+                </Text>
+            )}
         </View>
     );
 }
@@ -1551,19 +1949,7 @@ const styles = StyleSheet.create({
         borderBottomColor: "#E5E7EB",
     },
     searchContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#F9FAFB",
-        borderRadius: 12,
-        paddingHorizontal: 12,
         marginBottom: 12,
-    },
-    searchIcon: { marginRight: 8 },
-    searchInput: {
-        flex: 1,
-        paddingVertical: 10,
-        fontSize: 16,
-        color: "#111827",
     },
     filterRow: {
         marginBottom: 12,
@@ -1920,7 +2306,11 @@ const styles = StyleSheet.create({
     },
     inputError: { borderColor: "#EF4444" },
     errorText: { color: "#EF4444", fontSize: 12, marginTop: 4 },
-    fieldFooter: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
+    fieldFooter: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        marginTop: 2,
+    },
     charCount: { fontSize: 12, color: "#9CA3AF" },
     pickerButtonError: { borderColor: "#EF4444" },
     errorContainer: {

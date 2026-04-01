@@ -2,6 +2,7 @@ export { default as ConfirmDialog } from "./ConfirmDialog";
 export { DropdownModal } from "./DropdownModal";
 export { EmptyState } from "./EmptyState";
 export { LoadingState } from "./LoadingState";
+export { SearchBar } from "./SearchBar";
 export { SkeletonRow } from "./SkeletonRow";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";

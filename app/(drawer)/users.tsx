@@ -8,7 +8,6 @@ import {
     Plus,
     Power,
     PowerOff,
-    Search,
     UserCog,
     X,
 } from "lucide-react-native";
@@ -28,7 +27,12 @@ import {
 
 import api from "@/app/services/api";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
 
 type User = {
@@ -272,17 +276,11 @@ export default function UsersScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerRow}>
-                    <View style={styles.searchContainer}>
-                        <Search
-                            color="#6B7280"
-                            size={18}
-                            style={styles.searchIcon}
-                        />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search users..."
+                    <View style={{ flex: 1 }}>
+                        <SearchBar
                             value={searchQuery}
                             onChangeText={setSearchQuery}
+                            placeholder="Search users..."
                         />
                     </View>
                     <TouchableOpacity
@@ -420,7 +418,9 @@ export default function UsersScreen() {
                             ) : null}
                             {item.role === "lab_staff" && item.lab_role ? (
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>PDF Role:</Text>
+                                    <Text style={styles.infoLabel}>
+                                        PDF Role:
+                                    </Text>
                                     <Text style={styles.infoValue}>
                                         {item.lab_role === "pathologist"
                                             ? "Pathologist"
@@ -1011,13 +1011,27 @@ function CreateUserModal({
 
                         {formData.role === "lab_staff" && (
                             <View style={styles.formGroup}>
-                                <Text style={styles.formLabel}>PDF Signature Role</Text>
+                                <Text style={styles.formLabel}>
+                                    PDF Signature Role
+                                </Text>
                                 <LabRolePicker
                                     selectedValue={formData.lab_role}
-                                    onValueChange={(v) => setFormData({ ...formData, lab_role: v as any })}
+                                    onValueChange={(v) =>
+                                        setFormData({
+                                            ...formData,
+                                            lab_role: v as any,
+                                        })
+                                    }
                                 />
-                                <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
-                                    Determines which signature slot this person fills on printed lab results.
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: "#9CA3AF",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    Determines which signature slot this person
+                                    fills on printed lab results.
                                 </Text>
                             </View>
                         )}
@@ -1343,7 +1357,10 @@ function RolePicker({
 
 const LAB_ROLES = [
     { value: "staff", label: "Lab Staff" },
-    { value: "chief_med_tech", label: "Chief Medical Technologist (Middle sig.)" },
+    {
+        value: "chief_med_tech",
+        label: "Chief Medical Technologist (Middle sig.)",
+    },
     { value: "pathologist", label: "Pathologist (Left sig.)" },
 ];
 
@@ -1359,18 +1376,34 @@ function LabRolePicker({
 
     return (
         <>
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
-                <Text style={[styles.pickerButtonText, !selectedValue && styles.pickerButtonPlaceholder]}>
+            <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPicker(true)}
+            >
+                <Text
+                    style={[
+                        styles.pickerButtonText,
+                        !selectedValue && styles.pickerButtonPlaceholder,
+                    ]}
+                >
                     {selected?.label ?? "Select PDF role"}
                 </Text>
                 <ChevronDown color="#6B7280" size={20} />
             </TouchableOpacity>
             <Modal visible={showPicker} transparent animationType="fade">
-                <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+                <TouchableOpacity
+                    style={styles.pickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowPicker(false)}
+                >
                     <View style={styles.pickerModal}>
                         <View style={styles.pickerHeader}>
-                            <Text style={styles.pickerTitle}>PDF Signature Role</Text>
-                            <TouchableOpacity onPress={() => setShowPicker(false)}>
+                            <Text style={styles.pickerTitle}>
+                                PDF Signature Role
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setShowPicker(false)}
+                            >
                                 <X color="#6B7280" size={24} />
                             </TouchableOpacity>
                         </View>
@@ -1378,10 +1411,23 @@ function LabRolePicker({
                             {LAB_ROLES.map((r) => (
                                 <TouchableOpacity
                                     key={r.value}
-                                    style={[styles.pickerOption, selectedValue === r.value && styles.pickerOptionSelected]}
-                                    onPress={() => { onValueChange(r.value); setShowPicker(false); }}
+                                    style={[
+                                        styles.pickerOption,
+                                        selectedValue === r.value &&
+                                            styles.pickerOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        onValueChange(r.value);
+                                        setShowPicker(false);
+                                    }}
                                 >
-                                    <Text style={[styles.pickerOptionText, selectedValue === r.value && styles.pickerOptionTextSelected]}>
+                                    <Text
+                                        style={[
+                                            styles.pickerOptionText,
+                                            selectedValue === r.value &&
+                                                styles.pickerOptionTextSelected,
+                                        ]}
+                                    >
                                         {r.label}
                                     </Text>
                                 </TouchableOpacity>
@@ -1420,7 +1466,10 @@ function EditUserModal({
         license_number: user.license_number ?? "",
         professional_title: user.professional_title ?? "",
         test_categories: user.test_categories ?? [],
-        lab_role: (user.lab_role ?? "staff") as "staff" | "chief_med_tech" | "pathologist",
+        lab_role: (user.lab_role ?? "staff") as
+            | "staff"
+            | "chief_med_tech"
+            | "pathologist",
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -1438,7 +1487,10 @@ function EditUserModal({
             license_number: user.license_number ?? "",
             professional_title: user.professional_title ?? "",
             test_categories: user.test_categories ?? [],
-            lab_role: (user.lab_role ?? "staff") as "staff" | "chief_med_tech" | "pathologist",
+            lab_role: (user.lab_role ?? "staff") as
+                | "staff"
+                | "chief_med_tech"
+                | "pathologist",
         });
         setConfirmPassword("");
         setErrors({});
@@ -1743,13 +1795,27 @@ function EditUserModal({
 
                         {formData.role === "lab_staff" && (
                             <View style={styles.formGroup}>
-                                <Text style={styles.formLabel}>PDF Signature Role</Text>
+                                <Text style={styles.formLabel}>
+                                    PDF Signature Role
+                                </Text>
                                 <LabRolePicker
                                     selectedValue={formData.lab_role}
-                                    onValueChange={(v) => setFormData({ ...formData, lab_role: v as any })}
+                                    onValueChange={(v) =>
+                                        setFormData({
+                                            ...formData,
+                                            lab_role: v as any,
+                                        })
+                                    }
                                 />
-                                <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
-                                    Determines which signature slot this person fills on printed lab results.
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: "#9CA3AF",
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    Determines which signature slot this person
+                                    fills on printed lab results.
                                 </Text>
                             </View>
                         )}

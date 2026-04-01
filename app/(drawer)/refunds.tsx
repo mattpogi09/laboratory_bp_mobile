@@ -5,7 +5,6 @@ import {
     CheckCircle,
     ChevronRight,
     FileText,
-    Search,
     X,
     XCircle,
 } from "lucide-react-native";
@@ -26,7 +25,12 @@ import {
 import api from "@/app/services/api";
 import type { RefundRequest, RefundStatus } from "@/types";
 import { getApiErrorMessage } from "@/utils";
-import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
+import {
+    ConfirmDialog,
+    SearchBar,
+    SkeletonRow,
+    SuccessDialog,
+} from "@/components";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -427,25 +431,14 @@ export default function RefundsScreen() {
             </View>
 
             {/* Search bar */}
-            <View style={styles.searchContainer}>
-                <Search size={15} color="#94A3B8" />
-                <TextInput
-                    style={styles.searchInput}
-                    value={searchInput}
-                    onChangeText={handleSearchChange}
-                    placeholder="Search patient or TXN#..."
-                    placeholderTextColor="#CBD5E1"
-                    returnKeyType="search"
-                />
-                {searchInput.length > 0 && (
-                    <TouchableOpacity
-                        onPress={clearSearch}
-                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                    >
-                        <X size={15} color="#94A3B8" />
-                    </TouchableOpacity>
-                )}
-            </View>
+            <SearchBar
+                value={searchInput}
+                onChangeText={handleSearchChange}
+                placeholder="Search patient or TXN#..."
+                returnKeyType="search"
+                onClear={clearSearch}
+                containerStyle={styles.searchContainer}
+            />
 
             {/* List */}
             {loadError && !refunds.length ? (
@@ -968,23 +961,8 @@ const styles = StyleSheet.create({
 
     // ── Search bar ──
     searchContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
         marginHorizontal: 16,
         marginVertical: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-        backgroundColor: "#fff",
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: "#E2E8F0",
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 13,
-        color: "#0F172A",
-        paddingVertical: 0,
     },
 
     // ── List ──
