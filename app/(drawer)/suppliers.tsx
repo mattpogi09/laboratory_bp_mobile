@@ -27,7 +27,7 @@ import {
 import api from "@/app/services/api";
 import { ConfirmDialog, SearchBar } from "@/components";
 import { EmptyState } from "@/components";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 
 type Supplier = {
     id: number;
@@ -88,6 +88,7 @@ const SUPPLIER_FORM_FIELDS: SupplierFormField[] = [
 ];
 
 export default function SupplierScreen() {
+    const responsive = useResponsiveLayout();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -296,7 +297,16 @@ export default function SupplierScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Search + Add */}
             <View style={styles.topBar}>
                 <View style={styles.searchBox}>

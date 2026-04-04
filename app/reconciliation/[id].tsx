@@ -1,5 +1,5 @@
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { router, useLocalSearchParams } from "expo-router";
 import {
     ArrowLeft,
@@ -60,6 +60,7 @@ interface ReconciliationDetail {
 
 export default function ReconciliationDetailScreen() {
     const { id } = useLocalSearchParams();
+    const responsive = useResponsiveLayout();
     const [loading, setLoading] = useState(true);
     const [reconciliation, setReconciliation] =
         useState<ReconciliationDetail | null>(null);
@@ -113,6 +114,15 @@ export default function ReconciliationDetailScreen() {
         }
     };
 
+    const rootContainerStyle = [
+        styles.container,
+        responsive.isTablet && {
+            width: "100%",
+            maxWidth: 1100,
+            alignSelf: "center" as const,
+        },
+    ];
+
     const renderTransaction = ({ item }: { item: Transaction }) => (
         <View style={styles.transactionCard}>
             <View style={styles.transactionHeader}>
@@ -147,7 +157,7 @@ export default function ReconciliationDetailScreen() {
     if (loading) {
         return (
             <SafeAreaView
-                style={styles.container}
+                style={rootContainerStyle}
                 edges={["top", "left", "right"]}
             >
                 <View style={styles.header}>
@@ -170,7 +180,7 @@ export default function ReconciliationDetailScreen() {
     if (!reconciliation) {
         return (
             <SafeAreaView
-                style={styles.container}
+                style={rootContainerStyle}
                 edges={["top", "left", "right"]}
             >
                 <View style={styles.header}>
@@ -220,7 +230,7 @@ export default function ReconciliationDetailScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <SafeAreaView style={rootContainerStyle} edges={["top", "left", "right"]}>
             {/* Custom Header with Back Button */}
             <View style={styles.header}>
                 <TouchableOpacity
@@ -233,7 +243,12 @@ export default function ReconciliationDetailScreen() {
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingHorizontal: responsive.horizontalPadding },
+                ]}
+            >
                 {/* Status Hero Card */}
                 <View
                     style={[

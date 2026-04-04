@@ -24,7 +24,7 @@ import {
 
 import api from "@/app/services/api";
 import type { RefundRequest, RefundStatus } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -59,6 +59,7 @@ const STATUS_COLORS: Record<
 // ---------------------------------------------------------------------------
 
 export default function RefundsScreen() {
+    const responsive = useResponsiveLayout();
     const [refunds, setRefunds] = useState<RefundRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -385,7 +386,16 @@ export default function RefundsScreen() {
     // -------------------------------------------------------------------------
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Status filter tabs — horizontal scroll for 5 tabs */}
             <View style={styles.tabBarWrapper}>
                 <ScrollView

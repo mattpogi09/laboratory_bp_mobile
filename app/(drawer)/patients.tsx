@@ -25,7 +25,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -97,6 +97,7 @@ function fmtVisitDate(value?: string | null): string {
 }
 
 export default function PatientsScreen() {
+    const responsive = useResponsiveLayout();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [meta, setMeta] = useState<Meta | null>(null);
     const [search, setSearch] = useState("");
@@ -552,7 +553,16 @@ export default function PatientsScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <FlatList
                 data={patients}
                 keyExtractor={(item) => item.id.toString()}

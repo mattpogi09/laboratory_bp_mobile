@@ -24,10 +24,11 @@ import {
 
 import api from "@/app/services/api";
 import type { InventoryCategory } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
 export default function InventoryCategoriesScreen() {
+    const responsive = useResponsiveLayout();
     const [categories, setCategories] = useState<InventoryCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -253,7 +254,16 @@ export default function InventoryCategoriesScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Layers size={22} color="#ac3434" />

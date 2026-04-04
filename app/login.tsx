@@ -21,9 +21,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SuccessDialog } from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
+import { useResponsiveLayout } from "@/utils";
 
 export default function Login() {
     const { login, loginWithToken } = useAuth();
+    const responsive = useResponsiveLayout();
 
     // ── ALL REFS DECLARED FIRST — never undefined when used below ──
     const isBioRunning = useRef(false);
@@ -199,7 +201,16 @@ export default function Login() {
     }, [isFormValid, login, username, password]);
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView
+            style={[
+                styles.safeArea,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <Stack.Screen options={{ headerShown: false }} />
 
             <View style={styles.container}>
@@ -208,13 +219,20 @@ export default function Login() {
                     style={{ flex: 1 }}
                 >
                     <ScrollView
-                        contentContainerStyle={styles.manualScroll}
+                        contentContainerStyle={[
+                            styles.manualScroll,
+                            {
+                                paddingHorizontal:
+                                    responsive.horizontalPadding,
+                            },
+                        ]}
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                     >
                         <Animated.View
                             style={[
                                 styles.glassPanel,
+                                responsive.isTablet && styles.glassPanelTablet,
                                 {
                                     opacity: panelOpacity,
                                     transform: [
@@ -449,6 +467,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 8,
         elevation: 8,
+    },
+    glassPanelTablet: {
+        width: "100%",
+        maxWidth: 560,
+        alignSelf: "center",
     },
     panelHeader: { alignItems: "center", marginBottom: 28 },
     panelLogo: { width: 90, height: 90, marginBottom: 12 },

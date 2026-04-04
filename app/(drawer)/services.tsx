@@ -31,7 +31,7 @@ import { router } from "expo-router";
 
 import api from "@/app/services/api";
 import type { GroupedServices, Service, ServicesResponse } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -40,6 +40,7 @@ import {
 } from "@/components";
 
 export default function ServicesScreen() {
+    const responsive = useResponsiveLayout();
     const [services, setServices] = useState<Service[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [formCategories, setFormCategories] = useState<string[]>([]);
@@ -347,7 +348,16 @@ export default function ServicesScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={styles.header}>
                 <SearchBar
                     value={searchQuery}

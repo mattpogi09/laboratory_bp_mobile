@@ -1,6 +1,6 @@
 import api from "@/app/services/api";
 import type { Appointment } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import {
@@ -15,7 +15,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Dimensions,
     ScrollView,
     StyleSheet,
     Text,
@@ -23,9 +22,6 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const SCREEN_W = Dimensions.get("window").width;
-const DAY_SIZE = Math.floor((SCREEN_W - 32) / 7);
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -56,6 +52,11 @@ function fmt(y: number, m: number, d: number) {
 }
 
 export default function AppointmentCalendarScreen() {
+    const responsive = useResponsiveLayout();
+    const daySize = Math.min(
+        68,
+        Math.max(40, Math.floor((responsive.width - 32) / 7)),
+    );
     const today = new Date();
     const [year, setYear] = useState(today.getFullYear());
     const [month, setMonth] = useState(today.getMonth());
@@ -200,8 +201,23 @@ export default function AppointmentCalendarScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.safe} edges={["bottom"]}>
-            <ScrollView contentContainerStyle={styles.scroll}>
+        <SafeAreaView
+            style={[
+                styles.safe,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+            edges={["bottom"]}
+        >
+            <ScrollView
+                contentContainerStyle={[
+                    styles.scroll,
+                    { paddingHorizontal: responsive.horizontalPadding },
+                ]}
+            >
                 <View style={styles.calHeader}>
                     <TouchableOpacity style={styles.navBtn} onPress={goToPrev}>
                         <ChevronLeft color="#374151" size={22} />
@@ -225,7 +241,7 @@ export default function AppointmentCalendarScreen() {
 
                 <View style={styles.weekRow}>
                     {WEEKDAYS.map((d, i) => (
-                        <View key={d} style={styles.weekCell}>
+                        <View key={d} style={[styles.weekCell, { width: daySize }]}>
                             <Text
                                 style={[
                                     styles.weekLabel,
@@ -261,6 +277,7 @@ export default function AppointmentCalendarScreen() {
                                 key={idx}
                                 style={[
                                     styles.dayCell,
+                                    { width: daySize, height: daySize },
                                     (isSunday || isHoliday) &&
                                         styles.dayCellClosed,
                                     hasAppts &&
@@ -579,7 +596,7 @@ const styles = StyleSheet.create({
     },
     retryBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
     weekRow: { flexDirection: "row", marginBottom: 4 },
-    weekCell: { width: DAY_SIZE, alignItems: "center", paddingVertical: 4 },
+    weekCell: { alignItems: "center", paddingVertical: 4 },
     weekLabel: { fontSize: 11, fontWeight: "600", color: "#9CA3AF" },
     grid: {
         flexDirection: "row",
@@ -592,8 +609,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     dayCell: {
-        width: DAY_SIZE,
-        height: DAY_SIZE,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 0.5,

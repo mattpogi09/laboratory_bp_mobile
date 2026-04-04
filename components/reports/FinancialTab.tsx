@@ -2,6 +2,7 @@ import React from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { ClipboardList } from "lucide-react-native";
 import { StatCard } from "@/components/StatCard";
+import { useResponsiveLayout } from "@/utils";
 import { formatCurrency } from "@/utils/format";
 import type { FinancialData } from "@/types/reports";
 
@@ -16,6 +17,22 @@ export function FinancialTab({
     refreshing,
     onRefresh,
 }: FinancialTabProps) {
+    const responsive = useResponsiveLayout();
+
+    const contentStyle =
+        data?.rows.length === 0
+            ? {
+                  flex: 1,
+                  paddingVertical: 8,
+                  paddingHorizontal: responsive.horizontalPadding,
+                  paddingBottom: 64,
+              }
+            : {
+                  paddingVertical: 8,
+                  paddingHorizontal: responsive.horizontalPadding,
+                  paddingBottom: 64,
+              };
+
     if (!data) {
         return (
             <View style={styles.emptyWrapper}>
@@ -30,16 +47,17 @@ export function FinancialTab({
             style={styles.tabContent}
             data={data.rows}
             keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={
-                data.rows.length === 0
-                    ? { flex: 1, padding: 8, paddingBottom: 64 }
-                    : { padding: 8, paddingBottom: 64 }
-            }
+            contentContainerStyle={contentStyle}
             nestedScrollEnabled={false}
             removeClippedSubviews={true}
             ListHeaderComponent={
                 <>
-                    <View style={styles.cardsRow}>
+                    <View
+                        style={[
+                            styles.cardsRow,
+                            responsive.isCompact && styles.cardsRowCompact,
+                        ]}
+                    >
                         <StatCard
                             label="Total Revenue"
                             value={formatCurrency(data.totals.revenue)}
@@ -51,7 +69,12 @@ export function FinancialTab({
                             accent="#F59E0B"
                         />
                     </View>
-                    <View style={styles.cardsRow}>
+                    <View
+                        style={[
+                            styles.cardsRow,
+                            responsive.isCompact && styles.cardsRowCompact,
+                        ]}
+                    >
                         <StatCard
                             label="Transactions"
                             value={data.totals.transactions.toString()}
@@ -121,6 +144,7 @@ export function FinancialTab({
 const styles = StyleSheet.create({
     tabContent: { flex: 1, backgroundColor: "#F3F4F6" },
     cardsRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+    cardsRowCompact: { flexDirection: "column" },
     sectionTitle: {
         fontSize: 16,
         fontWeight: "700",

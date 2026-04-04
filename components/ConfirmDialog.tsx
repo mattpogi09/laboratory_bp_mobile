@@ -5,9 +5,9 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    Dimensions,
 } from "react-native";
 import { AlertTriangle, Info, X } from "lucide-react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type ConfirmDialogProps = {
     visible: boolean;
@@ -32,6 +32,8 @@ export default function ConfirmDialog({
     type = "warning",
     confirmColor,
 }: ConfirmDialogProps) {
+    const responsive = useResponsiveLayout();
+
     const getIconColor = () => {
         switch (type) {
             case "danger":
@@ -76,8 +78,18 @@ export default function ConfirmDialog({
             animationType="fade"
             onRequestClose={onCancel}
         >
-            <View style={styles.overlay}>
-                <View style={styles.dialog}>
+            <View
+                style={[
+                    styles.overlay,
+                    { paddingHorizontal: responsive.horizontalPadding },
+                ]}
+            >
+                <View
+                    style={[
+                        styles.dialog,
+                        responsive.isTablet && styles.dialogTablet,
+                    ]}
+                >
                     <TouchableOpacity
                         style={styles.closeButton}
                         onPress={onCancel}
@@ -151,6 +163,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 8,
+    },
+    dialogTablet: {
+        maxWidth: 460,
     },
     closeButton: {
         position: "absolute",

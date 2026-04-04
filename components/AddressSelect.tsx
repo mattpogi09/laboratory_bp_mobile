@@ -13,6 +13,7 @@ import { ChevronDown } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { TOKEN_STORAGE_KEY } from "@/app/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useResponsiveLayout } from "@/utils";
 
 type AddressValue = {
   region_id?: string;
@@ -61,6 +62,7 @@ export default function AddressSelect({
   required = false,
 }: AddressSelectProps) {
   const { isAuthenticated } = useAuth();
+  const responsive = useResponsiveLayout();
   const [regions, setRegions] = useState<Region[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -438,8 +440,18 @@ export default function AddressSelect({
         animationType="slide"
         onRequestClose={() => setShowPicker({ type: null })}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View
+          style={[
+            styles.modalOverlay,
+            { paddingHorizontal: responsive.horizontalPadding },
+          ]}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              responsive.isTablet && styles.modalContentTablet,
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 Select{" "}
@@ -764,6 +776,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: "80%",
     paddingBottom: 20,
+  },
+  modalContentTablet: {
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
   },
   modalHeader: {
     flexDirection: "row",

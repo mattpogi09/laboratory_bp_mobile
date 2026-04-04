@@ -1,13 +1,15 @@
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
 import React, { useCallback, useEffect, useState } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, Text } from "react-native";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useResponsiveLayout } from "@/utils";
 
 function UpdateBanner() {
     const [message, setMessage] = useState("");
+    const responsive = useResponsiveLayout();
     const opacity = React.useRef(new Animated.Value(0)).current;
 
     const show = (msg: string) => {
@@ -60,7 +62,7 @@ function UpdateBanner() {
                 zIndex: 999,
                 backgroundColor: "#1D4ED8",
                 paddingVertical: 8,
-                paddingHorizontal: 16,
+                paddingHorizontal: responsive.horizontalPadding,
             }}
         >
             <Text style={{ color: "#fff", fontSize: 13, textAlign: "center" }}>

@@ -14,7 +14,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
 type InventoryUnit = {
@@ -24,6 +24,7 @@ type InventoryUnit = {
 };
 
 export default function InventoryUnitsScreen() {
+    const responsive = useResponsiveLayout();
     const [units, setUnits] = useState<InventoryUnit[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -189,7 +190,16 @@ export default function InventoryUnitsScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Ruler size={22} color="#ac3434" />

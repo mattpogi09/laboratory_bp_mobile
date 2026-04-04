@@ -36,7 +36,7 @@ import { Image } from "react-native";
 
 import api, { API_BASE_URL } from "@/app/services/api";
 import type { Appointment, AppointmentStats, AppointmentStatus } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -231,6 +231,7 @@ function PriorityBadge({ level }: { level?: string | null }) {
 }
 
 export default function AppointmentsScreen() {
+    const responsive = useResponsiveLayout();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [stats, setStats] = useState<AppointmentStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -737,7 +738,16 @@ export default function AppointmentsScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity

@@ -11,7 +11,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Dimensions,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -23,7 +22,7 @@ import { LineChart, PieChart } from "react-native-gifted-charts";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { clamp, getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 type MetricCard = {
@@ -70,8 +69,6 @@ type DashboardResponse = {
     }[];
 };
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
-
 const periods: { label: string; value: string }[] = [
     { label: "Day", value: "day" },
     { label: "Week", value: "week" },
@@ -96,6 +93,7 @@ const formatCurrency = (value?: number | string) => {
 export default function Dashboard() {
     const { user, token, isAuthenticated } = useAuth();
     const insets = useSafeAreaInsets();
+    const responsive = useResponsiveLayout();
     const [period, setPeriod] = useState("day");
     const [data, setData] = useState<DashboardResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -222,19 +220,47 @@ export default function Dashboard() {
         [testStatusEntries],
     );
 
+    const lineChartWidth = clamp(responsive.width - 64, 240, 920);
+
     const revenueLineData = useMemo(() => {
         if (!data?.revenueChartData?.length) return null;
         const items = ["month", "year"].includes(period)
             ? data.revenueChartData
             : data.revenueChartData.slice(-7);
         const hasData = items.some((d) => d.value > 0);
+
+        const labelStep =
+            period === "month"
+                ? items.length > 28
+                    ? 5
+                    : items.length > 21
+                      ? 4
+                      : 3
+                : period === "year"
+                  ? items.length > 10
+                      ? 2
+                      : 1
+                  : period === "day"
+                    ? items.length > 12
+                        ? 2
+                        : 1
+                    : 1;
+
         return {
             hasData,
-            chartData: items.map((d) => ({
-                value: Math.max(0, d.value),
-                label: d.label,
-                labelTextStyle: { color: "#9CA3AF", fontSize: 10 },
-            })),
+            chartData: items.map((d, index) => {
+                const isEdge = index === 0 || index === items.length - 1;
+                const shouldShowLabel = isEdge || index % labelStep === 0;
+
+                return {
+                    value: Math.max(0, d.value),
+                    label: shouldShowLabel ? d.label : "",
+                    labelTextStyle: {
+                        color: "#9CA3AF",
+                        fontSize: items.length > 14 ? 8 : 10,
+                    },
+                };
+            }),
         };
     }, [data, period]);
 
@@ -300,11 +326,21 @@ export default function Dashboard() {
     }
 
     return (
-        <View style={styles.safeArea}>
+        <View
+            style={[
+                styles.safeArea,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <StatusBar style="dark" />
             <ScrollView
                 contentContainerStyle={[
                     styles.scrollContent,
+                    { paddingHorizontal: responsive.horizontalPadding },
                     { paddingBottom: 48 + insets.bottom },
                 ]}
                 refreshControl={
@@ -361,7 +397,14 @@ export default function Dashboard() {
 
                 <View style={styles.metricsGrid}>
                     {metricCards.map((metric) => (
-                        <View key={metric.title} style={styles.metricCard}>
+                        <View
+                            key={metric.title}
+                            style={[
+                                styles.metricCard,
+                                responsive.isCompact &&
+                                    styles.metricCardCompact,
+                            ]}
+                        >
                             <View
                                 style={[
                                     styles.metricIconWrapper,
@@ -399,16 +442,21 @@ export default function Dashboard() {
                         {revenueLineData.hasData ? (
                             <LineChart
                                 data={revenueLineData.chartData}
-                                width={SCREEN_WIDTH - 64}
+                                width={lineChartWidth}
                                 height={180}
                                 color="#10B981"
                                 thickness={2.5}
                                 dataPointsColor="#10B981"
-                                dataPointsRadius={revenueLineData.chartData.length > 14 ? 2 : 4}
+                                dataPointsRadius={
+                                    revenueLineData.chartData.length > 14
+                                        ? 2
+                                        : 4
+                                }
                                 spacing={Math.floor(
-                                    (SCREEN_WIDTH - 100) /
+                                    (lineChartWidth - 36) /
                                         Math.max(
-                                            revenueLineData.chartData.length - 1,
+                                            revenueLineData.chartData.length -
+                                                1,
                                             1,
                                         ),
                                 )}
@@ -440,10 +488,15 @@ export default function Dashboard() {
                                 endFillColor="rgba(16,185,129,0.02)"
                                 startOpacity={0.8}
                                 endOpacity={0.1}
-                                hideDataPoints={revenueLineData.chartData.length > 20}
+                                hideDataPoints={
+                                    revenueLineData.chartData.length > 20
+                                }
                                 xAxisLabelTextStyle={{
                                     color: "#9CA3AF",
-                                    fontSize: revenueLineData.chartData.length > 14 ? 8 : 10,
+                                    fontSize:
+                                        revenueLineData.chartData.length > 14
+                                            ? 8
+                                            : 10,
                                 }}
                             />
                         ) : (
@@ -460,12 +513,18 @@ export default function Dashboard() {
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Test Status</Text>
                     {pieChartData ? (
-                        <View style={styles.testStatusContainer}>
+                        <View
+                            style={[
+                                styles.testStatusContainer,
+                                responsive.isCompact &&
+                                    styles.testStatusContainerCompact,
+                            ]}
+                        >
                             <PieChart
                                 donut
                                 data={pieChartData}
-                                radius={72}
-                                innerRadius={46}
+                                radius={responsive.isCompact ? 62 : 72}
+                                innerRadius={responsive.isCompact ? 38 : 46}
                                 centerLabelComponent={() => (
                                     <View style={styles.donutCenter}>
                                         <Text style={styles.donutTotal}>
@@ -477,7 +536,13 @@ export default function Dashboard() {
                                     </View>
                                 )}
                             />
-                            <View style={styles.statusList}>
+                            <View
+                                style={[
+                                    styles.statusList,
+                                    responsive.isCompact &&
+                                        styles.statusListCompact,
+                                ]}
+                            >
                                 {testStatusEntries
                                     .filter((s) => s.value > 0)
                                     .map((status) => (
@@ -494,7 +559,11 @@ export default function Dashboard() {
                                                     },
                                                 ]}
                                             />
-                                            <Text style={styles.statusLabel}>
+                                            <Text
+                                                style={styles.statusLabel}
+                                                numberOfLines={1}
+                                                ellipsizeMode="tail"
+                                            >
                                                 {status.label}
                                             </Text>
                                             <Text style={styles.statusValue}>
@@ -775,6 +844,9 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 2,
     },
+    metricCardCompact: {
+        width: "100%",
+    },
     metricIconWrapper: {
         width: 36,
         height: 36,
@@ -935,6 +1007,7 @@ const styles = StyleSheet.create({
     topTestCount: { fontSize: 12, color: "#6B7280", marginTop: 1 },
     topTestRevenue: { fontSize: 13, fontWeight: "700", color: "#059669" },
     statusList: { marginTop: 12, flex: 1 },
+    statusListCompact: { marginTop: 14, width: "100%" },
     statusRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -961,6 +1034,10 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 20,
+    },
+    testStatusContainerCompact: {
+        flexDirection: "column",
+        alignItems: "flex-start",
     },
     donutCenter: { alignItems: "center" },
     donutTotal: { fontSize: 22, fontWeight: "700", color: "#111827" },

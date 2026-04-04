@@ -30,12 +30,13 @@ import type {
     PhilHealthPlan,
     PhilHealthPlansResponse,
 } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
 type LabTest = { id: number; name: string; category: string };
 
 export default function DiscountsPhilhealthScreen() {
+    const responsive = useResponsiveLayout();
     const [activeTab, setActiveTab] = useState<"discounts" | "philhealth">(
         "discounts",
     );
@@ -313,7 +314,16 @@ export default function DiscountsPhilhealthScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={styles.tabs}>
                 <TouchableOpacity
                     style={[

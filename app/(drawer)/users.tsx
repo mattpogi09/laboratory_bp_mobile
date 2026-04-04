@@ -26,7 +26,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -58,6 +58,7 @@ type UsersResponse = {
 };
 
 export default function UsersScreen() {
+    const responsive = useResponsiveLayout();
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [meta, setMeta] = useState<{
@@ -273,7 +274,16 @@ export default function UsersScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={styles.header}>
                 <View style={styles.headerRow}>
                     <View style={{ flex: 1 }}>

@@ -27,7 +27,7 @@ import { Image } from "react-native";
 
 import api, { API_BASE_URL } from "@/app/services/api";
 import { ConfirmDialog } from "@/components";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 
 type WalkIn = {
     id: number;
@@ -71,6 +71,7 @@ const PRIORITY_COLORS: Record<string, { color: string; bg: string }> = {
 };
 
 export default function WalkInScreen() {
+    const responsive = useResponsiveLayout();
     const [walkIns, setWalkIns] = useState<WalkIn[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -396,7 +397,16 @@ export default function WalkInScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Stats */}
             {stats && (
                 <View style={styles.statsGrid}>

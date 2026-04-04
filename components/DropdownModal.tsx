@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { X } from "lucide-react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type DropdownModalProps<T> = {
   visible: boolean;
@@ -25,6 +26,8 @@ export function DropdownModal<T extends string>({
   selectedValue,
   onSelect,
 }: DropdownModalProps<T>) {
+  const responsive = useResponsiveLayout();
+
   return (
     <Modal
       visible={visible}
@@ -33,11 +36,19 @@ export function DropdownModal<T extends string>({
       onRequestClose={onClose}
     >
       <TouchableOpacity
-        style={styles.modalOverlay}
+        style={[
+          styles.modalOverlay,
+          { paddingHorizontal: responsive.horizontalPadding },
+        ]}
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={styles.dropdownModal}>
+        <View
+          style={[
+            styles.dropdownModal,
+            responsive.isTablet && styles.dropdownModalTablet,
+          ]}
+        >
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -100,6 +111,9 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
     paddingVertical: 8,
+  },
+  dropdownModalTablet: {
+    maxWidth: 460,
   },
   modalHeader: {
     flexDirection: "row",

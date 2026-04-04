@@ -30,7 +30,7 @@ import {
 import api from "@/app/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClinicSettings, LabStaffUser } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
 const PDF_OPTIONS = [
@@ -40,6 +40,7 @@ const PDF_OPTIONS = [
 ];
 
 export default function SettingsScreen() {
+    const responsive = useResponsiveLayout();
     const { user, token } = useAuth();
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [labStaff, setLabStaff] = useState<LabStaffUser[]>([]);
@@ -479,7 +480,16 @@ export default function SettingsScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}

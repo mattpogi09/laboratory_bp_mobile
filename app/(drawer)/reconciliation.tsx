@@ -1,5 +1,5 @@
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -71,6 +71,7 @@ interface Stats {
 }
 
 export default function ReconciliationScreen() {
+    const responsive = useResponsiveLayout();
     const { user } = useAuth();
     const [reconciliations, setReconciliations] = useState<Reconciliation[]>(
         [],
@@ -509,7 +510,16 @@ export default function ReconciliationScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Stats Cards - Admin Only */}
             {isAdmin && stats && (
                 <View style={styles.statsContainer}>

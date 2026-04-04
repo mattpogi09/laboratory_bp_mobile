@@ -29,7 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import api, { API_BASE_URL } from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 import AddressSelect from "@/components/AddressSelect";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,6 +108,7 @@ type TestDetail = {
 export default function PatientDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { user } = useAuth();
+    const responsive = useResponsiveLayout();
     const [data, setData] = useState<PatientDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -515,7 +516,14 @@ export default function PatientDetails() {
 
     return (
         <SafeAreaView
-            style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+            style={[
+                { flex: 1, backgroundColor: "#F3F4F6" },
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
             edges={["top", "bottom"]}
         >
             <Stack.Screen options={{ headerShown: false }} />
@@ -532,7 +540,11 @@ export default function PatientDetails() {
 
             <ScrollView
                 style={styles.container}
-                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                contentContainerStyle={{
+                    paddingHorizontal: responsive.horizontalPadding,
+                    paddingVertical: 20,
+                    paddingBottom: 40,
+                }}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -1863,7 +1875,8 @@ export default function PatientDetails() {
                         backgroundColor: "rgba(0, 0, 0, 0.5)",
                         justifyContent: "center",
                         alignItems: "center",
-                        padding: 20,
+                        paddingHorizontal: responsive.horizontalPadding,
+                        paddingVertical: 20,
                     }}
                 >
                     <View
@@ -1871,7 +1884,7 @@ export default function PatientDetails() {
                             backgroundColor: "#FFFFFF",
                             borderRadius: 16,
                             width: "100%",
-                            maxWidth: 400,
+                            maxWidth: responsive.isTablet ? 460 : 400,
                             shadowColor: "#000",
                             shadowOffset: { width: 0, height: 4 },
                             shadowOpacity: 0.3,

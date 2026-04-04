@@ -37,7 +37,7 @@ import api from "@/app/services/api";
 import { ConfirmDialog, SkeletonRow, SuccessDialog } from "@/components";
 import { useNotificationBadge } from "@/contexts/NotificationContext";
 import type { AppNotification, NotificationStats } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 
 //  Type metadata
 
@@ -411,6 +411,7 @@ function NotificationDetailModal({
 //  Main Screen
 
 export default function NotificationsScreen() {
+    const responsive = useResponsiveLayout();
     const router = useRouter();
     const { refreshCount } = useNotificationBadge();
 
@@ -772,7 +773,16 @@ export default function NotificationsScreen() {
     //
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             {/* Header */}

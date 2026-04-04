@@ -24,10 +24,11 @@ import {
 
 import api from "@/app/services/api";
 import type { TestCategory } from "@/types";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 
 export default function TestCategoriesScreen() {
+    const responsive = useResponsiveLayout();
     const [categories, setCategories] = useState<TestCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -274,7 +275,16 @@ export default function TestCategoriesScreen() {
     );
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>

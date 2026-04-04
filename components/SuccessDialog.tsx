@@ -14,6 +14,7 @@ import {
     AlertTriangle,
     X,
 } from "lucide-react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type SuccessDialogProps = {
     visible: boolean;
@@ -36,6 +37,7 @@ export default function SuccessDialog({
     autoClose = false,
     autoCloseDelay = 2000,
 }: SuccessDialogProps) {
+    const responsive = useResponsiveLayout();
     const scaleAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -102,10 +104,16 @@ export default function SuccessDialog({
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
+            <View
+                style={[
+                    styles.overlay,
+                    { paddingHorizontal: responsive.horizontalPadding },
+                ]}
+            >
                 <Animated.View
                     style={[
                         styles.dialog,
+                        responsive.isTablet && styles.dialogTablet,
                         {
                             transform: [{ scale: scaleAnim }],
                         },
@@ -177,6 +185,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 8,
+    },
+    dialogTablet: {
+        maxWidth: 460,
     },
     closeButton: {
         position: "absolute",

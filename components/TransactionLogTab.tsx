@@ -11,7 +11,7 @@ import {
 } from "react-native";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 
 type Transaction = {
     id: number;
@@ -31,6 +31,7 @@ type Props = {
 };
 
 export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
+    const responsive = useResponsiveLayout();
     const [data, setData] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -135,7 +136,10 @@ export default function TransactionLogTab({ refreshTrigger = 0 }: Props) {
         <FlatList
             data={data}
             keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+                styles.listContent,
+                { paddingHorizontal: responsive.horizontalPadding },
+            ]}
             ListHeaderComponent={
                 <Text style={styles.sectionTitle}>Transaction Log</Text>
             }
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     listContent: {
-        padding: 20,
+        paddingVertical: 20,
         paddingBottom: 64,
     },
     sectionTitle: {

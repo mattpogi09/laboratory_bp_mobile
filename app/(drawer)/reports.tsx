@@ -17,10 +17,9 @@ import {
     Wallet,
     X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Dimensions,
     FlatList,
     Linking,
     Modal,
@@ -50,12 +49,10 @@ import type {
     ReconciliationData,
     ReconciliationRow,
 } from "@/types/reports";
-import { getApiErrorMessage } from "@/utils";
+import { clamp, getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { periods } from "@/utils/date";
 import { formatCurrency } from "@/utils/format";
 import { useAuth } from "@/contexts/AuthContext";
-
-const SCREEN_W = Dimensions.get("window").width;
 
 type Tab =
     | "financial"
@@ -116,6 +113,7 @@ const WORKSHEET_TYPES = [
 
 export default function ReportsScreen() {
     const { token } = useAuth();
+    const responsive = useResponsiveLayout();
     const [activeTab, setActiveTab] = useState<Tab>("financial");
     const [period, setPeriod] = useState<Period>("day");
     const [loading, setLoading] = useState(false);
@@ -437,7 +435,16 @@ export default function ReportsScreen() {
     ];
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Period Filter */}
             <View style={styles.filterContainer}>
                 <View style={styles.periodHeader}>
@@ -976,6 +983,9 @@ function FinancialTab({
     exportingCsv: boolean;
     exportingPdf: boolean;
 }) {
+    const responsive = useResponsiveLayout();
+    const chartWidth = clamp(responsive.width - 32, 260, 980);
+
     if (!data) {
         return (
             <View style={styles.emptyWrapper}>
@@ -1175,7 +1185,7 @@ function FinancialTab({
                                             },
                                         ],
                                     }}
-                                    width={SCREEN_W - 32}
+                                    width={chartWidth}
                                     height={180}
                                     yAxisLabel="₱"
                                     yAxisSuffix=""

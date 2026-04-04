@@ -17,8 +17,10 @@ import {
 import axios from "axios";
 import { API_BASE_URL } from "@/app/services/api";
 import { SuccessDialog } from "@/components";
+import { useResponsiveLayout } from "@/utils";
 
 export default function ForgotPassword() {
+    const responsive = useResponsiveLayout();
     const [step, setStep] = useState(1); // 1 = Email entry, 2 = OTP verification
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
@@ -135,14 +137,30 @@ export default function ForgotPassword() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#FEF2F2" }}>
+        <SafeAreaView
+            style={[
+                { flex: 1, backgroundColor: "#FEF2F2" },
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={styles.container}
             >
                 <Stack.Screen options={{ headerShown: false }} />
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingHorizontal: responsive.horizontalPadding,
+                        },
+                    ]}
+                >
                     {/* Logo Section */}
                     <View style={styles.logoSection}>
                         <Image
@@ -157,7 +175,12 @@ export default function ForgotPassword() {
                     </View>
 
                     {/* Card */}
-                    <View style={styles.card}>
+                    <View
+                        style={[
+                            styles.card,
+                            responsive.isTablet && styles.cardTablet,
+                        ]}
+                    >
                         {/* Step Indicator */}
                         <View style={styles.stepIndicator}>
                             <View style={styles.stepRow}>
@@ -482,6 +505,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 8,
+    },
+    cardTablet: {
+        width: "100%",
+        maxWidth: 560,
+        alignSelf: "center",
     },
     stepIndicator: {
         marginBottom: 24,

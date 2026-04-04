@@ -38,7 +38,7 @@ import {
 import { router } from "expo-router";
 
 import api from "@/app/services/api";
-import { getApiErrorMessage } from "@/utils";
+import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import {
     ConfirmDialog,
     SearchBar,
@@ -123,6 +123,7 @@ const filters = [
 ];
 
 export default function InventoryScreen() {
+    const responsive = useResponsiveLayout();
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
 
@@ -799,7 +800,16 @@ export default function InventoryScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                responsive.isTablet && {
+                    width: "100%",
+                    maxWidth: 1100,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             {/* Tabs */}
             <ScrollView
                 horizontal

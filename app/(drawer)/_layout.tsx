@@ -36,10 +36,7 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const drawerStyle = {
-    backgroundColor: "#ffffff",
-};
+import { useResponsiveLayout } from "@/utils";
 
 function CustomDrawerContent(props: any) {
     const { logout, user } = useAuth();
@@ -293,12 +290,17 @@ function NotificationBellButton() {
 }
 
 export default function DrawerLayout() {
+    const responsive = useResponsiveLayout();
+
     return (
         <NotificationProvider>
             <Drawer
                 drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{
-                    drawerStyle,
+                    drawerStyle: {
+                        backgroundColor: "#ffffff",
+                        width: responsive.isTablet ? 360 : 320,
+                    },
                     headerLeft: () => (
                         <DrawerToggleButton tintColor="#111827" />
                     ),
