@@ -1,6 +1,7 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { clamp, useResponsiveLayout } from '@/utils';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -16,6 +17,24 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const responsive = useResponsiveLayout();
+  const sizeScale = responsive.isCompact ? 0.94 : responsive.isTablet ? 1.05 : 1;
+
+  const scaled = (size: number, min: number, max: number) =>
+    clamp(Math.round(size * sizeScale), min, max);
+
+  const responsiveTypeStyle =
+    type === 'default'
+      ? { fontSize: scaled(16, 14, 19), lineHeight: scaled(24, 20, 28) }
+      : type === 'defaultSemiBold'
+        ? { fontSize: scaled(16, 14, 19), lineHeight: scaled(24, 20, 28) }
+        : type === 'title'
+          ? { fontSize: scaled(32, 28, 36), lineHeight: scaled(32, 30, 38) }
+          : type === 'subtitle'
+            ? { fontSize: scaled(20, 18, 24) }
+            : type === 'link'
+              ? { fontSize: scaled(16, 14, 19), lineHeight: scaled(30, 24, 34) }
+              : undefined;
 
   return (
     <Text
@@ -26,6 +45,7 @@ export function ThemedText({
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
+        responsiveTypeStyle,
         style,
       ]}
       {...rest}

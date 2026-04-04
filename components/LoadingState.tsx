@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type LoadingStateProps = {
   message?: string;
@@ -11,12 +12,21 @@ export const LoadingState = ({
   message = "Loading...", 
   size = "large",
   color = "#ac3434" 
-}: LoadingStateProps) => (
-  <View style={styles.container}>
-    <ActivityIndicator size={size} color={color} />
-    {message && <Text style={styles.message}>{message}</Text>}
-  </View>
-);
+}: LoadingStateProps) => {
+  const responsive = useResponsiveLayout();
+
+  return (
+    <View
+      style={[
+        styles.container,
+        { paddingHorizontal: responsive.horizontalPadding },
+      ]}
+    >
+      <ActivityIndicator size={size} color={color} />
+      {message && <Text style={[styles.message, responsive.isCompact && styles.messageCompact]}>{message}</Text>}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -29,5 +39,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#6B7280",
     fontSize: 14,
+  },
+  messageCompact: {
+    fontSize: 13,
   },
 });

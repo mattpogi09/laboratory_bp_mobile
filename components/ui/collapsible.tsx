@@ -6,15 +6,17 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useResponsiveLayout } from '@/utils';
 
 export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const theme = useColorScheme() ?? 'light';
+  const responsive = useResponsiveLayout();
 
   return (
     <ThemedView>
       <TouchableOpacity
-        style={styles.heading}
+        style={[styles.heading, responsive.isCompact && styles.headingCompact]}
         onPress={() => setIsOpen((value) => !value)}
         activeOpacity={0.8}>
         <IconSymbol
@@ -27,7 +29,11 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
 
         <ThemedText type="defaultSemiBold">{title}</ThemedText>
       </TouchableOpacity>
-      {isOpen && <ThemedView style={styles.content}>{children}</ThemedView>}
+      {isOpen && (
+        <ThemedView style={[styles.content, responsive.isCompact && styles.contentCompact]}>
+          {children}
+        </ThemedView>
+      )}
     </ThemedView>
   );
 }
@@ -38,8 +44,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  headingCompact: {
+    gap: 4,
+  },
   content: {
     marginTop: 6,
     marginLeft: 24,
+  },
+  contentCompact: {
+    marginLeft: 18,
   },
 });

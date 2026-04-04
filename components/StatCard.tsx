@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type StatCardProps = {
   label: string;
@@ -7,12 +8,26 @@ type StatCardProps = {
   accent: string;
 };
 
-export const StatCard = ({ label, value, accent }: StatCardProps) => (
-  <View style={[styles.card, { borderLeftColor: accent }]}>
-    <Text style={styles.label}>{label}</Text>
-    <Text style={[styles.value, { color: accent }]}>{value}</Text>
-  </View>
-);
+export const StatCard = ({ label, value, accent }: StatCardProps) => {
+  const responsive = useResponsiveLayout();
+
+  return (
+    <View
+      style={[
+        styles.card,
+        { borderLeftColor: accent },
+        responsive.isCompact && styles.cardCompact,
+      ]}
+    >
+      <Text style={[styles.label, responsive.isCompact && styles.labelCompact]}>
+        {label}
+      </Text>
+      <Text style={[styles.value, { color: accent }, responsive.isCompact && styles.valueCompact]}>
+        {value}
+      </Text>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   card: {
@@ -24,14 +39,25 @@ const styles = StyleSheet.create({
     minHeight: 80,
     justifyContent: "center",
   },
+  cardCompact: {
+    padding: 12,
+    minHeight: 72,
+  },
   label: {
     color: "#6B7280",
     fontSize: 13,
     fontWeight: "500",
     marginBottom: 8,
   },
+  labelCompact: {
+    fontSize: 12,
+    marginBottom: 6,
+  },
   value: {
     fontSize: 24,
     fontWeight: "700",
+  },
+  valueCompact: {
+    fontSize: 20,
   },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { SERVICE_CATEGORIES } from "@/types/services";
+import { useResponsiveLayout } from "@/utils";
 
 type ServiceFormData = {
     name: string;
@@ -20,12 +21,29 @@ export const ServiceForm = ({
     categories = SERVICE_CATEGORIES,
     onDataChange,
 }: ServiceFormProps) => {
+    const responsive = useResponsiveLayout();
+
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                { gap: responsive.isCompact ? 12 : 16 },
+            ]}
+        >
             <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Service Name *</Text>
+                <Text
+                    style={[
+                        styles.formLabel,
+                        responsive.isCompact && styles.formLabelCompact,
+                    ]}
+                >
+                    Service Name *
+                </Text>
                 <TextInput
-                    style={styles.formInput}
+                    style={[
+                        styles.formInput,
+                        responsive.isCompact && styles.formInputCompact,
+                    ]}
                     value={initialData.name}
                     onChangeText={(text) =>
                         onDataChange({ ...initialData, name: text })
@@ -35,20 +53,38 @@ export const ServiceForm = ({
             </View>
 
             <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Category *</Text>
+                <Text
+                    style={[
+                        styles.formLabel,
+                        responsive.isCompact && styles.formLabelCompact,
+                    ]}
+                >
+                    Category *
+                </Text>
                 <CategoryPicker
                     selectedValue={initialData.category}
                     onValueChange={(value) =>
                         onDataChange({ ...initialData, category: value })
                     }
                     categories={categories}
+                    isCompact={responsive.isCompact}
                 />
             </View>
 
             <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Price *</Text>
+                <Text
+                    style={[
+                        styles.formLabel,
+                        responsive.isCompact && styles.formLabelCompact,
+                    ]}
+                >
+                    Price *
+                </Text>
                 <TextInput
-                    style={styles.formInput}
+                    style={[
+                        styles.formInput,
+                        responsive.isCompact && styles.formInputCompact,
+                    ]}
                     value={initialData.price}
                     onChangeText={(text) =>
                         onDataChange({ ...initialData, price: text })
@@ -59,9 +95,20 @@ export const ServiceForm = ({
             </View>
 
             <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Description (Optional)</Text>
+                <Text
+                    style={[
+                        styles.formLabel,
+                        responsive.isCompact && styles.formLabelCompact,
+                    ]}
+                >
+                    Description (Optional)
+                </Text>
                 <TextInput
-                    style={[styles.formInput, styles.textArea]}
+                    style={[
+                        styles.formInput,
+                        styles.textArea,
+                        responsive.isCompact && styles.formInputCompact,
+                    ]}
                     value={initialData.description}
                     onChangeText={(text) =>
                         onDataChange({ ...initialData, description: text })
@@ -73,7 +120,7 @@ export const ServiceForm = ({
                 />
                 <Text
                     style={{
-                        fontSize: 12,
+                        fontSize: responsive.isCompact ? 11 : 12,
                         color: "#9CA3AF",
                         textAlign: "right",
                         marginTop: 2,
@@ -90,6 +137,7 @@ type CategoryPickerProps = {
     selectedValue: string;
     onValueChange: (value: string) => void;
     categories: readonly string[];
+    isCompact?: boolean;
 };
 
 // CategoryPicker placeholder - kept lightweight until full picker wiring is implemented
@@ -97,9 +145,10 @@ const CategoryPicker = ({
     selectedValue,
     onValueChange,
     categories,
+    isCompact = false,
 }: CategoryPickerProps) => (
-    <View style={styles.pickerContainer}>
-        <Text style={styles.pickerText}>
+    <View style={[styles.pickerContainer, isCompact && styles.pickerCompact]}>
+        <Text style={[styles.pickerText, isCompact && styles.pickerTextCompact]}>
             {selectedValue || "Select Category"}
         </Text>
     </View>
@@ -118,6 +167,10 @@ const styles = StyleSheet.create({
         color: "#374151",
         marginBottom: 8,
     },
+    formLabelCompact: {
+        fontSize: 13,
+        marginBottom: 6,
+    },
     formInput: {
         borderWidth: 1,
         borderColor: "#D1D5DB",
@@ -127,6 +180,10 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: "#111827",
         backgroundColor: "#fff",
+    },
+    formInputCompact: {
+        fontSize: 14,
+        paddingVertical: 8,
     },
     textArea: {
         minHeight: 100,
@@ -140,8 +197,14 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         backgroundColor: "#fff",
     },
+    pickerCompact: {
+        paddingVertical: 10,
+    },
     pickerText: {
         fontSize: 15,
         color: "#374151",
+    },
+    pickerTextCompact: {
+        fontSize: 14,
     },
 });

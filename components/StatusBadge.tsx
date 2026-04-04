@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type StatusBadgeProps = {
     status: string;
@@ -21,13 +22,27 @@ const STATUS_COLORS = {
 };
 
 export const StatusBadge = ({ status, variant = "lab" }: StatusBadgeProps) => {
+    const responsive = useResponsiveLayout();
+
     const colors = STATUS_COLORS[variant][
         status.toLowerCase() as keyof (typeof STATUS_COLORS)[typeof variant]
     ] || { bg: "#F3F4F6", text: "#6B7280" };
 
     return (
-        <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-            <Text style={[styles.badgeText, { color: colors.text }]}>
+        <View
+            style={[
+                styles.badge,
+                { backgroundColor: colors.bg },
+                responsive.isCompact && styles.badgeCompact,
+            ]}
+        >
+            <Text
+                style={[
+                    styles.badgeText,
+                    { color: colors.text },
+                    responsive.isCompact && styles.badgeTextCompact,
+                ]}
+            >
                 {status}
             </Text>
         </View>
@@ -40,9 +55,16 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 999,
     },
+    badgeCompact: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
     badgeText: {
         textTransform: "capitalize",
         fontWeight: "600",
         fontSize: 12,
+    },
+    badgeTextCompact: {
+        fontSize: 11,
     },
 });

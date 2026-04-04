@@ -10,6 +10,7 @@ import {
     ViewStyle,
     TextStyle,
 } from "react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type SearchBarProps = {
     value: string;
@@ -30,6 +31,8 @@ export function SearchBar({
     placeholderTextColor = "#9CA3AF",
     ...textInputProps
 }: SearchBarProps) {
+    const responsive = useResponsiveLayout();
+
     const clear = () => {
         if (onClear) {
             onClear();
@@ -46,7 +49,14 @@ export function SearchBar({
                 onChangeText={onChangeText}
                 placeholder={placeholder}
                 placeholderTextColor={placeholderTextColor}
-                style={[styles.input, inputStyle]}
+                style={[
+                    styles.input,
+                    {
+                        fontSize: responsive.isCompact ? 14 : 16,
+                        paddingVertical: responsive.isCompact ? 8 : 10,
+                    },
+                    inputStyle,
+                ]}
                 {...textInputProps}
             />
             {value.length > 0 ? (

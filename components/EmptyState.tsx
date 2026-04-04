@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LucideIcon } from "lucide-react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type EmptyStateProps = {
   icon: LucideIcon;
@@ -16,13 +17,25 @@ export const EmptyState = ({
   message,
   iconSize = 42,
   iconColor = "#D1D5DB"
-}: EmptyStateProps) => (
-  <View style={styles.container}>
-    <Icon color={iconColor} size={iconSize} />
-    <Text style={styles.title}>{title}</Text>
-    {message && <Text style={styles.message}>{message}</Text>}
-  </View>
-);
+}: EmptyStateProps) => {
+  const responsive = useResponsiveLayout();
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          paddingHorizontal: responsive.horizontalPadding,
+          paddingVertical: responsive.isCompact ? 56 : 80,
+        },
+      ]}
+    >
+      <Icon color={iconColor} size={responsive.isCompact ? Math.max(32, iconSize - 6) : iconSize} />
+      <Text style={[styles.title, responsive.isCompact && styles.titleCompact]}>{title}</Text>
+      {message && <Text style={[styles.message, responsive.isCompact && styles.messageCompact]}>{message}</Text>}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -37,9 +50,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
+  titleCompact: {
+    fontSize: 16,
+  },
   message: {
     fontSize: 14,
     color: "#6B7280",
     textAlign: "center",
+  },
+  messageCompact: {
+    fontSize: 13,
   },
 });

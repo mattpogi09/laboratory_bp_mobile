@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
+import { useResponsiveLayout } from "@/utils";
 
 type SkeletonRowProps = {
     /** Number of skeleton cards to render. Defaults to 6. */
@@ -25,14 +26,16 @@ function Bar({
     );
 }
 
-function Card({ anim }: { anim: Animated.Value }) {
+function Card({ anim, compact = false }: { anim: Animated.Value; compact?: boolean }) {
     const opacity = anim.interpolate({
         inputRange: [0, 1],
         outputRange: [0.35, 0.85],
     });
 
     return (
-        <Animated.View style={[styles.card, { opacity }]}>
+        <Animated.View
+            style={[styles.card, compact && styles.cardCompact, { opacity }]}
+        >
             {/* Title row */}
             <View style={styles.row}>
                 <Bar width="55%" height={16} />
@@ -52,6 +55,7 @@ function Card({ anim }: { anim: Animated.Value }) {
 }
 
 export function SkeletonRow({ count = 6 }: SkeletonRowProps) {
+    const responsive = useResponsiveLayout();
     const anim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -76,7 +80,7 @@ export function SkeletonRow({ count = 6 }: SkeletonRowProps) {
     return (
         <>
             {Array.from({ length: count }).map((_, i) => (
-                <Card key={i} anim={anim} />
+                <Card key={i} anim={anim} compact={responsive.isCompact} />
             ))}
         </>
     );
@@ -93,6 +97,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.04,
         shadowRadius: 6,
         elevation: 1,
+    },
+    cardCompact: {
+        padding: 12,
+        marginBottom: 12,
+        gap: 8,
     },
     row: {
         flexDirection: "row",

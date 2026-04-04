@@ -10,8 +10,7 @@ import Animated, {
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
-
-const HEADER_HEIGHT = 250;
+import { clamp, useResponsiveLayout } from '@/utils';
 
 type Props = PropsWithChildren<{
   headerImage: ReactElement;
@@ -23,8 +22,15 @@ export default function ParallaxScrollView({
   headerImage,
   headerBackgroundColor,
 }: Props) {
+  const responsive = useResponsiveLayout();
   const backgroundColor = useThemeColor({}, 'background');
   const colorScheme = useColorScheme() ?? 'light';
+  const headerHeight = clamp(
+    Math.round(responsive.height * (responsive.isTablet ? 0.28 : 0.24)),
+    200,
+    responsive.isTablet ? 340 : 280
+  );
+
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -33,12 +39,12 @@ export default function ParallaxScrollView({
         {
           translateY: interpolate(
             scrollOffset.value,
-            [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-            [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75]
+            [-headerHeight, 0, headerHeight],
+            [-headerHeight / 2, 0, headerHeight * 0.75]
           ),
         },
         {
-          scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
+          scale: interpolate(scrollOffset.value, [-headerHeight, 0, headerHeight], [2, 1, 1]),
         },
       ],
     };
@@ -52,12 +58,23 @@ export default function ParallaxScrollView({
       <Animated.View
         style={[
           styles.header,
+          { height: headerHeight },
           { backgroundColor: headerBackgroundColor[colorScheme] },
           headerAnimatedStyle,
         ]}>
         {headerImage}
       </Animated.View>
-      <ThemedView style={styles.content}>{children}</ThemedView>
+      <ThemedView
+        style={[
+          styles.content,
+          {
+            paddingHorizontal: responsive.horizontalPadding,
+            paddingVertical: responsive.isCompact ? 20 : 32,
+          },
+        ]}
+      >
+        {children}
+      </ThemedView>
     </Animated.ScrollView>
   );
 }
@@ -67,12 +84,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: HEADER_HEIGHT,
     overflow: 'hidden',
   },
   content: {
     flex: 1,
-    padding: 32,
     gap: 16,
     overflow: 'hidden',
   },
