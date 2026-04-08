@@ -7,8 +7,11 @@ import {
     ChevronRight,
     Edit,
     FileText,
+    History,
     Image as ImageIcon,
     Power,
+    Printer,
+    Share2,
     User,
     X,
 } from "lucide-react-native";
@@ -20,6 +23,7 @@ import {
     Platform,
     RefreshControl,
     ScrollView,
+    Share,
     StyleSheet,
     Text,
     TextInput,
@@ -86,6 +90,7 @@ type PatientDetail = {
 
 type TestDetail = {
     id: number;
+    transaction_id?: number;
     test_name: string;
     category: string;
     price: number;
@@ -94,7 +99,7 @@ type TestDetail = {
     started_at?: string;
     completed_at?: string;
     released_at?: string;
-    result_values?: Record<string, any>;
+    result_values?: Record<string, unknown>;
     normal_range?: string;
     notes?: string;
     is_image_only_test?: boolean;
@@ -103,6 +108,15 @@ type TestDetail = {
         | string
         | { name: string; path: string; url: string; size: number }
     )[];
+    correction_versions?: {
+        version_no: number;
+        snapshot_type: "before_correction" | "corrected";
+        source_status?: string;
+        snapshot_result_values?: Record<string, unknown>;
+        snapshot_result_notes?: string | null;
+        corrected_at: string;
+        corrected_by: string;
+    }[];
 };
 
 export default function PatientDetails() {
@@ -125,6 +139,7 @@ export default function PatientDetails() {
     const [notifyingTestId, setNotifyingTestId] = useState<number | null>(null);
     const [notifiedTests, setNotifiedTests] = useState<number[]>([]);
     const [isTestHistoryExpanded, setIsTestHistoryExpanded] = useState(false);
+    const [historyExpanded, setHistoryExpanded] = useState({ before: false, corrected: false });
     const [idViewer, setIdViewer] = useState<{
         visible: boolean;
         url: string | null;
@@ -200,6 +215,7 @@ export default function PatientDetails() {
         try {
             setLoadingTest(true);
             setShowTestModal(true);
+            setHistoryExpanded({ before: false, corrected: false });
             const response = await api.get(`/tests/${testId}`);
             const testData = {
                 ...response.data,
@@ -485,6 +501,156 @@ export default function PatientDetails() {
             street: address.street || "",
         }));
     }, []);
+
+    const handleVersionShare = async (test: TestDetail, versionIdx: number, sectionLabel: string) => {
+        const version = test.correction_versions?.[versionIdx];
+        if (!version) return;
+        const values = version.snapshot_result_values ?? {};
+        const lines = Object.entries(values)
+            .filter(([k]) => !k.endsWith("_normal") && !k.endsWith("_interpretation") && k !== "metadata")
+            .map(([k, v]) => `${k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}: ${v}`);
+        const body = [
+            `Test: ${test.test_name}`,
+            `Section: ${sectionLabel}`,
+            `Version: ${versionIdx + 1}`,
+            `Date: ${version.corrected_at}`,
+            `By: ${version.corrected_by}`,
+            "",
+            ...lines,
+            version.snapshot_result_notes ? `\nNotes: ${version.snapshot_result_notes}` : "",
+        ].join("\n");
+        try {
+            await Share.share({ message: body, title: `${test.test_name} — ${sectionLabel} v${versionIdx + 1}` });
+        } catch {
+            // user cancelled
+        }
+    };
+
+    const renderVersionCard = (
+        version: NonNullable<TestDetail["correction_versions"]>[number],
+        localIdx: number,
+        accentColor: string,
+        sectionLabel: string,
+        test: TestDetail,
+        globalIdx: number,
+    ) => {
+        const values = version.snapshot_result_values ?? {};
+        const entries = Object.entries(values).filter(
+            ([k, v]) => v && !k.endsWith("_normal") && !k.endsWith("_interpretation") && k !== "metadata" && k !== "interpretation" && k !== "result_interpretation",
+        );
+        return (
+            <View key={`v-${version.version_no}`} style={[styles.versionCard, { borderColor: accentColor + "55" }]}>
+                <View style={styles.versionCardHeader}>
+                    <Text style={[styles.versionLabel, { color: accentColor }]}>Version {localIdx + 1}</Text>
+                    <TouchableOpacity
+                        style={[styles.versionPrintBtn, { borderColor: accentColor + "88" }]}
+                        onPress={() => handleVersionShare(test, globalIdx, sectionLabel)}
+                    >
+                        <Share2 size={12} color={accentColor} />
+                        <Text style={[styles.versionPrintBtnText, { color: accentColor }]}>Share</Text>
+                    </TouchableOpacity>
+                </View>
+                <Text style={[styles.versionMeta, { color: accentColor }]}>
+                    {version.corrected_at} · By: {version.corrected_by}
+                </Text>
+                {entries.length > 0 ? (
+                    entries.map(([k, v]) => (
+                        <View key={k} style={styles.versionRow}>
+                            <Text style={styles.versionRowLabel}>
+                                {k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </Text>
+                            <Text style={styles.versionRowValue}>{String(v ?? "N/A")}</Text>
+                        </View>
+                    ))
+                ) : (
+                    <Text style={styles.versionEmpty}>No saved result values.</Text>
+                )}
+                <Text style={styles.versionNotes}>
+                    Notes: {version.snapshot_result_notes ?? "N/A"}
+                </Text>
+            </View>
+        );
+    };
+
+    const renderCorrectionHistory = (test: TestDetail) => {
+        const versions = test.correction_versions ?? [];
+        if (versions.length === 0) return null;
+
+        const beforeVersions = versions
+            .map((v, i) => ({ v, i }))
+            .filter(({ v }) => v.snapshot_type === "before_correction");
+        const correctedVersions = versions
+            .map((v, i) => ({ v, i }))
+            .filter(({ v }) => v.snapshot_type === "corrected");
+
+        if (beforeVersions.length === 0 && correctedVersions.length === 0) return null;
+
+        return (
+            <>
+                {beforeVersions.length > 0 && (
+                    <View style={[styles.sectionCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
+                        <TouchableOpacity
+                            style={styles.historySectionHeader}
+                            onPress={() => setHistoryExpanded((p) => ({ ...p, before: !p.before }))}
+                        >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                <History size={14} color="#C2410C" />
+                                <Text style={[styles.sectionCardTitle, { color: "#C2410C", marginBottom: 0 }]}>
+                                    Before Correction History
+                                </Text>
+                                <Text style={{ fontSize: 11, color: "#EA580C" }}>
+                                    ({beforeVersions.length})
+                                </Text>
+                            </View>
+                            {historyExpanded.before ? (
+                                <ChevronDown size={16} color="#C2410C" />
+                            ) : (
+                                <ChevronRight size={16} color="#C2410C" />
+                            )}
+                        </TouchableOpacity>
+                        {historyExpanded.before && (
+                            <View style={{ marginTop: 10, gap: 10 }}>
+                                {beforeVersions.map(({ v, i }, localIdx) =>
+                                    renderVersionCard(v, localIdx, "#C2410C", "Before Correction", test, i)
+                                )}
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {correctedVersions.length > 0 && (
+                    <View style={[styles.sectionCard, { backgroundColor: "#F0FDF4", borderColor: "#A7F3D0" }]}>
+                        <TouchableOpacity
+                            style={styles.historySectionHeader}
+                            onPress={() => setHistoryExpanded((p) => ({ ...p, corrected: !p.corrected }))}
+                        >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                <History size={14} color="#059669" />
+                                <Text style={[styles.sectionCardTitle, { color: "#059669", marginBottom: 0 }]}>
+                                    Corrected History
+                                </Text>
+                                <Text style={{ fontSize: 11, color: "#10B981" }}>
+                                    ({correctedVersions.length})
+                                </Text>
+                            </View>
+                            {historyExpanded.corrected ? (
+                                <ChevronDown size={16} color="#059669" />
+                            ) : (
+                                <ChevronRight size={16} color="#059669" />
+                            )}
+                        </TouchableOpacity>
+                        {historyExpanded.corrected && (
+                            <View style={{ marginTop: 10, gap: 10 }}>
+                                {correctedVersions.map(({ v, i }, localIdx) =>
+                                    renderVersionCard(v, localIdx, "#059669", "Corrected", test, i)
+                                )}
+                            </View>
+                        )}
+                    </View>
+                )}
+            </>
+        );
+    };
 
     if (loading) {
         return (
@@ -1603,6 +1769,9 @@ export default function PatientDetails() {
                                 </View>
                             )}
 
+                            {/* Correction History */}
+                            {renderCorrectionHistory(selectedTest)}
+
                             {/* Uploaded Images */}
                             <View
                                 style={[
@@ -2659,5 +2828,72 @@ const styles = StyleSheet.create({
     pendingText: {
         color: "#9CA3AF",
         fontSize: 16,
+    },
+    historySectionHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    versionCard: {
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 12,
+        backgroundColor: "#FFFFFF",
+        gap: 6,
+    },
+    versionCardHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    versionLabel: {
+        fontSize: 13,
+        fontWeight: "700",
+    },
+    versionPrintBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        borderWidth: 1,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    versionPrintBtnText: {
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    versionMeta: {
+        fontSize: 11,
+    },
+    versionRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingVertical: 3,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#F3F4F6",
+    },
+    versionRowLabel: {
+        fontSize: 12,
+        color: "#4B5563",
+        flex: 1,
+    },
+    versionRowValue: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#111827",
+        flex: 1,
+        textAlign: "right",
+    },
+    versionEmpty: {
+        fontSize: 12,
+        color: "#9CA3AF",
+        fontStyle: "italic",
+    },
+    versionNotes: {
+        fontSize: 11,
+        color: "#6B7280",
+        fontStyle: "italic",
+        marginTop: 2,
     },
 });

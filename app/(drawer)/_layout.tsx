@@ -11,6 +11,7 @@ import {
     BarChart3,
     Bell,
     Calendar,
+    ClipboardCheck,
     ClipboardList,
     FlaskConical,
     FolderOpen,
@@ -114,6 +115,12 @@ function CustomDrawerContent(props: any) {
             name: "refunds",
             title: "Refund Approvals",
             icon: ArrowLeftRight,
+            section: "CONFIGURATION",
+        },
+        {
+            name: "correction-approvals",
+            title: "Correction Approvals",
+            icon: ClipboardCheck,
             section: "CONFIGURATION",
         },
         {
@@ -426,6 +433,15 @@ export default function DrawerLayout() {
                         title: "Refund Approvals",
                         drawerIcon: ({ color }) => (
                             <ArrowLeftRight color={color} size={20} />
+                        ),
+                    }}
+                />
+                <Drawer.Screen
+                    name="correction-approvals"
+                    options={{
+                        title: "Correction Approvals",
+                        drawerIcon: ({ color }) => (
+                            <ClipboardCheck color={color} size={20} />
                         ),
                     }}
                 />
