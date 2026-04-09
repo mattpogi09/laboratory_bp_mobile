@@ -244,7 +244,7 @@ export default function CorrectionApprovalsScreen() {
                 <View style={styles.cardBody}>
                     <View style={styles.cardTopRow}>
                         <Text style={styles.cardTxn} numberOfLines={1}>
-                            #{item.transaction_number}
+                            {`#${item.transaction_number}`}
                         </Text>
                         {statusBadge(displayStatus)}
                     </View>
@@ -275,8 +275,7 @@ export default function CorrectionApprovalsScreen() {
                     {item.status === "approved" && item.approved_by_name && (
                         <View style={[styles.noteBox, { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
                             <Text style={[styles.noteText, { color: "#065F46" }]}>
-                                Approved by {item.approved_by_name} on {item.approved_at}
-                                {item.admin_note ? `\nNote: ${item.admin_note}` : ""}
+                                {`Approved by ${item.approved_by_name} on ${item.approved_at}${item.admin_note ? `\nNote: ${item.admin_note}` : ""}`}
                             </Text>
                         </View>
                     )}
@@ -284,8 +283,7 @@ export default function CorrectionApprovalsScreen() {
                     {item.status === "rejected" && item.rejected_by_name && (
                         <View style={[styles.noteBox, { backgroundColor: "#FFF1F2", borderColor: "#FECDD3" }]}>
                             <Text style={[styles.noteText, { color: "#9F1239" }]}>
-                                Rejected by {item.rejected_by_name} on {item.rejected_at}
-                                {item.admin_note ? `\nReason: ${item.admin_note}` : ""}
+                                {`Rejected by ${item.rejected_by_name} on ${item.rejected_at}${item.admin_note ? `\nReason: ${item.admin_note}` : ""}`}
                             </Text>
                         </View>
                     )}
@@ -293,7 +291,7 @@ export default function CorrectionApprovalsScreen() {
                     {item.status === "corrected" && item.corrected_at && (
                         <View style={[styles.noteBox, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
                             <Text style={[styles.noteText, { color: "#1E40AF" }]}>
-                                Correction applied on {item.corrected_at}
+                                {`Correction applied on ${item.corrected_at}`}
                             </Text>
                         </View>
                     )}
@@ -388,7 +386,7 @@ export default function CorrectionApprovalsScreen() {
                     <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 40 }}>
                         {selected && (
                             <Text style={styles.modalSubtitle}>
-                                #{selected.transaction_number} — {selected.scope === "transaction" ? "Whole Transaction" : selected.test_name}
+                                {`#${selected.transaction_number} — ${selected.scope === "transaction" ? "Whole Transaction" : selected.test_name}`}
                             </Text>
                         )}
                         <Text style={styles.inputLabel}>Admin Note (Optional)</Text>
@@ -403,7 +401,7 @@ export default function CorrectionApprovalsScreen() {
                             maxLength={500}
                             textAlignVertical="top"
                         />
-                        <Text style={styles.charCount}>{approveNote.length}/500</Text>
+                        <Text style={styles.charCount}>{`${approveNote.length}/500`}</Text>
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowApproveModal(false)}>
                                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -425,7 +423,7 @@ export default function CorrectionApprovalsScreen() {
                     <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 40 }}>
                         {selected && (
                             <Text style={styles.modalSubtitle}>
-                                #{selected.transaction_number} — {selected.scope === "transaction" ? "Whole Transaction" : selected.test_name}
+                                {`#${selected.transaction_number} — ${selected.scope === "transaction" ? "Whole Transaction" : selected.test_name}`}
                             </Text>
                         )}
                         <Text style={styles.inputLabel}>
@@ -442,7 +440,7 @@ export default function CorrectionApprovalsScreen() {
                             maxLength={500}
                             textAlignVertical="top"
                         />
-                        <Text style={styles.charCount}>{rejectNote.length}/500</Text>
+                        <Text style={styles.charCount}>{`${rejectNote.length}/500`}</Text>
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRejectModal(false)}>
                                 <Text style={styles.cancelBtnText}>Cancel</Text>

@@ -6,12 +6,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Edit,
+    Download,
     FileText,
     History,
     Image as ImageIcon,
     Power,
-    Printer,
-    Share2,
     User,
     X,
 } from "lucide-react-native";
@@ -23,7 +22,6 @@ import {
     Platform,
     RefreshControl,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     TextInput,
@@ -32,7 +30,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import api, { API_BASE_URL } from "@/app/services/api";
+import api, { API_BASE_URL, TOKEN_STORAGE_KEY } from "@/app/services/api";
+import * as Linking from "expo-linking";
+import * as SecureStore from "expo-secure-store";
 import { getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { ConfirmDialog, SuccessDialog } from "@/components";
 import AddressSelect from "@/components/AddressSelect";
@@ -473,6 +473,25 @@ export default function PatientDetails() {
         }
     };
 
+    const downloadTestPdf = async (test: TestDetail) => {
+        if (!test.transaction_id) {
+            setSuccessDialog({ visible: true, title: "Error", message: "No transaction linked to this test.", type: "error" });
+            return;
+        }
+        try {
+            const token = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
+            if (!token) {
+                setSuccessDialog({ visible: true, title: "Error", message: "Session expired. Please log in again.", type: "error" });
+                return;
+            }
+            const base = API_BASE_URL.replace(/\/api\/?$/, "");
+            const url = `${base}/api/lab-results/pdf?token=${token}&transaction_id=${test.transaction_id}&test_ids=${test.id}&format=combined&mode=download`;
+            await Linking.openURL(url);
+        } catch {
+            setSuccessDialog({ visible: true, title: "Error", message: "Failed to open PDF.", type: "error" });
+        }
+    };
+
     // Memoize address value and onChange callback to prevent infinite loops
     const addressValue = useMemo(
         () => ({
@@ -502,30 +521,6 @@ export default function PatientDetails() {
         }));
     }, []);
 
-    const handleVersionShare = async (test: TestDetail, versionIdx: number, sectionLabel: string) => {
-        const version = test.correction_versions?.[versionIdx];
-        if (!version) return;
-        const values = version.snapshot_result_values ?? {};
-        const lines = Object.entries(values)
-            .filter(([k]) => !k.endsWith("_normal") && !k.endsWith("_interpretation") && k !== "metadata")
-            .map(([k, v]) => `${k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}: ${v}`);
-        const body = [
-            `Test: ${test.test_name}`,
-            `Section: ${sectionLabel}`,
-            `Version: ${versionIdx + 1}`,
-            `Date: ${version.corrected_at}`,
-            `By: ${version.corrected_by}`,
-            "",
-            ...lines,
-            version.snapshot_result_notes ? `\nNotes: ${version.snapshot_result_notes}` : "",
-        ].join("\n");
-        try {
-            await Share.share({ message: body, title: `${test.test_name} — ${sectionLabel} v${versionIdx + 1}` });
-        } catch {
-            // user cancelled
-        }
-    };
-
     const renderVersionCard = (
         version: NonNullable<TestDetail["correction_versions"]>[number],
         localIdx: number,
@@ -544,14 +539,14 @@ export default function PatientDetails() {
                     <Text style={[styles.versionLabel, { color: accentColor }]}>Version {localIdx + 1}</Text>
                     <TouchableOpacity
                         style={[styles.versionPrintBtn, { borderColor: accentColor + "88" }]}
-                        onPress={() => handleVersionShare(test, globalIdx, sectionLabel)}
+                        onPress={() => downloadTestPdf(test)}
                     >
-                        <Share2 size={12} color={accentColor} />
-                        <Text style={[styles.versionPrintBtnText, { color: accentColor }]}>Share</Text>
+                        <Download size={12} color={accentColor} />
+                        <Text style={[styles.versionPrintBtnText, { color: accentColor }]}>Download PDF</Text>
                     </TouchableOpacity>
                 </View>
                 <Text style={[styles.versionMeta, { color: accentColor }]}>
-                    {version.corrected_at} · By: {version.corrected_by}
+                    {`${version.corrected_at} \u00b7 By: ${version.corrected_by}`}
                 </Text>
                 {entries.length > 0 ? (
                     entries.map(([k, v]) => (
@@ -566,7 +561,7 @@ export default function PatientDetails() {
                     <Text style={styles.versionEmpty}>No saved result values.</Text>
                 )}
                 <Text style={styles.versionNotes}>
-                    Notes: {version.snapshot_result_notes ?? "N/A"}
+                    {`Notes: ${version.snapshot_result_notes ?? "N/A"}`}
                 </Text>
             </View>
         );
@@ -599,7 +594,7 @@ export default function PatientDetails() {
                                     Before Correction History
                                 </Text>
                                 <Text style={{ fontSize: 11, color: "#EA580C" }}>
-                                    ({beforeVersions.length})
+                                    {`(${beforeVersions.length})`}
                                 </Text>
                             </View>
                             {historyExpanded.before ? (
@@ -630,7 +625,7 @@ export default function PatientDetails() {
                                     Corrected History
                                 </Text>
                                 <Text style={{ fontSize: 11, color: "#10B981" }}>
-                                    ({correctedVersions.length})
+                                    {`(${correctedVersions.length})`}
                                 </Text>
                             </View>
                             {historyExpanded.corrected ? (
@@ -731,11 +726,11 @@ export default function PatientDetails() {
                                 {patient.full_name}
                             </Text>
                             <Text style={styles.subtitle}>
-                                {patient.gender} - {patient.age} yrs
+                                {`${patient.gender} - ${patient.age} yrs`}
                             </Text>
                             {patient.patient_id ? (
                                 <Text style={styles.patientIdText}>
-                                    ID: {patient.patient_id}
+                                    {`ID: ${patient.patient_id}`}
                                 </Text>
                             ) : null}
                             <View
@@ -890,7 +885,7 @@ export default function PatientDetails() {
                         }
                     >
                         <Text style={styles.sectionTitle}>
-                            Test History ({testHistory.length})
+                            {`Test History (${testHistory.length})`}
                         </Text>
                         {isTestHistoryExpanded ? (
                             <ChevronDown size={18} color="#6B7280" />
@@ -1092,20 +1087,18 @@ export default function PatientDetails() {
                                     {txn.transaction_number}
                                 </Text>
                                 <Text style={styles.transactionAmount}>
-                                    ₱{txn.net_total.toLocaleString("en-PH")}
+                                    {`₱${txn.net_total.toLocaleString("en-PH")}`}
                                 </Text>
                             </View>
                             <Text style={styles.transactionMeta}>
-                                {new Date(txn.created_at).toLocaleDateString(
+                                {`${new Date(txn.created_at).toLocaleDateString(
                                     "en-US",
                                     {
                                         year: "numeric",
                                         month: "short",
                                         day: "numeric",
                                     },
-                                )}{" "}
-                                - {txn.payment_status} - {txn.tests.length} test
-                                {txn.tests.length !== 1 ? "s" : ""}
+                                )} - ${txn.payment_status} - ${txn.tests.length} test${txn.tests.length !== 1 ? "s" : ""}`}
                             </Text>
                         </View>
                     ))}
@@ -1431,11 +1424,20 @@ export default function PatientDetails() {
                         <Text style={styles.modalTitle}>
                             Test Result Details
                         </Text>
-                        <TouchableOpacity
-                            onPress={() => setShowTestModal(false)}
-                        >
-                            <X color="#6B7280" size={24} />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            {selectedTest && (
+                                <TouchableOpacity
+                                    style={[styles.versionPrintBtn, { borderColor: "#D1D5DB" }]}
+                                    onPress={() => downloadTestPdf(selectedTest)}
+                                >
+                                    <Download size={14} color="#374151" />
+                                    <Text style={[styles.versionPrintBtnText, { color: "#374151" }]}>Download PDF</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={() => setShowTestModal(false)}>
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {loadingTest ? (
@@ -1551,10 +1553,7 @@ export default function PatientDetails() {
                                             Price
                                         </Text>
                                         <Text style={styles.gridValue}>
-                                            ₱
-                                            {Number(
-                                                selectedTest.price,
-                                            ).toLocaleString()}
+                                            {`₱${Number(selectedTest.price).toLocaleString()}`}
                                         </Text>
                                     </View>
                                 </View>
@@ -1794,18 +1793,15 @@ export default function PatientDetails() {
                                     <Text style={styles.sectionCardTitle}>
                                         Uploaded Images
                                     </Text>
-                                    {(selectedTest.documents?.length ||
-                                        selectedTest.images?.length) && (
+                                    {!!((selectedTest.documents?.length ||
+                                        selectedTest.images?.length)) && (
                                         <Text
                                             style={{
                                                 fontSize: 12,
                                                 color: "#9CA3AF",
                                             }}
                                         >
-                                            (
-                                            {selectedTest.documents?.length ||
-                                                selectedTest.images?.length}
-                                            )
+                                            {`(${selectedTest.documents?.length || selectedTest.images?.length})`}
                                         </Text>
                                     )}
                                 </View>
