@@ -109,6 +109,7 @@ type TestDetail = {
         | { name: string; path: string; url: string; size: number }
     )[];
     correction_versions?: {
+        id: number;
         version_no: number;
         snapshot_type: "before_correction" | "corrected";
         source_status?: string;
@@ -473,7 +474,7 @@ export default function PatientDetails() {
         }
     };
 
-    const downloadTestPdf = async (test: TestDetail, versionNo?: number, snapshotType?: string) => {
+    const downloadTestPdf = async (test: TestDetail, versionId?: number) => {
         if (!test.transaction_id) {
             setSuccessDialog({ visible: true, title: "Error", message: "No transaction linked to this test.", type: "error" });
             return;
@@ -486,8 +487,8 @@ export default function PatientDetails() {
             }
             const base = API_BASE_URL.replace(/\/api\/?$/, "");
             let url = `${base}/api/lab-results/pdf?token=${token}&transaction_id=${test.transaction_id}&test_ids=${test.id}&format=combined&mode=download`;
-            if (versionNo !== undefined && snapshotType) {
-                url += `&version_no=${versionNo}&version_test_id=${test.id}&snapshot_type=${encodeURIComponent(snapshotType)}`;
+            if (versionId !== undefined) {
+                url += `&version_id=${versionId}&version_test_id=${test.id}`;
             }
             await Linking.openURL(url);
         } catch {
@@ -542,7 +543,7 @@ export default function PatientDetails() {
                     <Text style={[styles.versionLabel, { color: accentColor }]}>Version {localIdx + 1}</Text>
                     <TouchableOpacity
                         style={[styles.versionPrintBtn, { borderColor: accentColor + "88" }]}
-                        onPress={() => downloadTestPdf(test, version.version_no, version.snapshot_type)}
+                        onPress={() => downloadTestPdf(test, version.id)}
                     >
                         <Download size={12} color={accentColor} />
                         <Text style={[styles.versionPrintBtnText, { color: accentColor }]}>Download PDF</Text>
