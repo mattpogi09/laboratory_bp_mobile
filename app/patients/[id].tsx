@@ -473,7 +473,7 @@ export default function PatientDetails() {
         }
     };
 
-    const downloadTestPdf = async (test: TestDetail) => {
+    const downloadTestPdf = async (test: TestDetail, versionNo?: number, snapshotType?: string) => {
         if (!test.transaction_id) {
             setSuccessDialog({ visible: true, title: "Error", message: "No transaction linked to this test.", type: "error" });
             return;
@@ -485,7 +485,10 @@ export default function PatientDetails() {
                 return;
             }
             const base = API_BASE_URL.replace(/\/api\/?$/, "");
-            const url = `${base}/api/lab-results/pdf?token=${token}&transaction_id=${test.transaction_id}&test_ids=${test.id}&format=combined&mode=download`;
+            let url = `${base}/api/lab-results/pdf?token=${token}&transaction_id=${test.transaction_id}&test_ids=${test.id}&format=combined&mode=download`;
+            if (versionNo !== undefined && snapshotType) {
+                url += `&version_no=${versionNo}&version_test_id=${test.id}&snapshot_type=${encodeURIComponent(snapshotType)}`;
+            }
             await Linking.openURL(url);
         } catch {
             setSuccessDialog({ visible: true, title: "Error", message: "Failed to open PDF.", type: "error" });
@@ -539,7 +542,7 @@ export default function PatientDetails() {
                     <Text style={[styles.versionLabel, { color: accentColor }]}>Version {localIdx + 1}</Text>
                     <TouchableOpacity
                         style={[styles.versionPrintBtn, { borderColor: accentColor + "88" }]}
-                        onPress={() => downloadTestPdf(test)}
+                        onPress={() => downloadTestPdf(test, version.version_no, version.snapshot_type)}
                     >
                         <Download size={12} color={accentColor} />
                         <Text style={[styles.versionPrintBtnText, { color: accentColor }]}>Download PDF</Text>
