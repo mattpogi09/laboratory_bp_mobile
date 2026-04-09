@@ -335,7 +335,7 @@ export default function PatientsScreen() {
                     </View>
 
                     <View style={styles.row}>
-                        <Text style={styles.label}>Lifetime Value</Text>
+                        <Text style={styles.label}>Total Spent</Text>
                         <Text style={styles.value}>
                             ₱{(item.total_spent ?? 0).toLocaleString("en-PH")}
                         </Text>
