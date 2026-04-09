@@ -37,6 +37,7 @@ import { PieChart as GiftedPieChart } from "react-native-gifted-charts";
 
 import api, { API_BASE_URL } from "@/app/services/api";
 import type {
+    AuditActionTypeOption,
     AuditData,
     AuditLogRow,
     FinancialData,
@@ -121,6 +122,7 @@ export default function ReportsScreen() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [periodDropdownVisible, setPeriodDropdownVisible] = useState(false);
     const [tabDropdownVisible, setTabDropdownVisible] = useState(false);
+    const [auditActionType, setAuditActionType] = useState("");
     // Date range state — synced with period selector, can also be set manually
     const [dateFrom, setDateFrom] = useState<Date>(() => {
         const d = new Date();
@@ -221,7 +223,13 @@ export default function ReportsScreen() {
             const from = dateFrom.toISOString().split("T")[0];
             const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/audit-log", {
-                params: { from, to },
+                params: {
+                    from,
+                    to,
+                    ...(auditActionType
+                        ? { audit_action_type: auditActionType }
+                        : {}),
+                },
             });
             setAuditData(response.data);
             setLoadError(null);
@@ -233,7 +241,7 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, auditActionType]);
 
     const loadLabReport = useCallback(async () => {
         try {
@@ -299,7 +307,11 @@ export default function ReportsScreen() {
         const from = dateFrom.toISOString().split("T")[0];
         const to = dateTo.toISOString().split("T")[0];
         const key = `${type}-${format}`;
-        const url = `${API_BASE_URL}/reports/export?type=${type}&format=${format}&from=${from}&to=${to}&token=${token}`;
+        const auditActionTypeParam =
+            type === "audit" && auditActionType
+                ? `&audit_action_type=${encodeURIComponent(auditActionType)}`
+                : "";
+        const url = `${API_BASE_URL}/reports/export?type=${type}&format=${format}&from=${from}&to=${to}&token=${token}${auditActionTypeParam}`;
         setExportingKey(key);
         try {
             await Linking.openURL(url);
@@ -756,6 +768,9 @@ export default function ReportsScreen() {
                         >
                             <AuditTab
                                 data={auditData}
+                                actionTypes={auditData?.action_types || []}
+                                selectedActionType={auditActionType}
+                                onActionTypeChange={setAuditActionType}
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
                                 onExportCsv={() => handleExport("audit", "csv")}
@@ -1577,6 +1592,9 @@ function InventoryTab({
 
 function AuditTab({
     data,
+    actionTypes,
+    selectedActionType,
+    onActionTypeChange,
     refreshing,
     onRefresh,
     onExportCsv,
@@ -1585,6 +1603,9 @@ function AuditTab({
     exportingPdf,
 }: {
     data: { data: AuditLogRow[] } | null;
+    actionTypes: AuditActionTypeOption[];
+    selectedActionType: string;
+    onActionTypeChange: (value: string) => void;
     refreshing: boolean;
     onRefresh: () => void;
     onExportCsv: () => void;
@@ -1592,6 +1613,46 @@ function AuditTab({
     exportingCsv: boolean;
     exportingPdf: boolean;
 }) {
+    const [actionFilterVisible, setActionFilterVisible] = useState(false);
+
+    const actionTypeOptions: AuditActionTypeOption[] = [
+        { value: "", label: "All" },
+        ...actionTypes,
+    ];
+
+    const selectedActionLabel =
+        actionTypeOptions.find((option) => option.value === selectedActionType)
+            ?.label || "All";
+
+    const getActionBadgeColors = (
+        actionType: string | undefined,
+        severity: string,
+    ) => {
+        const normalized = String(actionType || "").toLowerCase();
+
+        if (/(rejected|failed|deleted|cancelled)/.test(normalized)) {
+            return { bg: "#FEE2E2", text: "#B91C1C" };
+        }
+
+        if (/(requested|expired|amended|downgraded)/.test(normalized)) {
+            return { bg: "#FEF3C7", text: "#92400E" };
+        }
+
+        if (/(approved|released|checked_in|verified)/.test(normalized)) {
+            return { bg: "#D1FAE5", text: "#065F46" };
+        }
+
+        if (severity === "critical") {
+            return { bg: "#FEE2E2", text: "#B91C1C" };
+        }
+
+        if (severity === "warning") {
+            return { bg: "#FEF3C7", text: "#92400E" };
+        }
+
+        return { bg: "#DBEAFE", text: "#1E40AF" };
+    };
+
     if (!data) {
         return (
             <View style={styles.emptyWrapper}>
@@ -1602,71 +1663,201 @@ function AuditTab({
     }
 
     return (
-        <FlatList
-            style={styles.tabContent}
-            data={data.data}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={
-                data.data.length === 0
-                    ? { flex: 1, padding: 8, paddingBottom: 64 }
-                    : { padding: 8, paddingBottom: 64 }
-            }
-            nestedScrollEnabled={false}
-            removeClippedSubviews={true}
-            ListHeaderComponent={
-                <>
-                    <ExportButtons
-                        onExportCsv={onExportCsv}
-                        onExportPdf={onExportPdf}
-                        exportingCsv={exportingCsv}
-                        exportingPdf={exportingPdf}
-                    />
-                    <Text style={styles.sectionTitle}>Audit Log</Text>
-                </>
-            }
-            renderItem={({ item }) => (
-                <View style={styles.reportCard}>
-                    <View style={styles.reportHeader}>
-                        <Text style={styles.reportDate}>{item.timestamp}</Text>
-                        <View
-                            style={[
-                                styles.severityBadge,
-                                item.severity === "critical"
-                                    ? { backgroundColor: "#FEE2E2" }
-                                    : item.severity === "warning"
-                                      ? { backgroundColor: "#FEF3C7" }
-                                      : { backgroundColor: "#DBEAFE" },
-                            ]}
-                        >
+        <>
+            <Modal
+                visible={actionFilterVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setActionFilterVisible(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setActionFilterVisible(false)}
+                >
+                    <View style={styles.dropdownModal}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>
+                                Filter Action Type
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => setActionFilterVisible(false)}
+                                style={styles.closeButton}
+                            >
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {actionTypeOptions.map((option) => (
+                                <TouchableOpacity
+                                    key={option.value || "all"}
+                                    onPress={() => {
+                                        onActionTypeChange(option.value);
+                                        setActionFilterVisible(false);
+                                    }}
+                                    style={[
+                                        styles.dropdownOption,
+                                        selectedActionType === option.value &&
+                                            styles.dropdownOptionActive,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.dropdownOptionText,
+                                            selectedActionType ===
+                                                option.value &&
+                                                styles.dropdownOptionTextActive,
+                                            { flex: 1, marginRight: 12 },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                    {selectedActionType === option.value && (
+                                        <View style={styles.checkmark}>
+                                            <Text style={styles.checkmarkText}>
+                                                ✓
+                                            </Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            <FlatList
+                style={styles.tabContent}
+                data={data.data}
+                keyExtractor={(item) => item.id.toString()}
+                contentContainerStyle={
+                    data.data.length === 0
+                        ? { flex: 1, padding: 8, paddingBottom: 64 }
+                        : { padding: 8, paddingBottom: 64 }
+                }
+                nestedScrollEnabled={false}
+                removeClippedSubviews={true}
+                ListHeaderComponent={
+                    <>
+                        <ExportButtons
+                            onExportCsv={onExportCsv}
+                            onExportPdf={onExportPdf}
+                            exportingCsv={exportingCsv}
+                            exportingPdf={exportingPdf}
+                        />
+                        <View style={{ marginBottom: 12 }}>
                             <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: "#6B7280",
+                                    marginBottom: 6,
+                                }}
+                            >
+                                Action Type
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.dropdown}
+                                onPress={() => setActionFilterVisible(true)}
+                            >
+                                <Text
+                                    style={styles.dropdownText}
+                                    numberOfLines={1}
+                                >
+                                    {selectedActionLabel}
+                                </Text>
+                                <ChevronDown color="#6B7280" size={20} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.sectionTitle}>Audit Log</Text>
+                    </>
+                }
+                renderItem={({ item }) => {
+                    const actionBadge = getActionBadgeColors(
+                        item.action_type,
+                        item.severity,
+                    );
+
+                    return (
+                        <View style={styles.reportCard}>
+                            <View style={styles.reportHeader}>
+                                <Text style={styles.reportDate}>
+                                    {item.timestamp}
+                                </Text>
+                                <View
+                                    style={[
+                                        styles.severityBadge,
+                                        item.severity === "critical"
+                                            ? {
+                                                  backgroundColor: "#FEE2E2",
+                                              }
+                                            : item.severity === "warning"
+                                              ? {
+                                                    backgroundColor: "#FEF3C7",
+                                                }
+                                              : {
+                                                    backgroundColor: "#DBEAFE",
+                                                },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.severityBadgeText,
+                                            item.severity === "critical"
+                                                ? { color: "#991B1B" }
+                                                : item.severity === "warning"
+                                                  ? { color: "#92400E" }
+                                                  : { color: "#1E40AF" },
+                                        ]}
+                                    >
+                                        {item.severity}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Text style={styles.reportUser}>{item.user}</Text>
+                            <View
                                 style={[
-                                    styles.severityBadgeText,
-                                    item.severity === "critical"
-                                        ? { color: "#991B1B" }
-                                        : item.severity === "warning"
-                                          ? { color: "#92400E" }
-                                          : { color: "#1E40AF" },
+                                    styles.statusBadge,
+                                    {
+                                        backgroundColor: actionBadge.bg,
+                                        alignSelf: "flex-start",
+                                        marginBottom: 6,
+                                    },
                                 ]}
                             >
-                                {item.severity}
+                                <Text
+                                    style={[
+                                        styles.statusBadgeText,
+                                        {
+                                            color: actionBadge.text,
+                                        },
+                                    ]}
+                                >
+                                    {item.action}
+                                </Text>
+                            </View>
+                            <Text style={styles.reportDetails}>
+                                {item.details}
                             </Text>
                         </View>
+                    );
+                }}
+                ListEmptyComponent={
+                    <View style={styles.emptyWrapper}>
+                        <Shield color="#D1D5DB" size={42} />
+                        <Text style={styles.emptyTitle}>
+                            No audit logs found
+                        </Text>
                     </View>
-                    <Text style={styles.reportUser}>{item.user}</Text>
-                    <Text style={styles.reportAction}>{item.action}</Text>
-                    <Text style={styles.reportDetails}>{item.details}</Text>
-                </View>
-            )}
-            ListEmptyComponent={
-                <View style={styles.emptyWrapper}>
-                    <Shield color="#D1D5DB" size={42} />
-                    <Text style={styles.emptyTitle}>No audit logs found</Text>
-                </View>
-            }
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-        />
+                }
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                    />
+                }
+            />
+        </>
     );
 }
 
