@@ -7,6 +7,17 @@ export type Discount = {
   created_at: string;
 };
 
+export type PhilHealthDiscountRule = {
+  id: number;
+  rule_type: 'category' | 'test';
+  target_category: string | null;
+  target_lab_test_id: number | null;
+  target_lab_test_name: string | null;
+  discount_rate: number;
+  sort_order: number;
+  is_active: boolean;
+};
+
 export type PhilHealthPlan = {
   id: number;
   name: string;
@@ -16,6 +27,7 @@ export type PhilHealthPlan = {
   is_active: boolean;
   free_test_ids: number[];
   free_tests: { id: number; name: string; category: string }[];
+  discount_rules: PhilHealthDiscountRule[];
   created_at: string;
 };
 
