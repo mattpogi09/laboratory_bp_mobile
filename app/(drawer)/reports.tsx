@@ -1956,6 +1956,8 @@ function LabTab({
     onInterpretationChange: (v: string) => void;
     onPatientTypeChange: (v: string) => void;
 }) {
+    const [selectedTransaction, setSelectedTransaction] = useState<LabReportRow | null>(null);
+
     if (!data) {
         return (
             <View style={styles.emptyWrapper}>
@@ -1966,6 +1968,7 @@ function LabTab({
     }
 
     return (
+        <>
         <FlatList
             style={styles.tabContent}
             data={data.rows}
@@ -2244,7 +2247,7 @@ function LabTab({
                     released: { bg: "#D1FAE5", text: "#065F46" },
                 };
                 const statusStyle =
-                    statusColors[item.status] || statusColors.pending;
+                    statusColors[item.overall_status] || statusColors.pending;
 
                 return (
                     <View style={styles.reportCard}>
@@ -2262,74 +2265,34 @@ function LabTab({
                                         { color: statusStyle.text },
                                     ]}
                                 >
-                                    {item.status}
+                                    {item.overall_status}
                                 </Text>
                             </View>
                         </View>
                         <Text style={styles.reportPatient}>{item.patient}</Text>
-                        <Text style={styles.reportTests}>{item.test_name}</Text>
                         <Text style={styles.reportMetaText}>
                             Transaction: {item.transaction_number}
                         </Text>
-                        {/* Result Quality */}
-                        {item.result_quality && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                                <Text style={{ fontSize: 11, color: "#6B7280" }}>Quality:</Text>
-                                <View style={[styles.statusBadge, {
-                                    backgroundColor: item.result_quality === "acceptable" ? "#D1FAE5" : "#FEF3C7",
-                                }]}>
-                                    <Text style={[styles.statusBadgeText, {
-                                        color: item.result_quality === "acceptable" ? "#065F46" : "#92400E",
-                                    }]}>
-                                        {item.result_quality.replace(/_/g, " ")}
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
-                        {/* Interpretations — per-field from result_values only */}
-                        {(() => {
-                            if (!item.result_values) return null;
-                            const badges: { name: string; value: string }[] = [];
-                            Object.entries(item.result_values).forEach(([key, val]) => {
-                                if (key.endsWith("_interpretation") && val) {
-                                    const paramName = key
-                                        .replace("_interpretation", "")
-                                        .replace(/_/g, " ")
-                                        .replace(/\b\w/g, (l) => l.toUpperCase());
-                                    badges.push({ name: paramName, value: String(val) });
-                                }
-                            });
-                            if (!badges.length) return null;
-                            const getInterpretationColors = (v: string) => {
-                                if (v === "normal") return { bg: "#D1FAE5", text: "#065F46", label: "Normal" };
-                                if (v === "below_normal") return { bg: "#FEF3C7", text: "#92400E", label: "Below Normal" };
-                                if (v === "above_normal") return { bg: "#FEE2E2", text: "#991B1B", label: "Above Normal" };
-                                return { bg: "#F3F4F6", text: "#374151", label: v.replace(/_/g, " ") };
-                            };
-                            return (
-                                <View style={{ marginTop: 4, gap: 4 }}>
-                                    {badges.map((b, idx) => {
-                                        const c = getInterpretationColors(b.value);
-                                        return (
-                                            <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                                <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
-                                                <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
-                                                    <Text style={[styles.statusBadgeText, { color: c.text }]}>{c.label}</Text>
-                                                </View>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            );
-                        })()}
-                        {item.turnaround_hours != null && (
-                            <Text style={[styles.reportMetaText, { marginTop: 4 }]}>
-                                Turnaround: {item.turnaround_hours}h
-                            </Text>
-                        )}
-                        <Text style={styles.performedBy}>
-                            Performed by: {item.performed_by}
+                        <Text style={styles.reportMetaText}>
+                            Patient Type: {item.patient_type === "philhealth" ? "PhilHealth YAKAP" : "Regular"}
                         </Text>
+                        <Text style={styles.reportTests}>
+                            {item.tests?.length || 0} {(item.tests?.length || 0) === 1 ? "Test" : "Tests"}
+                        </Text>
+
+                        <TouchableOpacity 
+                            style={{
+                                marginTop: 12,
+                                backgroundColor: "#ac3434",
+                                paddingHorizontal: 16,
+                                paddingVertical: 8,
+                                borderRadius: 6,
+                                alignSelf: "flex-start",
+                            }} 
+                            onPress={() => setSelectedTransaction(item)}
+                        >
+                            <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>View Details</Text>
+                        </TouchableOpacity>
                     </View>
                 );
             }}
@@ -2343,6 +2306,122 @@ function LabTab({
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
         />
+        {selectedTransaction && (
+            <Modal
+                visible={!!selectedTransaction}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setSelectedTransaction(null)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setSelectedTransaction(null)}
+                >
+                    <TouchableOpacity activeOpacity={1} style={[styles.dropdownModal, { width: "90%", maxWidth: 400, maxHeight: "80%" }]}>
+                        <View style={styles.modalHeader}>
+                            <View>
+                                <Text style={styles.modalTitle}>Transaction Details</Text>
+                                <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                    {selectedTransaction.transaction_number}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setSelectedTransaction(null)}
+                                style={styles.closeButton}
+                            >
+                                <X color="#6B7280" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={{ padding: 16 }}>
+                            {selectedTransaction.tests?.map((test, index) => {
+                                const testStatusColors: Record<string, { bg: string; text: string }> = {
+                                    pending: { bg: "#FEE2E2", text: "#991B1B" },
+                                    processing: { bg: "#FEF3C7", text: "#92400E" },
+                                    completed: { bg: "#DBEAFE", text: "#1E40AF" },
+                                    released: { bg: "#D1FAE5", text: "#065F46" },
+                                };
+                                const testStatusStyle = testStatusColors[test.status] || testStatusColors.pending;
+                                
+                                return (
+                                    <View key={index} style={{ marginBottom: 16, paddingBottom: 16, borderBottomWidth: index === selectedTransaction.tests.length - 1 ? 0 : 1, borderBottomColor: "#E5E7EB" }}>
+                                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                            <Text style={{ fontSize: 15, fontWeight: "600", color: "#111827", flex: 1 }}>{test.test_name}</Text>
+                                            <View style={[styles.statusBadge, { backgroundColor: testStatusStyle.bg }]}>
+                                                <Text style={[styles.statusBadgeText, { color: testStatusStyle.text }]}>{test.status}</Text>
+                                            </View>
+                                        </View>
+                                        
+                                        {test.result_quality && (
+                                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                                <Text style={{ fontSize: 11, color: "#6B7280" }}>Quality:</Text>
+                                                <View style={[styles.statusBadge, {
+                                                    backgroundColor: test.result_quality === "acceptable" ? "#D1FAE5" : "#FEF3C7",
+                                                }]}>
+                                                    <Text style={[styles.statusBadgeText, {
+                                                        color: test.result_quality === "acceptable" ? "#065F46" : "#92400E",
+                                                    }]}>
+                                                        {test.result_quality.replace(/_/g, " ")}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        )}
+
+                                        {(() => {
+                                            if (!test.result_values) return null;
+                                            const badges: { name: string; value: string }[] = [];
+                                            Object.entries(test.result_values).forEach(([key, val]) => {
+                                                if (key.endsWith("_interpretation") && val) {
+                                                    const paramName = key
+                                                        .replace("_interpretation", "")
+                                                        .replace(/_/g, " ")
+                                                        .replace(/\b\w/g, (l) => l.toUpperCase());
+                                                    badges.push({ name: paramName, value: String(val) });
+                                                }
+                                            });
+                                            if (!badges.length) return null;
+                                            const getInterpretationColors = (v: string) => {
+                                                if (v === "normal") return { bg: "#D1FAE5", text: "#065F46", label: "Normal" };
+                                                if (v === "below_normal") return { bg: "#FEF3C7", text: "#92400E", label: "Below Normal" };
+                                                if (v === "above_normal") return { bg: "#FEE2E2", text: "#991B1B", label: "Above Normal" };
+                                                return { bg: "#F3F4F6", text: "#374151", label: v.replace(/_/g, " ") };
+                                            };
+                                            return (
+                                                <View style={{ marginTop: 8, gap: 4 }}>
+                                                    {badges.map((b, idx) => {
+                                                        const c = getInterpretationColors(b.value);
+                                                        return (
+                                                            <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                                                <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
+                                                                <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
+                                                                    <Text style={[styles.statusBadgeText, { color: c.text }]}>{c.label}</Text>
+                                                                </View>
+                                                            </View>
+                                                        );
+                                                    })}
+                                                </View>
+                                            );
+                                        })()}
+
+                                        {test.turnaround_hours != null && (
+                                            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>
+                                                Turnaround: {test.turnaround_hours}h
+                                            </Text>
+                                        )}
+                                        {test.performed_by && (
+                                            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                                Performed by: {test.performed_by}
+                                            </Text>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </ScrollView>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+        )}
+        </>
     );
 }
 
