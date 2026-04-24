@@ -43,18 +43,24 @@ export type AuditActionTypeOption = {
     label: string;
 };
 
+export type LabTestRow = {
+    id: number;
+    test_name: string;
+    status: string;
+    result_quality: string | null;
+    result_values: Record<string, string | number | null> | null;
+    performed_by: string;
+    turnaround_hours: number | null;
+};
+
 export type LabReportRow = {
     id: number;
     date: string;
     transaction_number: string;
     patient: string;
-    test_name: string;
-    performed_by: string;
-    status: string;
-    result_quality: string | null;
-    clinical_interpretation: string | null;
-    result_values: Record<string, string | number | null> | null;
-    turnaround_hours: number | null;
+    patient_type: "philhealth" | "regular";
+    overall_status: string;
+    tests: LabTestRow[];
 };
 
 export type ReconciliationRow = {
@@ -111,6 +117,7 @@ export type LabReportData = {
         processing: number;
         completed: number;
         released: number;
+        cancelled: number;
     };
     rows: LabReportRow[];
     has_interpretation_data: boolean;

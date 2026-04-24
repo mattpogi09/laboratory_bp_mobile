@@ -2276,33 +2276,29 @@ function LabTab({
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
                                 <Text style={{ fontSize: 11, color: "#6B7280" }}>Quality:</Text>
                                 <View style={[styles.statusBadge, {
-                                    backgroundColor: item.result_quality === "satisfactory" ? "#D1FAE5" : "#FEE2E2",
+                                    backgroundColor: item.result_quality === "acceptable" ? "#D1FAE5" : "#FEF3C7",
                                 }]}>
                                     <Text style={[styles.statusBadgeText, {
-                                        color: item.result_quality === "satisfactory" ? "#065F46" : "#991B1B",
+                                        color: item.result_quality === "acceptable" ? "#065F46" : "#92400E",
                                     }]}>
                                         {item.result_quality.replace(/_/g, " ")}
                                     </Text>
                                 </View>
                             </View>
                         )}
-                        {/* Interpretations */}
+                        {/* Interpretations — per-field from result_values only */}
                         {(() => {
-                            const badges: { name: string | null; value: string }[] = [];
-                            if (item.clinical_interpretation) {
-                                badges.push({ name: null, value: item.clinical_interpretation });
-                            }
-                            if (item.result_values) {
-                                Object.entries(item.result_values).forEach(([key, val]) => {
-                                    if (key.endsWith("_interpretation") && val) {
-                                        const paramName = key
-                                            .replace("_interpretation", "")
-                                            .replace(/_/g, " ")
-                                            .replace(/\b\w/g, (l) => l.toUpperCase());
-                                        badges.push({ name: paramName, value: String(val) });
-                                    }
-                                });
-                            }
+                            if (!item.result_values) return null;
+                            const badges: { name: string; value: string }[] = [];
+                            Object.entries(item.result_values).forEach(([key, val]) => {
+                                if (key.endsWith("_interpretation") && val) {
+                                    const paramName = key
+                                        .replace("_interpretation", "")
+                                        .replace(/_/g, " ")
+                                        .replace(/\b\w/g, (l) => l.toUpperCase());
+                                    badges.push({ name: paramName, value: String(val) });
+                                }
+                            });
                             if (!badges.length) return null;
                             const getInterpretationColors = (v: string) => {
                                 if (v === "normal") return { bg: "#D1FAE5", text: "#065F46", label: "Normal" };
@@ -2316,9 +2312,7 @@ function LabTab({
                                         const c = getInterpretationColors(b.value);
                                         return (
                                             <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                                {b.name && (
-                                                    <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
-                                                )}
+                                                <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
                                                 <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
                                                     <Text style={[styles.statusBadgeText, { color: c.text }]}>{c.label}</Text>
                                                 </View>
@@ -2559,31 +2553,38 @@ function YakapTab({
                         <>
                             <View style={styles.cardsRow}>
                                 <StatCard
-                                    label="Total"
-                                    value={data.stats.total?.toString() ?? "0"}
+                                    label="YAKAP Records"
+                                    value={(data.stats.records ?? 0).toString()}
+                                    accent="#1D4ED8"
+                                />
+                                <StatCard
+                                    label="Unique Patients"
+                                    value={(data.stats.unique_patients ?? 0).toString()}
+                                    accent="#6B7280"
+                                />
+                            </View>
+                            <View style={styles.cardsRow}>
+                                <StatCard
+                                    label="Tests Under YAKAP"
+                                    value={(data.stats.total_tests ?? 0).toString()}
                                     accent="#6B7280"
                                 />
                                 <StatCard
-                                    label="Normal"
-                                    value={data.stats.normal?.toString() ?? "0"}
+                                    label="PhilHealth Covered"
+                                    value={formatCurrency(data.stats.total_philhealth_covered ?? 0)}
                                     accent="#10B981"
                                 />
                             </View>
                             <View style={styles.cardsRow}>
                                 <StatCard
-                                    label="Below Normal"
-                                    value={data.stats.below_normal?.toString() ?? "0"}
-                                    accent="#F59E0B"
-                                />
-                                <StatCard
-                                    label="Above Normal"
-                                    value={data.stats.above_normal?.toString() ?? "0"}
-                                    accent="#EF4444"
+                                    label="Net Collected"
+                                    value={formatCurrency(data.stats.total_net_total ?? 0)}
+                                    accent="#111827"
                                 />
                             </View>
                         </>
                     )}
-                    {data.rows.length > 0 && (
+                    {data.has_interpretation_data && (
                         <View style={{ marginBottom: 12 }}>
                             <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Interpretation</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -2619,35 +2620,78 @@ function YakapTab({
                 </>
             }
             renderItem={({ item }) => {
-                const interpColors: Record<string, { bg: string; text: string }> = {
-                    normal: { bg: "#D1FAE5", text: "#065F46" },
-                    below_normal: { bg: "#FEF3C7", text: "#92400E" },
-                    above_normal: { bg: "#FEE2E2", text: "#991B1B" },
+                const paymentColors: Record<string, { bg: string; text: string }> = {
+                    paid: { bg: "#D1FAE5", text: "#065F46" },
+                    pending: { bg: "#FEF3C7", text: "#92400E" },
+                    void: { bg: "#F3F4F6", text: "#374151" },
                 };
-                const ic = interpColors[item.interpretation] ?? { bg: "#F3F4F6", text: "#374151" };
+                const pc = paymentColors[item.payment_status] ?? { bg: "#FEE2E2", text: "#991B1B" };
+
+                const getInterpretationColors = (v: string) => {
+                    if (v === "normal") return { bg: "#D1FAE5", text: "#065F46", label: "Normal" };
+                    if (v === "below_normal") return { bg: "#FEF3C7", text: "#92400E", label: "Below Normal" };
+                    if (v === "above_normal") return { bg: "#FEE2E2", text: "#991B1B", label: "Above Normal" };
+                    return { bg: "#F3F4F6", text: "#374151", label: v.replace(/_/g, " ") };
+                };
+
                 return (
                     <View style={styles.reportCard}>
                         <View style={styles.reportHeader}>
                             <Text style={styles.reportDate}>{item.date}</Text>
-                            <View style={[styles.statusBadge, { backgroundColor: ic.bg }]}>
-                                <Text style={[styles.statusBadgeText, { color: ic.text }]}>
-                                    {item.interpretation?.replace(/_/g, " ") ?? "—"}
+                            <View style={[styles.statusBadge, { backgroundColor: pc.bg }]}>
+                                <Text style={[styles.statusBadgeText, { color: pc.text }]}>
+                                    {item.payment_status}
                                 </Text>
                             </View>
                         </View>
                         <Text style={styles.reportPatient}>{item.patient}</Text>
-                        <Text style={styles.reportTests}>{item.test_name}</Text>
-                        <Text style={styles.reportMetaText}>
-                            Transaction: {item.transaction_number}
-                        </Text>
-                        {item.result_value != null && (
-                            <Text style={styles.reportMetaText}>
-                                Result: {item.result_value} {item.unit}
-                            </Text>
+                        <Text style={styles.reportMetaText}>Transaction: {item.transaction_number}</Text>
+                        <Text style={[styles.reportMetaText, { marginBottom: 4 }]}>Plan: {item.plan_name}</Text>
+                        {/* Tests with per-field interpretations */}
+                        {item.tests?.length > 0 && (
+                            <View style={{ gap: 6, marginTop: 4 }}>
+                                {item.tests.map((test, idx) => {
+                                    const paramBadges: { name: string; value: string }[] = [];
+                                    if (test.result_values) {
+                                        Object.entries(test.result_values).forEach(([key, val]) => {
+                                            if (key.endsWith("_interpretation") && val) {
+                                                const paramName = key
+                                                    .replace("_interpretation", "")
+                                                    .replace(/_/g, " ")
+                                                    .replace(/\b\w/g, (l) => l.toUpperCase());
+                                                paramBadges.push({ name: paramName, value: String(val) });
+                                            }
+                                        });
+                                    }
+                                    return (
+                                        <View key={idx}>
+                                            <Text style={{ fontSize: 13, color: "#374151", fontWeight: "600" }}>
+                                                {test.test_name}
+                                            </Text>
+                                            {paramBadges.map((b, bidx) => {
+                                                const c = getInterpretationColors(b.value);
+                                                return (
+                                                    <View key={bidx} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                                                        <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
+                                                        <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
+                                                            <Text style={[styles.statusBadgeText, { color: c.text }]}>{c.label}</Text>
+                                                        </View>
+                                                    </View>
+                                                );
+                                            })}
+                                        </View>
+                                    );
+                                })}
+                            </View>
                         )}
-                        <Text style={styles.performedBy}>
-                            Performed by: {item.performed_by}
-                        </Text>
+                        <View style={[styles.reportMeta, { marginTop: 8 }]}>
+                            <Text style={styles.reportMetaText}>
+                                Covered: {formatCurrency(item.philhealth_amount)}
+                            </Text>
+                            <Text style={styles.reportMetaText}>
+                                Net: {formatCurrency(item.net_total)}
+                            </Text>
+                        </View>
                     </View>
                 );
             }}
