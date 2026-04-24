@@ -2342,6 +2342,18 @@ function LabTab({
             ListEmptyComponent={
                 <View style={styles.emptyWrapper}>
                     <FileText color="#D1D5DB" size={42} />
+                    <Text style={styles.emptyTitle}>No reports found</Text>
+                </View>
+            }
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        />
+    );
+}
+
+function ReconciliationTab({
+    data,
     refreshing,
     onRefresh,
     onExportCsv,
@@ -2484,6 +2496,165 @@ function LabTab({
                     <Text style={styles.emptyTitle}>
                         No reconciliations found
                     </Text>
+                </View>
+            }
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        />
+    );
+}
+
+function YakapTab({
+    data,
+    refreshing,
+    onRefresh,
+    onExportCsv,
+    onExportPdf,
+    exportingCsv,
+    exportingPdf,
+    interpretation,
+    onInterpretationChange,
+}: {
+    data: { stats: any; rows: YakapRow[] } | null;
+    refreshing: boolean;
+    onRefresh: () => void;
+    onExportCsv: () => void;
+    onExportPdf: () => void;
+    exportingCsv: boolean;
+    exportingPdf: boolean;
+    interpretation: string;
+    onInterpretationChange: (v: string) => void;
+}) {
+    if (!data) {
+        return (
+            <View style={styles.emptyWrapper}>
+                <ShieldCheck color="#D1D5DB" size={42} />
+                <Text style={styles.emptyTitle}>No data available</Text>
+            </View>
+        );
+    }
+
+    return (
+        <FlatList
+            style={styles.tabContent}
+            data={data.rows}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={
+                data.rows.length === 0
+                    ? { flex: 1, padding: 8, paddingBottom: 64 }
+                    : { padding: 8, paddingBottom: 64 }
+            }
+            nestedScrollEnabled={false}
+            removeClippedSubviews={true}
+            ListHeaderComponent={
+                <>
+                    <ExportButtons
+                        onExportCsv={onExportCsv}
+                        onExportPdf={onExportPdf}
+                        exportingCsv={exportingCsv}
+                        exportingPdf={exportingPdf}
+                    />
+                    {data.stats && (
+                        <>
+                            <View style={styles.cardsRow}>
+                                <StatCard
+                                    label="Total"
+                                    value={data.stats.total?.toString() ?? "0"}
+                                    accent="#6B7280"
+                                />
+                                <StatCard
+                                    label="Normal"
+                                    value={data.stats.normal?.toString() ?? "0"}
+                                    accent="#10B981"
+                                />
+                            </View>
+                            <View style={styles.cardsRow}>
+                                <StatCard
+                                    label="Below Normal"
+                                    value={data.stats.below_normal?.toString() ?? "0"}
+                                    accent="#F59E0B"
+                                />
+                                <StatCard
+                                    label="Above Normal"
+                                    value={data.stats.above_normal?.toString() ?? "0"}
+                                    accent="#EF4444"
+                                />
+                            </View>
+                        </>
+                    )}
+                    {data.rows.length > 0 && (
+                        <View style={{ marginBottom: 12 }}>
+                            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Interpretation</Text>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                                {[
+                                    { label: "All", value: "" },
+                                    { label: "Below Normal", value: "below_normal" },
+                                    { label: "Normal", value: "normal" },
+                                    { label: "Above Normal", value: "above_normal" },
+                                ].map((opt) => (
+                                    <TouchableOpacity
+                                        key={opt.value}
+                                        onPress={() => onInterpretationChange(opt.value)}
+                                        style={{
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 6,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: interpretation === opt.value ? "#7C3AED" : "#D1D5DB",
+                                            backgroundColor: interpretation === opt.value ? "#FAF5FF" : "#F9FAFB",
+                                        }}
+                                    >
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: interpretation === opt.value ? "600" : "400",
+                                            color: interpretation === opt.value ? "#7C3AED" : "#374151",
+                                        }}>{opt.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+                    <Text style={styles.sectionTitle}>PhilHealth YAKAP</Text>
+                </>
+            }
+            renderItem={({ item }) => {
+                const interpColors: Record<string, { bg: string; text: string }> = {
+                    normal: { bg: "#D1FAE5", text: "#065F46" },
+                    below_normal: { bg: "#FEF3C7", text: "#92400E" },
+                    above_normal: { bg: "#FEE2E2", text: "#991B1B" },
+                };
+                const ic = interpColors[item.interpretation] ?? { bg: "#F3F4F6", text: "#374151" };
+                return (
+                    <View style={styles.reportCard}>
+                        <View style={styles.reportHeader}>
+                            <Text style={styles.reportDate}>{item.date}</Text>
+                            <View style={[styles.statusBadge, { backgroundColor: ic.bg }]}>
+                                <Text style={[styles.statusBadgeText, { color: ic.text }]}>
+                                    {item.interpretation?.replace(/_/g, " ") ?? "—"}
+                                </Text>
+                            </View>
+                        </View>
+                        <Text style={styles.reportPatient}>{item.patient}</Text>
+                        <Text style={styles.reportTests}>{item.test_name}</Text>
+                        <Text style={styles.reportMetaText}>
+                            Transaction: {item.transaction_number}
+                        </Text>
+                        {item.result_value != null && (
+                            <Text style={styles.reportMetaText}>
+                                Result: {item.result_value} {item.unit}
+                            </Text>
+                        )}
+                        <Text style={styles.performedBy}>
+                            Performed by: {item.performed_by}
+                        </Text>
+                    </View>
+                );
+            }}
+            ListEmptyComponent={
+                <View style={styles.emptyWrapper}>
+                    <ShieldCheck color="#D1D5DB" size={42} />
+                    <Text style={styles.emptyTitle}>No YAKAP records found</Text>
                 </View>
             }
             refreshControl={
