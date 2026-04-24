@@ -13,6 +13,7 @@ import {
     HeartPulse,
     Package,
     Shield,
+    ShieldCheck,
     TestTube,
     Wallet,
     X,
@@ -49,6 +50,8 @@ import type {
     Period,
     ReconciliationData,
     ReconciliationRow,
+    YakapData,
+    YakapRow,
 } from "@/types/reports";
 import { clamp, getApiErrorMessage, useResponsiveLayout } from "@/utils";
 import { periods } from "@/utils/date";
@@ -61,6 +64,7 @@ type Tab =
     | "audit"
     | "lab"
     | "reconciliation"
+    | "yakap"
     | "lab-worksheets"
     | "appointments";
 
@@ -148,6 +152,10 @@ export default function ReportsScreen() {
     );
     const [auditData, setAuditData] = useState<AuditData | null>(null);
     const [labData, setLabData] = useState<LabReportData | null>(null);
+    const [labInterpretation, setLabInterpretation] = useState("");
+    const [labPatientType, setLabPatientType] = useState("");
+    const [yakapData, setYakapData] = useState<YakapData | null>(null);
+    const [yakapInterpretation, setYakapInterpretation] = useState("");
     const [reconciliationData, setReconciliationData] =
         useState<ReconciliationData | null>(null);
     const [appointmentData, setAppointmentData] = useState<{
@@ -249,7 +257,12 @@ export default function ReportsScreen() {
             const from = dateFrom.toISOString().split("T")[0];
             const to = dateTo.toISOString().split("T")[0];
             const response = await api.get("/reports/lab-report", {
-                params: { from, to },
+                params: {
+                    from,
+                    to,
+                    ...(labInterpretation ? { interpretation: labInterpretation } : {}),
+                    ...(labPatientType ? { patient_type: labPatientType } : {}),
+                },
             });
             setLabData(response.data);
             setLoadError(null);
@@ -261,7 +274,7 @@ export default function ReportsScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, labInterpretation, labPatientType]);
 
     const loadReconciliation = useCallback(async () => {
         try {
@@ -342,6 +355,30 @@ export default function ReportsScreen() {
         }
     }, [dateFrom, dateTo]);
 
+    const loadYakap = useCallback(async () => {
+        try {
+            setLoading(true);
+            const from = dateFrom.toISOString().split("T")[0];
+            const to = dateTo.toISOString().split("T")[0];
+            const response = await api.get("/reports/yakap", {
+                params: {
+                    from,
+                    to,
+                    ...(yakapInterpretation ? { interpretation: yakapInterpretation } : {}),
+                },
+            });
+            setYakapData(response.data);
+            setLoadError(null);
+        } catch (error: any) {
+            setLoadError(
+                getApiErrorMessage(error, "Failed to load Yakap report."),
+            );
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [dateFrom, dateTo, yakapInterpretation]);
+
     const loadData = useCallback(() => {
         switch (activeTab) {
             case "financial":
@@ -359,6 +396,9 @@ export default function ReportsScreen() {
             case "reconciliation":
                 loadReconciliation();
                 break;
+            case "yakap":
+                loadYakap();
+                break;
             case "appointments":
                 loadAppointmentReport();
                 break;
@@ -374,6 +414,7 @@ export default function ReportsScreen() {
         loadAuditLog,
         loadLabReport,
         loadReconciliation,
+        loadYakap,
         loadAppointmentReport,
     ]);
 
@@ -433,6 +474,11 @@ export default function ReportsScreen() {
             id: "reconciliation" as Tab,
             label: "Cash Reconciliation",
             icon: Wallet,
+        },
+        {
+            id: "yakap" as Tab,
+            label: "PhilHealth YAKAP",
+            icon: ShieldCheck,
         },
         {
             id: "appointments" as Tab,
@@ -795,6 +841,10 @@ export default function ReportsScreen() {
                                 onExportPdf={() => handleExport("lab", "pdf")}
                                 exportingCsv={exportingKey === "lab-csv"}
                                 exportingPdf={exportingKey === "lab-pdf"}
+                                interpretation={labInterpretation}
+                                patientType={labPatientType}
+                                onInterpretationChange={setLabInterpretation}
+                                onPatientTypeChange={setLabPatientType}
                             />
                         </View>
                         <View
@@ -821,6 +871,26 @@ export default function ReportsScreen() {
                                 exportingPdf={
                                     exportingKey === "reconciliation-pdf"
                                 }
+                            />
+                        </View>
+                        <View
+                            style={[
+                                styles.tabContentWrapper,
+                                activeTab === "yakap"
+                                    ? styles.tabVisible
+                                    : styles.tabHidden,
+                            ]}
+                        >
+                            <YakapTab
+                                data={yakapData}
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                onExportCsv={() => handleExport("yakap", "csv")}
+                                onExportPdf={() => handleExport("yakap", "pdf")}
+                                exportingCsv={exportingKey === "yakap-csv"}
+                                exportingPdf={exportingKey === "yakap-pdf"}
+                                interpretation={yakapInterpretation}
+                                onInterpretationChange={setYakapInterpretation}
                             />
                         </View>
                         <View
@@ -1246,7 +1316,7 @@ function FinancialTab({
                         </Text>
                         {item.discount_amount > 0 && (
                             <Text style={styles.reportMetaText}>
-                                Discount: -
+                                Discount:{" "}
                                 {formatCurrency(item.discount_amount)}
                             </Text>
                         )}
@@ -1869,14 +1939,22 @@ function LabTab({
     onExportPdf,
     exportingCsv,
     exportingPdf,
+    interpretation,
+    patientType,
+    onInterpretationChange,
+    onPatientTypeChange,
 }: {
-    data: { stats: any; rows: LabReportRow[] } | null;
+    data: { stats: any; rows: LabReportRow[]; has_interpretation_data?: boolean; has_philhealth_data?: boolean } | null;
     refreshing: boolean;
     onRefresh: () => void;
     onExportCsv: () => void;
     onExportPdf: () => void;
     exportingCsv: boolean;
     exportingPdf: boolean;
+    interpretation: string;
+    patientType: string;
+    onInterpretationChange: (v: string) => void;
+    onPatientTypeChange: (v: string) => void;
 }) {
     if (!data) {
         return (
@@ -1907,6 +1985,71 @@ function LabTab({
                         exportingCsv={exportingCsv}
                         exportingPdf={exportingPdf}
                     />
+                    {/* Interpretation filter pills */}
+                    {data.has_interpretation_data && (
+                        <View style={{ marginBottom: 8 }}>
+                            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Interpretation</Text>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                                {[
+                                    { label: "All", value: "" },
+                                    { label: "Below Normal", value: "below_normal" },
+                                    { label: "Normal", value: "normal" },
+                                    { label: "Above Normal", value: "above_normal" },
+                                ].map((opt) => (
+                                    <TouchableOpacity
+                                        key={opt.value}
+                                        onPress={() => onInterpretationChange(opt.value)}
+                                        style={{
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 6,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: interpretation === opt.value ? "#ac3434" : "#D1D5DB",
+                                            backgroundColor: interpretation === opt.value ? "#FEF2F2" : "#F9FAFB",
+                                        }}
+                                    >
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: interpretation === opt.value ? "600" : "400",
+                                            color: interpretation === opt.value ? "#ac3434" : "#374151",
+                                        }}>{opt.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+                    {/* Patient Type filter pills */}
+                    {data.has_philhealth_data && (
+                        <View style={{ marginBottom: 12 }}>
+                            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>Patient Type</Text>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                                {[
+                                    { label: "All Patients", value: "" },
+                                    { label: "Regular", value: "regular" },
+                                    { label: "PhilHealth YAKAP", value: "philhealth" },
+                                ].map((opt) => (
+                                    <TouchableOpacity
+                                        key={opt.value}
+                                        onPress={() => onPatientTypeChange(opt.value)}
+                                        style={{
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 6,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: patientType === opt.value ? "#2563EB" : "#D1D5DB",
+                                            backgroundColor: patientType === opt.value ? "#EFF6FF" : "#F9FAFB",
+                                        }}
+                                    >
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: patientType === opt.value ? "600" : "400",
+                                            color: patientType === opt.value ? "#2563EB" : "#374151",
+                                        }}>{opt.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
                     <View style={styles.cardsRow}>
                         <StatCard
                             label="Total Tests"
@@ -2128,6 +2271,68 @@ function LabTab({
                         <Text style={styles.reportMetaText}>
                             Transaction: {item.transaction_number}
                         </Text>
+                        {/* Result Quality */}
+                        {item.result_quality && (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                <Text style={{ fontSize: 11, color: "#6B7280" }}>Quality:</Text>
+                                <View style={[styles.statusBadge, {
+                                    backgroundColor: item.result_quality === "satisfactory" ? "#D1FAE5" : "#FEE2E2",
+                                }]}>
+                                    <Text style={[styles.statusBadgeText, {
+                                        color: item.result_quality === "satisfactory" ? "#065F46" : "#991B1B",
+                                    }]}>
+                                        {item.result_quality.replace(/_/g, " ")}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        {/* Interpretations */}
+                        {(() => {
+                            const badges: { name: string | null; value: string }[] = [];
+                            if (item.clinical_interpretation) {
+                                badges.push({ name: null, value: item.clinical_interpretation });
+                            }
+                            if (item.result_values) {
+                                Object.entries(item.result_values).forEach(([key, val]) => {
+                                    if (key.endsWith("_interpretation") && val) {
+                                        const paramName = key
+                                            .replace("_interpretation", "")
+                                            .replace(/_/g, " ")
+                                            .replace(/\b\w/g, (l) => l.toUpperCase());
+                                        badges.push({ name: paramName, value: String(val) });
+                                    }
+                                });
+                            }
+                            if (!badges.length) return null;
+                            const getInterpretationColors = (v: string) => {
+                                if (v === "normal") return { bg: "#D1FAE5", text: "#065F46", label: "Normal" };
+                                if (v === "below_normal") return { bg: "#FEF3C7", text: "#92400E", label: "Below Normal" };
+                                if (v === "above_normal") return { bg: "#FEE2E2", text: "#991B1B", label: "Above Normal" };
+                                return { bg: "#F3F4F6", text: "#374151", label: v.replace(/_/g, " ") };
+                            };
+                            return (
+                                <View style={{ marginTop: 4, gap: 4 }}>
+                                    {badges.map((b, idx) => {
+                                        const c = getInterpretationColors(b.value);
+                                        return (
+                                            <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                                {b.name && (
+                                                    <Text style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase" }}>{b.name}:</Text>
+                                                )}
+                                                <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
+                                                    <Text style={[styles.statusBadgeText, { color: c.text }]}>{c.label}</Text>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            );
+                        })()}
+                        {item.turnaround_hours != null && (
+                            <Text style={[styles.reportMetaText, { marginTop: 4 }]}>
+                                Turnaround: {item.turnaround_hours}h
+                            </Text>
+                        )}
                         <Text style={styles.performedBy}>
                             Performed by: {item.performed_by}
                         </Text>
@@ -2137,18 +2342,6 @@ function LabTab({
             ListEmptyComponent={
                 <View style={styles.emptyWrapper}>
                     <FileText color="#D1D5DB" size={42} />
-                    <Text style={styles.emptyTitle}>No lab tests found</Text>
-                </View>
-            }
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-        />
-    );
-}
-
-function ReconciliationTab({
-    data,
     refreshing,
     onRefresh,
     onExportCsv,

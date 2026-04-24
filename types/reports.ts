@@ -51,6 +51,10 @@ export type LabReportRow = {
     test_name: string;
     performed_by: string;
     status: string;
+    result_quality: string | null;
+    clinical_interpretation: string | null;
+    result_values: Record<string, string | number | null> | null;
+    turnaround_hours: number | null;
 };
 
 export type ReconciliationRow = {
@@ -109,6 +113,8 @@ export type LabReportData = {
         released: number;
     };
     rows: LabReportRow[];
+    has_interpretation_data: boolean;
+    has_philhealth_data: boolean;
     pagination: {
         current_page: number;
         last_page: number;
@@ -127,4 +133,38 @@ export type ReconciliationData = {
         total_shortage_amount: number;
     };
     rows: ReconciliationRow[];
+};
+
+export type YakapRow = {
+    id: number;
+    date: string;
+    transaction_number: string;
+    patient: string;
+    plan_name: string;
+    tests: {
+        test_name: string;
+        clinical_interpretation: string | null;
+        result_values: Record<string, string | number | null> | null;
+    }[];
+    philhealth_amount: number;
+    net_total: number;
+    payment_status: string;
+};
+
+export type YakapData = {
+    stats: {
+        records: number;
+        unique_patients: number;
+        total_tests: number;
+        total_philhealth_covered: number;
+        total_net_total: number;
+    };
+    rows: YakapRow[];
+    has_interpretation_data: boolean;
+    pagination: {
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+    };
 };
